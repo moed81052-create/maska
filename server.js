@@ -53,6 +53,30 @@ app.use((req, res, next) => {
 
 const apiRouter = express.Router();
 
+// فحص سلامة الخادم وقاعدة البيانات (Health Check Endpoint for Docker & Monitoring)
+apiRouter.get('/health', async (req, res) => {
+  let dbStatus = 'ok';
+  try {
+    if (db.isMySQL && db.pool) {
+      await db.pool.query('SELECT 1');
+    }
+  } catch (err) {
+    dbStatus = 'degraded: ' + (err.message || 'connection issue');
+  }
+
+  res.json({
+    status: dbStatus === 'ok' ? 'ok' : 'degraded',
+    service: 'maska-site',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: {
+      type: db.isMySQL ? 'MySQL 8.0' : 'SQLite',
+      status: dbStatus
+    },
+    version: '1.0.0'
+  });
+});
+
 // -----------------------------------------------------------------------------
 // أ. المصادقة وتسجيل الدخول والحسابات (Authentication & Users)
 // -----------------------------------------------------------------------------
@@ -865,6 +889,10 @@ app.use('/api', apiRouter);
 // =============================================================================
 // 3. خدمة الملفات الثابتة والواجهة الأمامية (Svelte Build & Static Files)
 // =============================================================================
+
+// خدمة مجلد الأصول والوسائط والصور
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 
 const DIST_DIR = path.join(__dirname, 'dist');
 

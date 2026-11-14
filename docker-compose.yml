@@ -1,0 +1,99 @@
+version: '3.8'
+
+# =============================================================================
+# 🌸 متجر واستوديو مسكة للزهور الطبيعية | بيئة تشغيل الدوكر المتكاملة
+# =============================================================================
+# يتضمن هذا الملف:
+# 1. تطبيق مسكة (Svelte 5 + Express.js + Node.js 22) على المنفذ 3000
+# 2. قاعدة بيانات MySQL 8.0 مع التهيئة التلقائية الكاملة للجداول والبيانات
+# 3. لوحة إدارة قاعدة البيانات phpMyAdmin على المنفذ 8080
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. حاوية قاعدة بيانات MySQL 8.0
+  # ---------------------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: maska_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-1234}
+      MYSQL_DATABASE: ${DB_DATABASE:-maska_db}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init_mysql.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-1234}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - maska_net
+
+  # ---------------------------------------------------------------------------
+  # 2. حاوية تطبيق وموقع مسكة (Express + Svelte 5)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maska_app
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_CONNECTION: mysql
+      DB_CLIENT: mysql2
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-1234}
+      DB_DATABASE: ${DB_DATABASE:-maska_db}
+      DATABASE_URL: mysql://root:${DB_PASSWORD:-1234}@db:3306/${DB_DATABASE:-maska_db}
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - maska_net
+
+  # ---------------------------------------------------------------------------
+  # 3. لوحة تحكم وإدارة قاعدة البيانات المباشرة (phpMyAdmin)
+  # ---------------------------------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: maska_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_PASSWORD:-1234}
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - maska_net
+
+# -----------------------------------------------------------------------------
+# التخزين الدائم والشبكة
+# -----------------------------------------------------------------------------
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  maska_net:
+    driver: bridge
