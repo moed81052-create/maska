@@ -55,3 +55,4 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
 
 # تشغيل خادم مسكة
 CMD ["node", "server.js"]
+

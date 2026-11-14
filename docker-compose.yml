@@ -97,3 +97,4 @@ volumes:
 networks:
   maska_net:
     driver: bridge
+
