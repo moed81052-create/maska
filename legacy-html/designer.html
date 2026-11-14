@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مسكة | المصمم الذكي — اقتراحات باقات فورية</title>
+  <script>try{const t=localStorage.getItem('maska-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .designer {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 28px;
+      align-items: start;
+      padding-bottom: 80px;
+    }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .sparkle {
+      color: var(--pink-3);
+      font-size: 30px;
+      vertical-align: middle;
+      display: inline-block;
+      animation: sparklePulse 3s ease-in-out infinite;
+    }
+    @keyframes sparklePulse {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
+      50% { transform: scale(1.3) rotate(15deg); opacity: 1; filter: drop-shadow(0 0 10px rgba(218, 134, 153, 0.9)); }
+    }
+    .quick {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 18px 0;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .how-card {
+      background: linear-gradient(135deg, rgba(238, 242, 205, 0.85), rgba(247, 249, 229, 0.8));
+      border: 1px solid rgba(226, 232, 176, 0.9);
+      box-shadow: var(--shadow-sm);
+    }
+    .how-card h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--olive);
+      margin-bottom: 14px;
+    }
+    .how-card li {
+      list-style: none;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 13.5px;
+      color: #555435;
+      padding: 7px 0;
+      font-weight: 600;
+    }
+    .how-card li b {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11.5px;
+      color: var(--olive);
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .result {
+      position: sticky;
+      top: 100px;
+      box-shadow: var(--shadow-lg);
+    }
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .result-head h3 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--olive);
+    }
+    .result .bouquet-box {
+      height: 260px;
+      margin-bottom: 18px;
+    }
+    .gift {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin: 16px 0 22px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-xs);
+    }
+    .gift b {
+      font-size: 13px;
+      color: var(--rose-text);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .gift p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+    .actions {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    @media (max-width: 960px) {
+      .designer { grid-template-columns: 1fr; }
+      .result { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav class="nav">
+        <a href="index.html">الرئيسية</a>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html" class="active">المصمم الذكي</a>
+        <a href="track.html">تتبع الطلب</a>
+      </nav>
+      <div class="header-actions">
+        <button class="theme-toggle-btn" aria-label="تبديل الوضع الليلي" title="تبديل الوضع الليلي">
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <a href="cart.html" class="btn btn-primary btn-sm"><span>السلة (<span data-cart-count>2</span>)</span></a>
+        <a href="login.html" class="btn btn-ghost btn-sm">تسجيل الدخول</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="designer">
+    <div class="container">
+      <div class="page-head">
+        <h1 class="page-title">المصمم الذكي <span class="sparkle"></span></h1>
+        <p class="page-sub">اكتب مناسبتك وألوانك وميزانيتك، ونقترح لك باقة مبنية من الأصناف المتوفرة فعلاً في المخزون وبأفضل تنسيق ممكن.</p>
+      </div>
+
+      <div class="designer">
+        <div class="stack">
+          <form class="card card-pad">
+            <h2 class="step-title"><span class="step-num pink">1</span> صِف باقتك المطلوبة</h2>
+            <textarea id="prompt" class="textarea" style="min-height:115px">باقة عيد ميلاد لأختي، ألوان وردية وبيضاء، ميزانية 100 د.ل</textarea>
+            <div class="quick">
+              <div class="chips" id="quick-chips" data-group="single">
+                <button type="button" class="chip active" data-value="عيد ميلاد">عيد ميلاد</button>
+                <button type="button" class="chip" data-value="زفاف">زفاف</button>
+                <button type="button" class="chip" data-value="تخرج">تخرج</button>
+                <button type="button" class="chip" data-value="اعتذار">اعتذار</button>
+              </div>
+              <span class="chip-label">اقتراحات سريعة:</span>
+            </div>
+            <div class="grid-2" style="margin-bottom:22px">
+              <div class="field">
+                <label for="d-occasion">المناسبة</label>
+                <input id="d-occasion" class="input" value="عيد ميلاد">
+              </div>
+              <div class="field">
+                <label for="d-budget">الميزانية التقريبية (د.ل)</label>
+                <input id="d-budget" class="input" type="number" value="100">
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block" id="design-btn">صمّم لي باقة ذكية</button>
+          </form>
+
+          <div class="card card-pad how-card">
+            <h3>كيف يعمل المصمم الذكي؟</h3>
+            <ul>
+              <li><b>1</b> يحلل النظام وصفك بدقة ويستخرج المناسبة والألوان والميزانية المرغوبة.</li>
+              <li><b>2</b> يبني تشكيلة الباقة من الأصناف المتوفرة فقط وبأسعارها الحقيقية.</li>
+              <li><b>3</b> يقترح بدائل ذكية عند نقص أي صنف، مع إمكانية تعديلها في الاستوديو.</li>
+            </ul>
+          </div>
+        </div>
+
+        <aside class="card card-pad result">
+          <div class="result-head">
+            <h3>الباقة المقترحة</h3>
+            <span class="badge badge-lime" id="within">ضمن الميزانية</span>
+          </div>
+          <div class="bouquet-box"><img src="assets/bouquet.svg" alt="الباقة المقترحة"></div>
+          <div id="suggest-list">
+            <div class="row"><span class="k">وردة جورية وردية × 8</span><span>32 د.ل</span></div>
+            <div class="row"><span class="k">توليب أبيض × 6</span><span>30 د.ل</span></div>
+            <div class="row"><span class="k">جبسوفيلا × 4</span><span>20 د.ل</span></div>
+            <div class="row"><span class="k">غلاف وشريط فاخر</span><span>14 د.ل</span></div>
+          </div>
+          <div class="divider"></div>
+          <div class="total-row"><span class="k">الإجمالي</span><span class="price" id="suggest-total">96 د.ل</span></div>
+          <p class="note" id="swap-note"> الفاوانيا غير متوفرة حالياً، فاقترحنا الجوري الوردي كبديل فاخر وقريب في اللون والسعر.</p>
+          <div class="wax-seal-card" style="margin:16px 0">
+            <div class="wax-seal-badge"><i></i><span>MASKA</span></div>
+            <div class="wax-card-content">
+              <h5>رسالة الإهداء المقترحة</h5>
+              <p class="wax-card-text" id="gift-msg">"كل عام وأنت لقلبي مصدر النور والبهجة… باقة ورد أهديها لأغلى ما في الوجود."</p>
+              <span class="wax-card-sign">مختومة بالشمع الملكي</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" id="d-add">أضف إلى السلة</button>
+            <a href="studio.html" class="btn btn-ghost">عدّل في الاستوديو</a>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="#">تواصل معنا</a>
+      </nav>
+      <small class="copy">© 2026 مسكة — مشروع تخرج</small>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

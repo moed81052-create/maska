@@ -1,0 +1,1003 @@
+// =============================================================================
+// خادم الباك إند الرئيسي لمشروع مسكة | MASKA BACKEND SERVER
+// مبني بتقنية Node.js + Express.js 5 وقاعدة بيانات MySQL 8.0 مع دعم SQLite
+// =============================================================================
+
+// تحميل متغيرات البيئة من ملف .env تلقائياً (Native Node.js feature)
+if (typeof process.loadEnvFile === 'function') {
+  try {
+    process.loadEnvFile();
+  } catch (e) {}
+}
+
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const db = require('./database/db.js');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const PUBLIC_DIR = __dirname;
+
+// =============================================================================
+// 1. البرمجيات الوسيطة الأساسية (Core Middlewares)
+// =============================================================================
+
+// تفعيل CORS للسماح بالطلبات من أي واجهة أمامية
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// تحليل حزم البيانات القادمة بصيغة JSON و URL-Encoded
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
+// سجل خفيف للطلبات أثناء التطوير (Request Logger)
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    if (req.originalUrl.startsWith('/api')) {
+      const duration = Date.now() - start;
+      console.log(`[API] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${duration}ms)`);
+    }
+  });
+  next();
+});
+
+// =============================================================================
+// 2. موجهات الواجهات البرمجية (API Routers)
+// =============================================================================
+
+const apiRouter = express.Router();
+
+// -----------------------------------------------------------------------------
+// أ. المصادقة وتسجيل الدخول والحسابات (Authentication & Users)
+// -----------------------------------------------------------------------------
+
+// تسجيل دخول (زبون أو إدارة أو منسق أو سائق)
+apiRouter.post('/auth/login', async (req, res, next) => {
+  try {
+    const { phone, password } = req.body;
+    if (!phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'رقم الهاتف وكلمة المرور مطلوبان لتسجيل الدخول'
+      });
+    }
+
+    const user = await db.authenticateUser(String(phone).trim(), String(password).trim());
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'بيانات الدخول غير صحيحة أو الحساب غير مفعّل'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `مرحباً بك مجدداً يا ${user.full_name} 🌸`,
+      user
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تسجيل حساب زبون جديد
+apiRouter.post('/auth/register', async (req, res, next) => {
+  try {
+    const { fullName, phone, password } = req.body;
+    if (!fullName || !phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'الاسم الكامل، رقم الهاتف، وكلمة المرور حقول إجبارية'
+      });
+    }
+
+    const newUser = await db.registerCustomer(req.body);
+    res.status(201).json({
+      success: true,
+      message: 'تم إنشاء حسابك بنجاح في مسكة 🌸',
+      user: newUser
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// ب. إحصائيات الداشبورد ولوحة التحكم (Admin & Coordinator Dashboard)
+// -----------------------------------------------------------------------------
+
+apiRouter.get('/dashboard/stats', async (req, res, next) => {
+  try {
+    const stats = await db.getDashboardStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// ج. إدارة الطلبات والتسليم (Orders Management)
+// -----------------------------------------------------------------------------
+
+// جلب قائمة كل الطلبات مع التصفية والعدد
+apiRouter.get('/orders', async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const orders = await db.getAllOrders(limit);
+    res.json({
+      success: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// استعلام عن تفاصيل طلب محدد برقم الطلب (Order Details & Tracking)
+apiRouter.get('/orders/:orderNumber', async (req, res, next) => {
+  try {
+    const { orderNumber } = req.params;
+    const details = await db.getOrderDetails(orderNumber);
+    if (!details) {
+      return res.status(404).json({
+        success: false,
+        message: `الطلب رقم #${orderNumber} غير موجود`
+      });
+    }
+    res.json({
+      success: true,
+      data: details
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إنشاء وتثبيت طلب جديد (من السلة أو استوديو التصميم المخصص)
+apiRouter.post('/orders', async (req, res, next) => {
+  try {
+    const { recipientName, recipientPhone } = req.body;
+    if (!recipientName || !recipientPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات المستلم (الاسم ورقم الهاتف) مطلوبة'
+      });
+    }
+
+    const createdOrder = await db.createOrder(req.body);
+    res.status(201).json({
+      success: true,
+      message: 'تم تأكيد طلبك بنجاح وحفظه في مسكة 🌸',
+      data: createdOrder
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تحديث مرحلة وحالة الطلب (pending -> preparing -> out_for_delivery -> delivered)
+apiRouter.patch('/orders/:orderNumber/status', async (req, res, next) => {
+  try {
+    const { orderNumber } = req.params;
+    const { status, userId, comment } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'الحالة الجديدة للطلب مطلوبة'
+      });
+    }
+
+    const updated = await db.updateOrderStatus(orderNumber, status, userId, comment);
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: `الطلب رقم #${orderNumber} غير موجود`
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `تم تحديث حالة الطلب #${orderNumber} بنجاح إلى: ${status}`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إسناد وتوجيه الطلب لطاقم العمل (منسق الورد أو سائق التوصيل)
+apiRouter.post('/orders/:orderNumber/assign', async (req, res, next) => {
+  try {
+    const { orderNumber } = req.params;
+    const { floristId, driverId, status, assignedByUserId } = req.body;
+
+    const updated = await db.assignOrderStaff(
+      orderNumber,
+      { floristId, driverId, status },
+      assignedByUserId
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: `الطلب رقم #${orderNumber} غير موجود`
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `تم توجيه وإسناد الطلب #${orderNumber} بنجاح 🌸`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// د. السائقون والتتبع الجغرافي بالـ GPS (Drivers & Live Tracking)
+// -----------------------------------------------------------------------------
+
+// جلب الطلبات الموجهة لسائق معين
+apiRouter.get('/driver/orders', async (req, res, next) => {
+  try {
+    const driverId = req.query.driverId || null;
+    const driverOrders = await db.getDriverOrders(driverId);
+    res.json({
+      success: true,
+      count: driverOrders.length,
+      data: driverOrders
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تحديث حالة السائق (متاح / مشغول / غير متصل)
+apiRouter.patch('/driver/status', async (req, res, next) => {
+  try {
+    const { driverId, status } = req.body;
+    if (!driverId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف السائق والحالة الجديدة مطلوبان'
+      });
+    }
+
+    const updated = await db.updateDriverProfileStatus(driverId, status);
+    res.json({
+      success: true,
+      message: `تم تحديث حالة السائق إلى: ${status}`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// جلب قائمة السائقين النشطين ومواقعهم ومركباتهم
+apiRouter.get('/drivers', async (req, res, next) => {
+  try {
+    const drivers = await db.getDriversList();
+    res.json({
+      success: true,
+      count: drivers.length,
+      data: drivers
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// جلب قائمة منسقي الورد المعتمدين في الأتيليه
+apiRouter.get('/florists', async (req, res, next) => {
+  try {
+    const florists = await db.getFloristsList();
+    res.json({
+      success: true,
+      count: florists.length,
+      data: florists
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تحديث الإحداثيات اللحظية للسائق عبر GPS
+apiRouter.post('/drivers/location', async (req, res, next) => {
+  try {
+    const { driverId, lat, lng, orderId, speed } = req.body;
+
+    if (!driverId || typeof lat !== 'number' || typeof lng !== 'number') {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف السائق وإحداثيات الموقع (lat, lng) مطلوبة كأرقام'
+      });
+    }
+
+    await db.updateDriverLocation(driverId, lat, lng, orderId, speed || 0);
+    res.json({
+      success: true,
+      message: 'تم تحديث إحداثيات السائق بنجاح 📍'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// هـ. مخزون زهور الاستوديو وصور الزوايا (Studio Flower Inventory & Angles)
+// -----------------------------------------------------------------------------
+
+// عرض رصيد الزهور المتوفرة وأسعارها وصور زواياها
+apiRouter.get('/inventory', async (req, res, next) => {
+  try {
+    const stock = await db.getFlowerStock();
+    res.json({
+      success: true,
+      count: stock.length,
+      data: stock
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إضافة صنف ورد جديد مع صوره من كافة الزوايا (أمامي، جانبي، علوي، تفاصيل الساق)
+apiRouter.post('/inventory', async (req, res, next) => {
+  try {
+    const { name_ar, name, unit_price, unitPrice } = req.body;
+    const flowerName = name_ar || name;
+    if (!flowerName) {
+      return res.status(400).json({
+        success: false,
+        message: 'اسم الزهرة مطلوب'
+      });
+    }
+
+    const newFlower = await db.addFlower(req.body);
+    res.status(201).json({
+      success: true,
+      message: `تم إضافة صنف الورد "${newFlower.name_ar}" بنجاح مع صور الزوايا 🌸`,
+      data: newFlower
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تعديل بيانات زهرة بالكامل بما فيها صور الزوايا والمخزون
+apiRouter.put('/inventory/:id', async (req, res, next) => {
+  try {
+    const flowerId = parseInt(req.params.id, 10);
+    const updated = await db.updateFlower(flowerId, req.body);
+    res.json({
+      success: true,
+      message: 'تم تحديث بيانات الزهرة وصور زواياها بنجاح 🌸',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تعديل رصيد مخزون الورد أو سعر الساق
+apiRouter.patch('/inventory/:id', async (req, res, next) => {
+  try {
+    const flowerId = parseInt(req.params.id, 10);
+    const { quantity, unitPrice } = req.body;
+
+    if (quantity !== undefined && typeof quantity === 'number') {
+      const updated = await db.updateFlowerStock(flowerId, quantity, unitPrice);
+      return res.json({
+        success: true,
+        message: 'تم تحديث رصيد المخزون بنجاح 🌸',
+        data: updated
+      });
+    }
+
+    // إذا تم إرسال حقول أخرى
+    const updated = await db.updateFlower(flowerId, req.body);
+    res.json({
+      success: true,
+      message: 'تم تحديث بيانات الزهرة بنجاح 🌸',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// حذف صنف ورد (محمي من الحذف إذا كان مرتبطاً بباقة)
+apiRouter.delete('/inventory/:id', async (req, res, next) => {
+  try {
+    const flowerId = parseInt(req.params.id, 10);
+    const result = await db.deleteFlower(flowerId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// هـ2. كتالوج الباقات وتركيبات وتوليفات الورود (Bouquets & Recipes)
+// -----------------------------------------------------------------------------
+
+// جلب جميع الباقات مع وصفة وتوليفة الورود الخاصة بها
+apiRouter.get('/bouquets', async (req, res, next) => {
+  try {
+    const bouquets = await db.getAllBouquets();
+    res.json({
+      success: true,
+      count: bouquets.length,
+      data: bouquets
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// جلب تفاصيل باقة محددة مع توليفة ورودها
+apiRouter.get('/bouquets/:id', async (req, res, next) => {
+  try {
+    const bouquetId = parseInt(req.params.id, 10);
+    const details = await db.getBouquetDetails(bouquetId);
+    if (!details) {
+      return res.status(404).json({
+        success: false,
+        message: 'الباقة غير موجودة'
+      });
+    }
+    res.json({
+      success: true,
+      data: details
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إنشاء باقة جديدة مع تحديد كم وردة من كل نوع مع شرط صارم بأن تكون من المخزون المسجل
+apiRouter.post('/bouquets', async (req, res, next) => {
+  try {
+    const { title, price, flowers } = req.body;
+    if (!title || !price) {
+      return res.status(400).json({
+        success: false,
+        message: 'عنوان وسعر الباقة حقول إجبارية'
+      });
+    }
+    if (!Array.isArray(flowers) || flowers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'يجب اختيار وتحديد الورود المكونة للباقة من قائمة الورود المعتمدة في المخزون'
+      });
+    }
+
+    const created = await db.createBouquet(req.body);
+    res.status(201).json({
+      success: true,
+      message: `تم إنشاء باقة "${created.title}" بتوليفة الورود المحددة بنجاح 💐`,
+      data: created
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+// تعديل باقة وتحديث توليفة ورودها
+apiRouter.put('/bouquets/:id', async (req, res, next) => {
+  try {
+    const bouquetId = parseInt(req.params.id, 10);
+    const updated = await db.updateBouquet(bouquetId, req.body);
+    res.json({
+      success: true,
+      message: `تم تعديل باقة "${updated.title}" بنجاح 💐`,
+      data: updated
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+// حذف باقة
+apiRouter.delete('/bouquets/:id', async (req, res, next) => {
+  try {
+    const bouquetId = parseInt(req.params.id, 10);
+    const result = await db.deleteBouquet(bouquetId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// و. كوبونات التخفيض والعروض الخاصة للأدمن (Discount Coupons)
+// -----------------------------------------------------------------------------
+
+// جلب كافة الكوبونات
+apiRouter.get('/coupons', async (req, res, next) => {
+  try {
+    const coupons = await db.getAllCoupons();
+    res.json({
+      success: true,
+      count: coupons.length,
+      data: coupons
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إنشاء كوبون جديد بواسطة الإدارة
+apiRouter.post('/coupons', async (req, res, next) => {
+  try {
+    const { code, discountValue, adminId } = req.body;
+    if (!code || !discountValue) {
+      return res.status(400).json({
+        success: false,
+        message: 'كود الكوبون وقيمة الخصم حقول إجبارية'
+      });
+    }
+
+    const newCoupon = await db.createCoupon(adminId || null, req.body);
+    res.status(201).json({
+      success: true,
+      message: 'تم إنشاء الكوبون بنجاح 🏷️',
+      data: newCoupon
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تفعيل أو تعطيل كوبون
+apiRouter.patch('/coupons/:id/status', async (req, res, next) => {
+  try {
+    const couponId = parseInt(req.params.id, 10);
+    const { isActive } = req.body;
+
+    const updated = await db.toggleCouponStatus(couponId, isActive);
+    res.json({
+      success: true,
+      message: 'تم تحديث حالة تفعيل الكوبون بنجاح',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// حذف كوبون
+apiRouter.delete('/coupons/:id', async (req, res, next) => {
+  try {
+    const couponId = parseInt(req.params.id, 10);
+    const result = await db.deleteCoupon(couponId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// التحقق من صحة الكوبون وتطبيق الخصم عند الدفع
+apiRouter.post('/coupons/validate', async (req, res, next) => {
+  try {
+    const { code, subtotal } = req.body;
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: 'كود الخصم مطلوب للتحقق'
+      });
+    }
+
+    const result = await db.validateCoupon(code, subtotal || 0);
+    if (!result.valid) {
+      return res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// ز. تقييمات وملاحظات الزبائن وتفاعل الإدارة (Customer Reviews & Ratings)
+// -----------------------------------------------------------------------------
+
+// جلب التقييمات المعتمدة (مع إمكانية تصفية المميزة لصفحة الهوم)
+apiRouter.get('/reviews', async (req, res, next) => {
+  try {
+    const onlyFeatured = req.query.featured === 'true';
+    const reviews = await db.getCustomerReviews({ onlyApproved: true, onlyFeatured });
+    res.json({
+      success: true,
+      count: reviews.length,
+      data: reviews
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إضافة زبون لتقييمه وملاحظاته مع النجوم (1-5)
+apiRouter.post('/reviews', async (req, res, next) => {
+  try {
+    const { comment } = req.body;
+    if (!comment) {
+      return res.status(400).json({
+        success: false,
+        message: 'نص التقييم والملاحظة مطلوب'
+      });
+    }
+
+    const review = await db.addCustomerReview(req.body);
+    res.status(201).json({
+      success: true,
+      message: 'شكراً لتقييمك وملاحظاتك القيمة 🌸',
+      data: review
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// رد الإدارة الرسمي على تقييم الزبون
+apiRouter.post('/reviews/:id/reply', async (req, res, next) => {
+  try {
+    const reviewId = req.params.id;
+    const { replyText } = req.body;
+
+    if (!replyText) {
+      return res.status(400).json({
+        success: false,
+        message: 'نص الرد مطلوب'
+      });
+    }
+
+    const updated = await db.replyToReview(reviewId, replyText);
+    res.json({
+      success: true,
+      message: 'تم إرسال رد الإدارة بنجاح',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تمييز التقييم في الصفحة الرئيسية (Featured Review)
+apiRouter.patch('/reviews/:id/featured', async (req, res, next) => {
+  try {
+    const reviewId = req.params.id;
+    const { isFeatured } = req.body;
+
+    const updated = await db.toggleReviewFeatured(reviewId, isFeatured);
+    res.json({
+      success: true,
+      message: 'تم تعديل تمييز التقييم في الواجهة الرئيسية',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// ح. الملاحظات والاقتراحات العامة (Customer Feedback Box)
+// -----------------------------------------------------------------------------
+
+apiRouter.get('/feedback', async (req, res, next) => {
+  try {
+    const feedbackList = await db.getAllCustomerFeedback();
+    res.json({
+      success: true,
+      count: feedbackList.length,
+      data: feedbackList
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+apiRouter.post('/feedback', async (req, res, next) => {
+  try {
+    const { name, subject, message } = req.body;
+    if (!name || !subject || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'الاسم والموضوع والرسالة حقول إجبارية'
+      });
+    }
+
+    const result = await db.submitCustomerFeedback(req.body);
+    res.status(201).json({
+      success: true,
+      message: 'تم استلام ملاحظتك واقتراحك وسيقوم فريق مسكة بمراجعته 🌸',
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// ط. إدارة تسعير المناطق والزهور وسجل الرقابة (Pricing Management & Audit)
+// -----------------------------------------------------------------------------
+
+// أسعار التوصيل حسب المناطق والمدن
+apiRouter.get('/pricing/zones', async (req, res, next) => {
+  try {
+    const zones = await db.getDeliveryZonesPricing();
+    res.json({
+      success: true,
+      data: zones
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تعديل سعر التوصيل لمنطقة مع توثيق الأثر في سجل الرقابة
+apiRouter.patch('/pricing/zones/:id', async (req, res, next) => {
+  try {
+    const zoneId = parseInt(req.params.id, 10);
+    const { fee, adminId, reason } = req.body;
+
+    if (typeof fee !== 'number') {
+      return res.status(400).json({
+        success: false,
+        message: 'سعر التوصيل الجديد مطلوب كرقم'
+      });
+    }
+
+    const updated = await db.updateDeliveryZoneFee(zoneId, fee, adminId, reason);
+    res.json({
+      success: true,
+      message: 'تم تعديل سعر التوصيل للمنطقة بنجاح',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تعديل سعر ساق ورد مع تسجيل سجل التغيير
+apiRouter.patch('/pricing/flowers/:id', async (req, res, next) => {
+  try {
+    const flowerId = parseInt(req.params.id, 10);
+    const { price, adminId, reason } = req.body;
+
+    if (typeof price !== 'number') {
+      return res.status(400).json({
+        success: false,
+        message: 'السعر الجديد للساق مطلوب كرقم'
+      });
+    }
+
+    const updated = await db.updateFlowerPrice(flowerId, price, adminId, reason);
+    res.json({
+      success: true,
+      message: 'تم تعديل سعر ساق الورد بنجاح',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تعديل سعر باقة جاهزة مع تسجيل سجل التغيير
+apiRouter.patch('/pricing/bouquets/:id', async (req, res, next) => {
+  try {
+    const bouquetId = parseInt(req.params.id, 10);
+    const { price, adminId, reason } = req.body;
+
+    if (typeof price !== 'number') {
+      return res.status(400).json({
+        success: false,
+        message: 'السعر الجديد للباقة مطلوب كرقم'
+      });
+    }
+
+    const updated = await db.updateBouquetPrice(bouquetId, price, adminId, reason);
+    res.json({
+      success: true,
+      message: 'تم تعديل سعر الباقة بنجاح',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// استعراض سجل رقابة الأسعار وتاريخ التغييرات
+apiRouter.get('/pricing/history', async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const history = await db.getPriceChangeHistory(limit);
+    res.json({
+      success: true,
+      count: history.length,
+      data: history
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// معالجة أي رابط API غير معروف داخل apiRouter
+apiRouter.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'واجهة برمجية غير معروفة (API Endpoint Not Found)'
+  });
+});
+
+// ربط الموجه العام للـ API بالبادئة `/api`
+app.use('/api', apiRouter);
+
+// =============================================================================
+// 3. خدمة الملفات الثابتة والواجهة الأمامية (Svelte Build & Static Files)
+// =============================================================================
+
+const DIST_DIR = path.join(__dirname, 'dist');
+
+// التحقق مما إذا كان تطبيق Svelte مبنياً في مجلد dist
+if (fs.existsSync(DIST_DIR)) {
+  // خدمة ملفات Svelte المجمعة عبر Vite
+  app.use(express.static(DIST_DIR, {
+    maxAge: '1h',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    }
+  }));
+
+  // توجيه كافة مسارات SPA إلى dist/index.html لدعم التوجيه الداخلي لـ Svelte
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res.sendFile(path.join(DIST_DIR, 'index.html'));
+    }
+    next();
+  });
+} else {
+  // وضع احتياطي: خدمة الملفات الثابتة التقليدية
+  app.use(express.static(PUBLIC_DIR, {
+    extensions: ['html'],
+    index: 'index.html',
+    maxAge: '1h',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    }
+  }));
+}
+
+// صفحة 404 مخصصة متناسقة مع هوية "مسكة" لأي رابط غير موجود
+app.use((req, res) => {
+  res.status(404).send(`
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>404 — الصفحة غير موجودة | مسكة</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          background: #fbf7ee;
+          color: #2b2b28;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          text-align: center;
+        }
+        .container {
+          background: #ffffff;
+          border: 1px solid #e7ded0;
+          border-radius: 24px;
+          padding: 48px 36px;
+          max-width: 480px;
+          margin: 20px;
+          box-shadow: 0 16px 36px rgba(43, 43, 40, 0.06);
+        }
+        h1 {
+          font-size: 3rem;
+          color: #5e6b2c;
+          margin: 0 0 12px;
+        }
+        p {
+          font-size: 1.1rem;
+          color: #6d6b63;
+          line-height: 1.6;
+          margin-bottom: 28px;
+        }
+        a.btn {
+          display: inline-block;
+          background: #5e6b2c;
+          color: #ffffff;
+          padding: 12px 28px;
+          border-radius: 999px;
+          text-decoration: none;
+          font-weight: bold;
+          transition: background 0.2s ease;
+        }
+        a.btn:hover {
+          background: #4a5522;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>404 🌸</h1>
+        <h2>الصفحة غير موجودة</h2>
+        <p>عذراً، لم نعثر على الصفحة التي تبحث عنها في متجر واستوديو مسكة للزهور الطبيعية.</p>
+        <a href="/" class="btn">العودة إلى الصفحة الرئيسية ←</a>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// =============================================================================
+// 4. معالج الأخطاء المركزي (Central Error Handling Middleware)
+// =============================================================================
+
+app.use((err, req, res, next) => {
+  console.error('❌ Express Server Error:', err);
+  const status = err.status || 500;
+  res.status(status).json({
+    success: false,
+    message: err.message || 'حدث خطأ داخلي في الخادم',
+    code: err.code || 'INTERNAL_ERROR'
+  });
+});
+
+// =============================================================================
+// 5. بدء تشغيل الخادم (Server Initialization)
+// =============================================================================
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('=============================================================================');
+    console.log(`🌸 خادم Express.js لمتجر واستوديو "مسكة" يعمل الآن بنجاح!`);
+    console.log(`🌐 تصفح الموقع مباشرة في المتصفح: http://localhost:${PORT}`);
+    console.log(`📡 واجهات الـ REST API متاحة على:  http://localhost:${PORT}/api/`);
+    console.log(`📦 قاعدة البيانات المتصلة:      ${db.isMySQL ? (process.env.DB_DATABASE || 'maska_db') + ' (MySQL 8.0)' : db.DB_PATH + ' (SQLite)'}`);
+    console.log(`🔗 رابط الاتصال (DATABASE_URL): ${process.env.DATABASE_URL || 'mysql://root:1234@127.0.0.1:3306/maska_db'}`);
+    console.log('=============================================================================');
+  });
+}
+
+module.exports = app;

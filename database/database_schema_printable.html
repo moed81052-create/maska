@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>المواصفات الفنية ومخطط قاعدة بيانات مسكة — Maska Database Specification</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+
+    @page {
+      size: A4 portrait;
+      margin: 12mm 14mm 14mm 14mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+      direction: rtl;
+      background: #ffffff;
+      color: #1e1d1a;
+      line-height: 1.5;
+      font-size: 10px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      page-break-after: always;
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 20px;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    /* رأس وتذييل الصفحة */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #5e6b2c;
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #5e6b2c;
+      letter-spacing: 1.5px;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      font-weight: 700;
+      color: #963547;
+      background: #fae6ea;
+      padding: 1px 7px;
+      border-radius: 4px;
+    }
+
+    .doc-info {
+      text-align: left;
+      font-size: 8.5px;
+      color: #555;
+      line-height: 1.35;
+    }
+
+    .doc-info b {
+      color: #2b3310;
+      font-size: 9.5px;
+    }
+
+    .footer-bar {
+      margin-top: auto;
+      padding-top: 6px;
+      border-top: 1px solid #e0dcd3;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8.5px;
+      color: #777;
+    }
+
+    /* العناوين والتبويب */
+    h1 {
+      font-size: 18px;
+      color: #3b4419;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    h2 {
+      font-size: 12.5px;
+      color: #3b4419;
+      background: #f4f6ea;
+      padding: 4px 8px;
+      border-radius: 5px;
+      border-right: 4px solid #5e6b2c;
+      margin: 12px 0 6px;
+      font-weight: 800;
+    }
+
+    h3 {
+      font-size: 11px;
+      color: #963547;
+      margin: 8px 0 3px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    h3::before {
+      content: "▪";
+      color: #5e6b2c;
+      font-size: 12px;
+    }
+
+    p {
+      color: #444;
+      margin-bottom: 6px;
+      font-size: 9.5px;
+      line-height: 1.6;
+    }
+
+    /* الشارات والمفاتيح */
+    .badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 8px;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .badge-pk { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-fk { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge-uq { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .badge-chk { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+    .badge-nn { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+    /* جداول المواصفات */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+      font-size: 9px;
+      page-break-inside: avoid;
+    }
+
+    thead th {
+      background: #5e6b2c;
+      color: #ffffff;
+      padding: 4px 6px;
+      text-align: right;
+      font-weight: 700;
+      border: 1px solid #4b5620;
+      font-size: 8.5px;
+    }
+
+    tbody td {
+      padding: 3.5px 6px;
+      border: 1px solid #e2ded5;
+      vertical-align: middle;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #faf8f5;
+    }
+
+    code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 9px;
+      color: #831843;
+      background: #fdf2f8;
+      padding: 1px 3px;
+      border-radius: 3px;
+      direction: ltr;
+      display: inline-block;
+      font-weight: 600;
+    }
+
+    .erd-box {
+      border: 1.5px solid #dcd7cb;
+      border-radius: 8px;
+      background: #fdfcf9;
+      padding: 8px;
+      margin: 8px 0;
+      text-align: center;
+    }
+
+    .erd-svg {
+      width: 100%;
+      height: auto;
+      max-height: 430px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .summary-card {
+      background: #faf8f5;
+      border: 1px solid #e4dfd5;
+      border-radius: 6px;
+      padding: 6px 8px;
+      text-align: center;
+    }
+
+    .summary-card b {
+      display: block;
+      font-size: 15px;
+      color: #5e6b2c;
+      font-weight: 900;
+    }
+
+    .summary-card span {
+      font-size: 8.5px;
+      color: #666;
+      font-weight: 600;
+    }
+
+    .section-desc {
+      background: #fdfbf7;
+      border-right: 3px solid #963547;
+      padding: 4px 8px;
+      font-size: 9px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== الصفحة 1: الغلاف، نظرة عامة، ومخطط العلاقات ERD ==================== -->
+  <div class="page">
+    <div class="header-bar">
+      <div class="brand">
+        <span class="brand-title">MASKA</span>
+        <span class="brand-sub">مسكة — أزهار طبيعية</span>
+      </div>
+      <div class="doc-info">
+        <b>مشروع تخرج: وثيقة المواصفات الفنية لقاعدة البيانات</b><br>
+        Maska Relational Database Specification & ERD Diagram<br>
+        المحرك: Relational SQL (SQLite / PostgreSQL / MySQL) • 2026
+      </div>
+    </div>
+
+    <h1>مخطط الكيانات والعلاقات العام (Entity-Relationship Diagram — ERD)</h1>
+    <p>
+      تم تصميم بنية قاعدة البيانات لتغطية كامل متطلبات المتجر الإلكتروني واستوديو التنسيق وتطبيقات التوصيل. يوضح المخطط أدناه الكيانات الأساسية والعلاقات المفتاحية بين الجداول (1:1 و 1:N و N:M):
+    </p>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <b>20</b>
+        <span>إجمالي الجداول المعتمدة</span>
+      </div>
+      <div class="summary-card">
+        <b>4</b>
+        <span>أدوار الصلاحيات (RBAC)</span>
+      </div>
+      <div class="summary-card">
+        <b>GPS</b>
+        <span>تحديد وتتبع جغرافي دقيق</span>
+      </div>
+      <div class="summary-card">
+        <b>100%</b>
+        <span>تغطية بلا أي بيانات وهمية</span>
+      </div>
+    </div>
+
+    <!-- المخطط الكياني المرئي ERD الشامل -->
+    <div class="erd-box">
+      <svg class="erd-svg" viewBox="0 0 940 450" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gHead" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#5e6b2c"/>
+            <stop offset="100%" stop-color="#414b1d"/>
+          </linearGradient>
+          <linearGradient id="gHeadPink" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#963547"/>
+            <stop offset="100%" stop-color="#6b2231"/>
+          </linearGradient>
+          <filter id="shd" x="-4%" y="-4%" width="108%" height="112%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.1"/>
+          </filter>
+        </defs>
+
+        <!-- خطوط العلاقات (Connections) -->
+        <g stroke="#979f80" stroke-width="1.8" fill="none">
+          <!-- USERS -> USER_ROLES -> ROLES -->
+          <path d="M 120 70 L 120 28 L 290 28" stroke-dasharray="3,3"/>
+          <path d="M 430 28 L 490 28" />
+          <!-- USERS -> DRIVER_PROFILES -->
+          <path d="M 210 110 L 290 110" />
+          <!-- USERS -> ADDRESSES -->
+          <path d="M 120 160 L 120 205" />
+          <!-- USERS -> ORDERS (Customer) -->
+          <path d="M 160 160 L 160 295 L 290 295" />
+          <!-- DRIVER_PROFILES -> ORDERS -->
+          <path d="M 360 155 L 360 260" />
+          <!-- ORDERS -> ORDER_ITEMS -->
+          <path d="M 450 300 L 530 300" />
+          <!-- ORDER_ITEMS -> CUSTOM_BOUQUET_DETAILS -->
+          <path d="M 620 260 L 620 195" />
+          <!-- ORDER_ITEMS -> BOUQUETS -->
+          <path d="M 680 280 L 740 280 L 740 200" stroke-dasharray="3,3"/>
+          <!-- FLOWER_INVENTORY -> CUSTOM_BOUQUET_DETAILS -->
+          <path d="M 740 100 L 710 100 L 710 140" stroke-dasharray="3,3"/>
+          <!-- ORDERS -> PAYMENTS -->
+          <path d="M 370 380 L 370 415 L 250 415" />
+          <!-- ORDERS -> CUSTOMER_REVIEWS -->
+          <path d="M 450 350 L 530 350" />
+          <!-- ORDERS -> DELIVERY_TRACKING_LOGS -->
+          <path d="M 290 350 L 210 350" />
+          <!-- COUPONS -> COUPON_USAGES -> ORDERS -->
+          <path d="M 450 210 L 450 260" stroke-dasharray="3,3"/>
+        </g>
+
+        <!-- 1. USERS -->
+        <g filter="url(#shd)">
+          <rect x="30" y="70" width="180" height="90" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.8"/>
+          <rect x="30" y="70" width="180" height="22" rx="6" fill="url(#gHead)"/>
+          <text x="120" y="85" fill="#fff" font-weight="bold" font-size="11" text-anchor="middle">users</text>
+          <text x="40" y="105" fill="#991b1b" font-weight="bold" font-size="9">🔑 id : TEXT (UUID) [PK]</text>
+          <text x="40" y="119" fill="#92400e" font-size="8.5">✦ phone : TEXT [UQ, NN]</text>
+          <text x="40" y="133" fill="#333" font-size="8.5">full_name, email, password_hash</text>
+          <text x="40" y="147" fill="#666" font-size="8">status: 'active' | 'banned'</text>
+        </g>
+
+        <!-- 2. ROLES & USER_ROLES -->
+        <g filter="url(#shd)">
+          <rect x="290" y="10" width="140" height="50" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.2"/>
+          <rect x="290" y="10" width="140" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="360" y="23" fill="#fff" font-weight="bold" font-size="10" text-anchor="middle">user_roles [N:M]</text>
+          <text x="298" y="39" fill="#0369a1" font-size="8">🔗 user_id [FK → users]</text>
+          <text x="298" y="51" fill="#0369a1" font-size="8">🔗 role_id [FK → roles]</text>
+        </g>
+        <g filter="url(#shd)">
+          <rect x="490" y="10" width="140" height="50" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.2"/>
+          <rect x="490" y="10" width="140" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="560" y="23" fill="#fff" font-weight="bold" font-size="10" text-anchor="middle">roles</text>
+          <text x="498" y="39" fill="#991b1b" font-size="8">🔑 id : INT [PK]</text>
+          <text x="498" y="51" fill="#333" font-size="8">name, display_name</text>
+        </g>
+
+        <!-- 3. DRIVER_PROFILES -->
+        <g filter="url(#shd)">
+          <rect x="290" y="80" width="160" height="75" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.5"/>
+          <rect x="290" y="80" width="160" height="20" rx="6" fill="url(#gHead)"/>
+          <text x="370" y="94" fill="#fff" font-weight="bold" font-size="10" text-anchor="middle">driver_profiles [1:1]</text>
+          <text x="298" y="112" fill="#0369a1" font-size="8">🔗 user_id [PK, FK → users]</text>
+          <text x="298" y="125" fill="#333" font-size="8">vehicle_type, plate_number</text>
+          <text x="298" y="138" fill="#963547" font-weight="bold" font-size="8">📍 current_lat, current_lng, status</text>
+        </g>
+
+        <!-- 4. ADDRESSES -->
+        <g filter="url(#shd)">
+          <rect x="30" y="205" width="180" height="75" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.5"/>
+          <rect x="30" y="205" width="180" height="20" rx="6" fill="url(#gHead)"/>
+          <text x="120" y="219" fill="#fff" font-weight="bold" font-size="10" text-anchor="middle">addresses [1:N]</text>
+          <text x="38" y="237" fill="#991b1b" font-size="8">🔑 id : UUID [PK]</text>
+          <text x="38" y="249" fill="#0369a1" font-size="8">🔗 user_id [FK → users]</text>
+          <text x="38" y="261" fill="#333" font-size="8">city, zone, street, landmark</text>
+          <text x="38" y="273" fill="#963547" font-weight="bold" font-size="8">📍 latitude, longitude (GPS URL)</text>
+        </g>
+
+        <!-- 5. COUPONS -->
+        <g filter="url(#shd)">
+          <rect x="370" y="175" width="150" height="60" rx="6" fill="#ffffff" stroke="#963547" stroke-width="1.5"/>
+          <rect x="370" y="175" width="150" height="18" rx="6" fill="url(#gHeadPink)"/>
+          <text x="445" y="188" fill="#fff" font-weight="bold" font-size="9.5" text-anchor="middle">coupons (الأدمن)</text>
+          <text x="378" y="205" fill="#991b1b" font-size="8">🔑 id [PK], 🏷️ code [UQ]</text>
+          <text x="378" y="217" fill="#333" font-size="8">type, value, min_order, valid</text>
+          <text x="378" y="228" fill="#0369a1" font-size="7.5">🔗 created_by_admin_id [FK]</text>
+        </g>
+
+        <!-- 6. ORDERS المركزي -->
+        <g filter="url(#shd)">
+          <rect x="290" y="260" width="160" height="120" rx="6" fill="#ffffff" stroke="#963547" stroke-width="2.2"/>
+          <rect x="290" y="260" width="160" height="22" rx="6" fill="url(#gHeadPink)"/>
+          <text x="370" y="275" fill="#fff" font-weight="bold" font-size="11" text-anchor="middle">orders [الطلبات]</text>
+          <text x="298" y="294" fill="#991b1b" font-size="8.5">🔑 id [PK], 📦 order_number [UQ]</text>
+          <text x="298" y="307" fill="#0369a1" font-size="8">🔗 customer_id, address_id</text>
+          <text x="298" y="320" fill="#0369a1" font-size="8">🔗 assigned_florist_id, driver_id</text>
+          <text x="298" y="333" fill="#963547" font-weight="bold" font-size="8">📍 delivery_lat, delivery_lng</text>
+          <text x="298" y="346" fill="#333" font-size="8">status: prep / out / delivered</text>
+          <text x="298" y="359" fill="#333" font-size="8">subtotal, discount, fee, total</text>
+          <text x="298" y="371" fill="#666" font-size="7.5">delivery_window, customer_notes</text>
+        </g>
+
+        <!-- 7. ORDER_ITEMS -->
+        <g filter="url(#shd)">
+          <rect x="530" y="260" width="150" height="70" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.5"/>
+          <rect x="530" y="260" width="150" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="605" y="273" fill="#fff" font-weight="bold" font-size="10" text-anchor="middle">order_items</text>
+          <text x="538" y="291" fill="#991b1b" font-size="8">🔑 id : UUID [PK]</text>
+          <text x="538" y="303" fill="#0369a1" font-size="8">🔗 order_id [FK], bouquet_id [FK]</text>
+          <text x="538" y="316" fill="#333" font-size="8">item_type: 'ready' | 'custom'</text>
+          <text x="538" y="327" fill="#333" font-size="8">quantity, unit_price, total_price</text>
+        </g>
+
+        <!-- 8. CUSTOM_BOUQUET_DETAILS -->
+        <g filter="url(#shd)">
+          <rect x="530" y="140" width="170" height="80" rx="6" fill="#ffffff" stroke="#963547" stroke-width="1.5"/>
+          <rect x="530" y="140" width="170" height="18" rx="6" fill="url(#gHeadPink)"/>
+          <text x="615" y="153" fill="#fff" font-weight="bold" font-size="9.5" text-anchor="middle">custom_bouquet_details</text>
+          <text x="538" y="171" fill="#0369a1" font-size="8">🔗 order_item_id [PK, FK]</text>
+          <text x="538" y="184" fill="#333" font-size="8">wrap_type, ribbon_color</text>
+          <text x="538" y="197" fill="#963547" font-weight="bold" font-size="8">💌 wax_seal_text (الكرت الشمعي)</text>
+          <text x="538" y="210" fill="#333" font-size="8">flower_composition_json</text>
+        </g>
+
+        <!-- 9. FLOWER_INVENTORY -->
+        <g filter="url(#shd)">
+          <rect x="740" y="60" width="170" height="75" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.5"/>
+          <rect x="740" y="60" width="170" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="825" y="73" fill="#fff" font-weight="bold" font-size="10" text-anchor="middle">flower_inventory</text>
+          <text x="748" y="91" fill="#991b1b" font-size="8">🔑 id : INT [PK]</text>
+          <text x="748" y="104" fill="#333" font-size="8">name_ar, color, unit_price</text>
+          <text x="748" y="117" fill="#333" font-size="8">stock_quantity, alert_threshold</text>
+          <text x="748" y="128" fill="#666" font-size="7.5">is_available (متاح للاستوديو)</text>
+        </g>
+
+        <!-- 10. BOUQUETS -->
+        <g filter="url(#shd)">
+          <rect x="740" y="150" width="170" height="75" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.5"/>
+          <rect x="740" y="150" width="170" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="825" y="163" fill="#fff" font-weight="bold" font-size="10" text-anchor="middle">bouquets (الباقات الجاهزة)</text>
+          <text x="748" y="181" fill="#991b1b" font-size="8">🔑 id [PK], slug [UQ]</text>
+          <text x="748" y="194" fill="#333" font-size="8">title, occasion_tag, price</text>
+          <text x="748" y="207" fill="#333" font-size="8">description, image_svg_path</text>
+          <text x="748" y="218" fill="#666" font-size="7.5">is_featured, is_active</text>
+        </g>
+
+        <!-- 11. CUSTOMER_REVIEWS -->
+        <g filter="url(#shd)">
+          <rect x="530" y="345" width="170" height="85" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.5"/>
+          <rect x="530" y="345" width="170" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="615" y="358" fill="#fff" font-weight="bold" font-size="9.5" text-anchor="middle">customer_reviews (التقييمات)</text>
+          <text x="538" y="375" fill="#991b1b" font-size="8">🔑 id [PK], 🔗 order_id [FK]</text>
+          <text x="538" y="388" fill="#eab308" font-size="9">⭐ rating_overall, flowers, delivery</text>
+          <text x="538" y="401" fill="#333" font-size="8">customer_comment, city</text>
+          <text x="538" y="414" fill="#0369a1" font-size="8">is_approved, is_featured, admin_reply</text>
+        </g>
+
+        <!-- 12. DELIVERY_TRACKING_LOGS -->
+        <g filter="url(#shd)">
+          <rect x="30" y="320" width="180" height="60" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.2"/>
+          <rect x="30" y="320" width="180" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="120" y="333" fill="#fff" font-weight="bold" font-size="9.5" text-anchor="middle">delivery_tracking_logs</text>
+          <text x="38" y="350" fill="#0369a1" font-size="8">🔗 order_id [FK], driver_id [FK]</text>
+          <text x="38" y="363" fill="#963547" font-weight="bold" font-size="8">📍 lat, lng, speed, recorded_at</text>
+        </g>
+
+        <!-- 13. PAYMENTS -->
+        <g filter="url(#shd)">
+          <rect x="30" y="390" width="220" height="50" rx="6" fill="#ffffff" stroke="#5e6b2c" stroke-width="1.2"/>
+          <rect x="30" y="390" width="220" height="18" rx="6" fill="url(#gHead)"/>
+          <text x="140" y="403" fill="#fff" font-weight="bold" font-size="9.5" text-anchor="middle">payments (الفواتير والمدفوعات)</text>
+          <text x="38" y="420" fill="#0369a1" font-size="8">🔗 order_id [FK, UQ], method, status, amount</text>
+          <text x="38" y="432" fill="#333" font-size="8">method: cash_on_delivery | sadad | tadawul</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="footer-bar">
+      <span>متجر واستوديو مسكة — Maska Flower Atelier</span>
+      <span>المخطط الكياني العام — صفحة 1 من 5</span>
+    </div>
+  </div>
+
+  <!-- ==================== الصفحة 2: جداول المستخدمين، السائقين، والعناوين ==================== -->
+  <div class="page">
+    <div class="header-bar">
+      <div class="brand"><span class="brand-title">MASKA</span><span class="brand-sub">قاموس البيانات الفني (1)</span></div>
+      <div class="doc-info"><b>الوحدة 1: إدارة الحسابات، الصلاحيات، والسائقين والمواقع الجغرافية</b></div>
+    </div>
+
+    <div class="section-desc">
+      تتولى هذه الوحدة إدارة دورة المصادقة الموحدة (Authentication) عبر رقم الهاتف أو البريد، الفصل بين الصلاحيات (RBAC)، إدارة أسطول السائقين، وحفظ العناوين الجغرافية الدقيقة بنظام GPS.
+    </div>
+
+    <!-- جدول 1: users -->
+    <h3>1. جدول المستخدمين والحسابات <code>users</code></h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:20%">اسم الحقل (Field)</th>
+          <th style="width:16%">النوع (Type)</th>
+          <th style="width:18%">القيود (Constraints)</th>
+          <th style="width:10%">يقبل فارغ؟</th>
+          <th>الوصف الوظيفي والتقني</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span></td><td>NO</td><td>المعرف الفريد للمستخدم ويولد تلقائياً بصيغة UUID v4</td></tr>
+        <tr><td><code>full_name</code></td><td>TEXT</td><td>-</td><td>NO</td><td>الاسم الكامل للمستخدم (زبون، موظف، سائق، مدير)</td></tr>
+        <tr><td><code>phone</code></td><td>TEXT</td><td><span class="badge badge-uq">UNIQUE</span></td><td>NO</td><td>رقم الهاتف الليبي، وهو المعرف الأساسي لتسجيل الدخول والاتصال</td></tr>
+        <tr><td><code>email</code></td><td>TEXT</td><td><span class="badge badge-uq">UNIQUE</span></td><td>YES</td><td>البريد الإلكتروني الاختياري لإرسال الفواتير والإشعارات</td></tr>
+        <tr><td><code>password_hash</code></td><td>TEXT</td><td>-</td><td>NO</td><td>تجزئة كلمة المرور المشفرة بخوارزمية SHA-256 لحماية الحسابات</td></tr>
+        <tr><td><code>avatar_url</code></td><td>TEXT</td><td>-</td><td>YES</td><td>رابط الصورة الشخصية لحساب المستخدم</td></tr>
+        <tr><td><code>status</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span> DEFAULT 'active'</td><td>NO</td><td>حالة الحساب: <code>active</code> (نشط)، <code>banned</code> (محظور)، <code>inactive</code></td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ ووقت تسجيل الحساب في النظام</td></tr>
+        <tr><td><code>updated_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ ووقت آخر تحديث لبيانات الحساب</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 2: roles -->
+    <h3>2. جدول الأدوار الرئيسية <code>roles</code></h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:20%">اسم الحقل</th>
+          <th style="width:16%">النوع</th>
+          <th style="width:18%">القيود</th>
+          <th style="width:10%">فارغ؟</th>
+          <th>الوصف الوظيفي</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>المعرف الرقمي التسلسلي للدور</td></tr>
+        <tr><td><code>name</code></td><td>TEXT</td><td><span class="badge badge-uq">UNIQUE</span></td><td>NO</td><td>الرمز البرمجي للدور: <code>admin</code>, <code>florist</code>, <code>driver</code>, <code>customer</code></td></tr>
+        <tr><td><code>display_name</code></td><td>TEXT</td><td>-</td><td>NO</td><td>الاسم المعروض بالعربية: مدير النظام، منسّق زهور، مندوب توصيل، زبون المتجر</td></tr>
+        <tr><td><code>description</code></td><td>TEXT</td><td>-</td><td>YES</td><td>شرح وتفصيل الصلاحيات الممنوحة لهذا الدور</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 3: user_roles -->
+    <h3>3. جدول الربط بين المستخدمين والأدوار <code>user_roles</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>user_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span> <span class="badge badge-fk">FK → users.id</span></td><td>NO</td><td>مرجع المستخدم المعني بمنح الصلاحية (حذف متتالي CASCADE)</td></tr>
+        <tr><td><code>role_id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> <span class="badge badge-fk">FK → roles.id</span></td><td>NO</td><td>مرجع الدور الممنوح في جدول الأدوار (حذف متتالي CASCADE)</td></tr>
+        <tr><td><code>assigned_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>توقيت وتاريخ إسناد الدور للمستخدم</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 4: customer_profiles -->
+    <h3>4. جدول ملفات الزبائن <code>customer_profiles</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>user_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span> <span class="badge badge-fk">FK → users.id</span></td><td>NO</td><td>مرتبط بحساب المستخدم في جدول <code>users</code></td></tr>
+        <tr><td><code>loyalty_points</code></td><td>INTEGER</td><td>DEFAULT 0</td><td>NO</td><td>رصيد نقاط الولاء المكتسبة من الطلبات السابقة</td></tr>
+        <tr><td><code>total_spent</code></td><td>REAL</td><td>DEFAULT 0.0</td><td>NO</td><td>إجمالي القيمة المالية المصروفة بالمتجر بالدينار الليبي</td></tr>
+        <tr><td><code>notes</code></td><td>TEXT</td><td>-</td><td>YES</td><td>ملاحظات سجل الزبون وتفضيلاته الخاصة في باقات الزهور</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 5: driver_profiles -->
+    <h3>5. جدول ملفات السائقين وأسطول التوصيل <code>driver_profiles</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>user_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span> <span class="badge badge-fk">FK → users.id</span></td><td>NO</td><td>مرتبط بحساب المستخدم في جدول <code>users</code> كـ سائق</td></tr>
+        <tr><td><code>vehicle_type</code></td><td>TEXT</td><td>DEFAULT 'سيارة'</td><td>NO</td><td>نوع وسيلة التوصيل: سيارة مجهزة بتبريد زهور، أو دراجة نارية للتوصيل السريع</td></tr>
+        <tr><td><code>plate_number</code></td><td>TEXT</td><td>-</td><td>YES</td><td>رقم اللوحة المرورية الرسمية للمركبة</td></tr>
+        <tr><td><code>national_id</code></td><td>TEXT</td><td>-</td><td>YES</td><td>الرقم الوطني للسائق لتوثيق الهوية وضمان أمان الشحنات</td></tr>
+        <tr><td><code>current_status</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span> DEFAULT 'available'</td><td>NO</td><td>حالة السائق التشغيلية: <code>available</code> (متاح)، <code>busy</code> (مشغول بمهمة)، <code>offline</code></td></tr>
+        <tr><td><code>current_lat</code></td><td>REAL</td><td>-</td><td>YES</td><td>إحداثي خط العرض GPS المحدث لحظياً من هاتف السائق</td></tr>
+        <tr><td><code>current_lng</code></td><td>REAL</td><td>-</td><td>YES</td><td>إحداثي خط الطول GPS المحدث لحظياً من هاتف السائق</td></tr>
+        <tr><td><code>last_location_update</code></td><td>DATETIME</td><td>-</td><td>YES</td><td>التوقيت الزمني لآخر إشارة موقع مرسلة من السائق</td></tr>
+        <tr><td><code>total_deliveries</code></td><td>INTEGER</td><td>DEFAULT 0</td><td>NO</td><td>العدد التراكمي للطلبات المسلّمة بنجاح عبر هذا السائق</td></tr>
+        <tr><td><code>rating</code></td><td>REAL</td><td>DEFAULT 5.0</td><td>NO</td><td>متوسط تقييم أداء السائق المحسوب من تقييمات الزبائن النجمية</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 6: addresses -->
+    <h3>6. جدول العناوين والمواقع الجغرافية للزبائن <code>addresses</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span></td><td>NO</td><td>المعرف الفريد لعنوان التوصيل</td></tr>
+        <tr><td><code>user_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>NO</td><td>الزبون صاحب العنوان (حذف متتالي CASCADE)</td></tr>
+        <tr><td><code>title</code></td><td>TEXT</td><td>DEFAULT 'العنوان الرئيسي'</td><td>NO</td><td>تسمية العنوان لتسهيل اختياره (المنزل، العمل، صالة المناسبات)</td></tr>
+        <tr><td><code>recipient_name</code></td><td>TEXT</td><td>-</td><td>NO</td><td>الاسم الكامل للمستلم عند نقطة الوصول</td></tr>
+        <tr><td><code>recipient_phone</code></td><td>TEXT</td><td>-</td><td>NO</td><td>رقم هاتف المستلم للتواصل المباشر مع مندوب التوصيل</td></tr>
+        <tr><td><code>city</code></td><td>TEXT</td><td>-</td><td>NO</td><td>المدينة (طرابلس، بنغازي، مصراتة...)</td></tr>
+        <tr><td><code>zone</code></td><td>TEXT</td><td>-</td><td>NO</td><td>المنطقة أو الحي (النوفليين، السياحية، بن عاشور، تاجوراء...)</td></tr>
+        <tr><td><code>street</code></td><td>TEXT</td><td>-</td><td>YES</td><td>اسم الشارع أو التفرع</td></tr>
+        <tr><td><code>landmark</code></td><td>TEXT</td><td>-</td><td>YES</td><td>أقرب نقطة دالة بارزة لتوجيه السائق بدقة متناهية</td></tr>
+        <tr><td><code>latitude</code></td><td>REAL</td><td>-</td><td>NO</td><td>إحداثي خط العرض GPS الملتقط تلقائياً من خريطة الموقع</td></tr>
+        <tr><td><code>longitude</code></td><td>REAL</td><td>-</td><td>NO</td><td>إحداثي خط الطول GPS الملتقط تلقائياً من خريطة الموقع</td></tr>
+        <tr><td><code>google_maps_url</code></td><td>TEXT</td><td>-</td><td>YES</td><td>رابط مباشر لخرائط جوجل <code>maps.google.com/?q=lat,lng</code> يفتحه السائق</td></tr>
+        <tr><td><code>is_default</code></td><td>INTEGER</td><td>DEFAULT 0</td><td>NO</td><td>هل هو العنوان الافتراضي للمستخدم (1 = نعم، 0 = لا)</td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ حفظ العنوان</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer-bar">
+      <span>متجر واستوديو مسكة — Maska Flower Atelier</span>
+      <span>قاموس البيانات: المستخدمون والسائقون والعناوين — صفحة 2 من 5</span>
+    </div>
+  </div>
+
+  <!-- ==================== الصفحة 3: الأسعار، الكوبونات، والمخزون ==================== -->
+  <div class="page">
+    <div class="header-bar">
+      <div class="brand"><span class="brand-title">MASKA</span><span class="brand-sub">قاموس البيانات الفني (2)</span></div>
+      <div class="doc-info"><b>الوحدة 2: تسعير التوصيل، كتالوج الزهور، كوبونات الأدمن، وتدقيق الأسعار</b></div>
+    </div>
+
+    <div class="section-desc">
+      تتولى هذه الوحدة إدارة أسعار التوصيل الجغرافية، رصيد الزهور الحية وتكلفتها، الباقات الجاهزة، كوبونات التخفيض المنشأة إدارياً، وسجل التدقيق والرقابة لتغيرات الأسعار.
+    </div>
+
+    <!-- جدول 7: delivery_zones_pricing -->
+    <h3>7. جدول تسعير التوصيل حسب المناطق والمدن <code>delivery_zones_pricing</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>المعرف التسلسلي للمنطقة الجغرافية</td></tr>
+        <tr><td><code>city</code></td><td>TEXT</td><td>-</td><td>NO</td><td>المدينة الرئيسية (طرابلس، بنغازي، مصراتة...)</td></tr>
+        <tr><td><code>zone_name</code></td><td>TEXT</td><td>-</td><td>NO</td><td>اسم المنطقة أو النطاق الجغرافي (طرابلس المركز، تاجوراء، جنزور...)</td></tr>
+        <tr><td><code>delivery_fee</code></td><td>REAL</td><td>-</td><td>NO</td><td>قيمة التوصيل المحددة بالدينار الليبي والمحتسبة آلياً في السلة</td></tr>
+        <tr><td><code>estimated_minutes</code></td><td>INTEGER</td><td>DEFAULT 60</td><td>NO</td><td>المدة الزمنية المتوقعة لوصول السائق بالدقائق</td></tr>
+        <tr><td><code>is_active</code></td><td>INTEGER</td><td>DEFAULT 1</td><td>NO</td><td>حالة توفر خدمة التوصيل للمنطقة (1 = متاح، 0 = متوقف مؤقتاً)</td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ تسجيل تسعيرة المنطقة</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 8: flower_inventory -->
+    <h3>8. جدول مخزون وأسعار سيقان الزهور الطبيعية <code>flower_inventory</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>معرف صنف الزهرة للاستوديو والمصمم الذكي</td></tr>
+        <tr><td><code>name_ar</code></td><td>TEXT</td><td>-</td><td>NO</td><td>الاسم العربي للصنف (وردة جورية، توليب أبيض، جبسوفيلا، فاوانيا...)</td></tr>
+        <tr><td><code>color</code></td><td>TEXT</td><td>-</td><td>NO</td><td>لون الزهرة (وردي، أبيض، أحمر، خوخي، مريمي...)</td></tr>
+        <tr><td><code>unit_price</code></td><td>REAL</td><td>-</td><td>NO</td><td>سعر الساق الواحدة بالدينار الليبي ويتغير لحظياً في الاستوديو</td></tr>
+        <tr><td><code>stock_quantity</code></td><td>INTEGER</td><td>DEFAULT 0</td><td>NO</td><td>الكمية الحالية المتوفرة في غرف التبريد بمحل مسكة</td></tr>
+        <tr><td><code>alert_threshold</code></td><td>INTEGER</td><td>DEFAULT 15</td><td>NO</td><td>الحد الأدنى الذي يطلق تنبيهاً للإدارة بقرب نفاد الصنف</td></tr>
+        <tr><td><code>is_available</code></td><td>INTEGER</td><td>DEFAULT 1</td><td>NO</td><td>إتاحة الصنف للاختيار في الاستوديو (1 = معروض، 0 = معطل لعدم التوفر)</td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ تسجيل الصنف</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 9: bouquets -->
+    <h3>9. جدول كتالوج الباقات الجاهزة والأسعار <code>bouquets</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>المعرف الرقمي للباقة الجاهزة</td></tr>
+        <tr><td><code>title</code></td><td>TEXT</td><td>-</td><td>NO</td><td>اسم الباقة التجاري (ربيع وردي، أناقة العاج، همسة المريمي، الباقة الملكية)</td></tr>
+        <tr><td><code>slug</code></td><td>TEXT</td><td><span class="badge badge-uq">UNIQUE</span></td><td>NO</td><td>الاسم اللطيف للرابط البرمجي (pink-spring, ivory-elegance...)</td></tr>
+        <tr><td><code>occasion_tag</code></td><td>TEXT</td><td>-</td><td>NO</td><td>تصنيف المناسبة: <code>عيد ميلاد</code>، <code>زفاف</code>، <code>شكر</code>، <code>تخرج</code></td></tr>
+        <tr><td><code>price</code></td><td>REAL</td><td>-</td><td>NO</td><td>سعر الباقة الإجمالي بالدينار الليبي شاملاً التنسيق والكرت</td></tr>
+        <tr><td><code>description</code></td><td>TEXT</td><td>-</td><td>YES</td><td>الوصف الأدبي والفني لتوليفة الزهور ومشاعر المناسبة</td></tr>
+        <tr><td><code>image_svg_path</code></td><td>TEXT</td><td>-</td><td>NO</td><td>مسار ملف الرسمة المتجهة التفاعلية SVG في مجلد الأصول</td></tr>
+        <tr><td><code>is_featured</code></td><td>INTEGER</td><td>DEFAULT 0</td><td>NO</td><td>عرض الباقة في واجهة المتجر كأكثر طلباً (1 = مميزة)</td></tr>
+        <tr><td><code>is_active</code></td><td>INTEGER</td><td>DEFAULT 1</td><td>NO</td><td>حالة توفر الباقة للطلب الفوري في الموقع</td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ إضافة الباقة للمتجر</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 10: coupons -->
+    <h3>10. جدول كوبونات التخفيض المنشأة بواسطة الأدمن <code>coupons</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>المعرف التسلسلي للكوبون</td></tr>
+        <tr><td><code>code</code></td><td>TEXT</td><td><span class="badge badge-uq">UNIQUE</span></td><td>NO</td><td>كود الكوبون المكتوب في السلة بأحرف كبيرة (مثال: MASKA15, GRAD2026)</td></tr>
+        <tr><td><code>title</code></td><td>TEXT</td><td>-</td><td>NO</td><td>اسم أو حملة الكوبون الإدارية (كوبون الترحيب، خصم موسم التخرج)</td></tr>
+        <tr><td><code>discount_type</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span></td><td>NO</td><td>نوع الخصم: <code>fixed</code> (مبلغ ثابت بالدينار) أو <code>percent</code> (نسبة مئوية)</td></tr>
+        <tr><td><code>discount_value</code></td><td>REAL</td><td>-</td><td>NO</td><td>قيمة الخصم الممنوحة (مثال: 15 د.ل أو 20%)</td></tr>
+        <tr><td><code>min_order_amount</code></td><td>REAL</td><td>DEFAULT 0.0</td><td>NO</td><td>الحد الأدنى لقيمة مشتريات السلة لتفعيل الخصم</td></tr>
+        <tr><td><code>max_discount_cap</code></td><td>REAL</td><td>-</td><td>YES</td><td>الحد الأقصى للخصم في حالة الكوبونات النسبية لمنع الخسارة</td></tr>
+        <tr><td><code>valid_from</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ ووقت بدء سريان صلاحية الكوبون</td></tr>
+        <tr><td><code>valid_until</code></td><td>DATETIME</td><td>-</td><td>YES</td><td>تاريخ ووقت انتهاء الصلاحية وإيقاف الكود آلياً</td></tr>
+        <tr><td><code>usage_limit</code></td><td>INTEGER</td><td>DEFAULT 100</td><td>NO</td><td>العدد الأقصى الإجمالي المسموح لاستخدام هذا الكوبون لجميع الزبائن</td></tr>
+        <tr><td><code>used_count</code></td><td>INTEGER</td><td>DEFAULT 0</td><td>NO</td><td>العدد الفعلي لمرات استخدام وحرق الكوبون</td></tr>
+        <tr><td><code>per_user_limit</code></td><td>INTEGER</td><td>DEFAULT 1</td><td>NO</td><td>أقصى عدد مرات مسموح بها للزبون الواحد لمنع التكرار</td></tr>
+        <tr><td><code>created_by_admin_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>معرف الأدمن الذي قام بإنشاء هذا الكوبون لتدقيق الصلاحيات</td></tr>
+        <tr><td><code>is_active</code></td><td>INTEGER</td><td>DEFAULT 1</td><td>NO</td><td>حالة تفعيل الكوبون (1 = مفعّل، 0 = معطل يدوياً من الأدمن)</td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ إنشاء الكوبون في النظام</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 11: coupon_usages -->
+    <h3>11. جدول سجل استخدام الكوبونات <code>coupon_usages</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>معرف حركة استخدام الكوبون</td></tr>
+        <tr><td><code>coupon_id</code></td><td>INTEGER</td><td><span class="badge badge-fk">FK → coupons.id</span></td><td>NO</td><td>مرجع الكوبون المستخدم في العملية (حذف متتالي)</td></tr>
+        <tr><td><code>order_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → orders.id</span></td><td>NO</td><td>مرجع الطلب الذي تم تطبيق الخصم عليه</td></tr>
+        <tr><td><code>user_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>الزبون الذي استفاد من الخصم للتحقق من قيد <code>per_user_limit</code></td></tr>
+        <tr><td><code>discount_applied</code></td><td>REAL</td><td>-</td><td>NO</td><td>القيمة المالية الدقيقة للخصم المقتطع بالدينار</td></tr>
+        <tr><td><code>used_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ ووقت استخدام الكود لحظة تثبيت الطلب</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 12: price_change_logs -->
+    <h3>12. جدول سجل تدقيق وتغيرات الأسعار للرقابة <code>price_change_logs</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>المعرف التسلسلي لحركة تعديل السعر</td></tr>
+        <tr><td><code>item_type</code></td><td>TEXT</td><td>-</td><td>NO</td><td>نوع الصنف المعدل: <code>flower</code>, <code>bouquet</code>, <code>delivery_zone</code>, <code>wrap</code></td></tr>
+        <tr><td><code>item_id</code></td><td>INTEGER</td><td>-</td><td>NO</td><td>معرف الصنف في جدوله الأصلي</td></tr>
+        <tr><td><code>item_name</code></td><td>TEXT</td><td>-</td><td>NO</td><td>اسم الصنف المسجل وقت التعديل لسهولة المراجعة والتقارير</td></tr>
+        <tr><td><code>old_price</code></td><td>REAL</td><td>-</td><td>NO</td><td>السعر السابق قبل التعديل بالدينار</td></tr>
+        <tr><td><code>new_price</code></td><td>REAL</td><td>-</td><td>NO</td><td>السعر الجديد المعتمد بالدينار</td></tr>
+        <tr><td><code>changed_by_user_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>المدير الذي نفّذ تعديل السعر لضمان الشفافية والمساءلة</td></tr>
+        <tr><td><code>reason</code></td><td>TEXT</td><td>-</td><td>YES</td><td>السبب الإداري لتعديل السعر (تغير تكلفة الاستيراد، عروض مواسم...)</td></tr>
+        <tr><td><code>changed_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>التوقيت الزمني الدقيق لتعديل السعر</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer-bar">
+      <span>متجر واستوديو مسكة — Maska Flower Atelier</span>
+      <span>قاموس البيانات: الأسعار والكوبونات والمخزون — صفحة 3 من 5</span>
+    </div>
+  </div>
+
+  <!-- ==================== الصفحة 4: الطلبات، بنودها، واستوديو الختم الشمعي ==================== -->
+  <div class="page">
+    <div class="header-bar">
+      <div class="brand"><span class="brand-title">MASKA</span><span class="brand-sub">قاموس البيانات الفني (3)</span></div>
+      <div class="doc-info"><b>الوحدة 3: دورة حياة الطلبات، بنود السلة، واستوديو الختم الشمعي</b></div>
+    </div>
+
+    <div class="section-desc">
+      تتولى هذه الوحدة إدارة حركة الطلبات، بنود السلة، تخصيص باقات الاستوديو مع نصوص كروت الإهداء بالختم الشمعي الملكي، وإسناد المهام بين المنسق وسائق التوصيل.
+    </div>
+
+    <!-- جدول 13: orders -->
+    <h3>13. جدول الطلبات الرئيسي وإسناد المهام <code>orders</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span></td><td>NO</td><td>المعرف الفريد للطلب في النظام الداخلي</td></tr>
+        <tr><td><code>order_number</code></td><td>TEXT</td><td><span class="badge badge-uq">UNIQUE</span></td><td>NO</td><td>رقم التتبع المرجعي السهل للزبون والسائق (مثال: <code>1048</code>)</td></tr>
+        <tr><td><code>customer_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>حساب الزبون صاحب الطلب (يبقى محفوظاً حتى إن حُذف الحساب SET NULL)</td></tr>
+        <tr><td><code>address_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → addresses.id</span></td><td>YES</td><td>معرف العنوان المسجل في جدول العناوين</td></tr>
+        <tr><td><code>recipient_name</code></td><td>TEXT</td><td>-</td><td>NO</td><td>اسم الشخص المستلم للباقة المحفوظ لحظة الطلب لضمان ثباته</td></tr>
+        <tr><td><code>recipient_phone</code></td><td>TEXT</td><td>-</td><td>NO</td><td>رقم هاتف المستلم المحفوظ لحظة الطلب ليتصل به السائق</td></tr>
+        <tr><td><code>delivery_city / zone</code></td><td>TEXT</td><td>-</td><td>NO</td><td>المدينة والمنطقة المحددة لتسليم الباقة</td></tr>
+        <tr><td><code>delivery_address_details</code></td><td>TEXT</td><td>-</td><td>YES</td><td>تفاصيل الشارع ورقم الفيلا / العمارة والدور وأقرب نقطة دالة</td></tr>
+        <tr><td><code>delivery_lat / lng</code></td><td>REAL</td><td>-</td><td>YES</td><td>إحداثيات خط العرض والطول GPS الدقيقة لمكان تسليم الطلب</td></tr>
+        <tr><td><code>delivery_window</code></td><td>DATETIME</td><td>-</td><td>NO</td><td>تاريخ والنافذة الزمنية المطلوبة للتسليم (اليوم، الساعة)</td></tr>
+        <tr><td><code>status</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span> DEFAULT 'pending'</td><td>NO</td><td>حالة الطلب: <code>pending</code> (جديد), <code>confirmed</code>, <code>preparing</code>, <code>ready_for_pickup</code>, <code>out_for_delivery</code>, <code>delivered</code>, <code>cancelled</code></td></tr>
+        <tr><td><code>assigned_florist_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>المنسقة المسؤولة عن قص الزهور وتجهيز الباقة في الاستوديو</td></tr>
+        <tr><td><code>assigned_driver_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>سائق التوصيل المكلف بنقل الباقة للمستلم عبر المركبة المبردة</td></tr>
+        <tr><td><code>subtotal</code></td><td>REAL</td><td>-</td><td>NO</td><td>مجموع أسعار الباقات والزهور قبل الخصم والتوصيل بالدينار</td></tr>
+        <tr><td><code>discount_amount</code></td><td>REAL</td><td>DEFAULT 0.0</td><td>NO</td><td>قيمة الخصم المقتطعة من كوبون الأدمن بالدينار</td></tr>
+        <tr><td><code>delivery_fee</code></td><td>REAL</td><td>DEFAULT 10.0</td><td>NO</td><td>أجرة التوصيل المحتسبة حسب منطقة التسليم الجغرافية</td></tr>
+        <tr><td><code>total_amount</code></td><td>REAL</td><td>-</td><td>NO</td><td>المبلغ الإجمالي النهائي المستحق دفعه بالدينار</td></tr>
+        <tr><td><code>coupon_id</code></td><td>INTEGER</td><td><span class="badge badge-fk">FK → coupons.id</span></td><td>YES</td><td>مرجع الكوبون المستخدم إن وُجد</td></tr>
+        <tr><td><code>customer_notes</code></td><td>TEXT</td><td>-</td><td>YES</td><td>تعليمات وملاحظات الزبون الخاصة بالتجهيز والتوصيل</td></tr>
+        <tr><td><code>admin_notes</code></td><td>TEXT</td><td>-</td><td>YES</td><td>ملاحظات داخلية خاصة بالإدارة وفريق التنسيق</td></tr>
+        <tr><td><code>created_at / updated_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>توقيت إنشاء الطلب وتوقيت آخر تعديل على حالته</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 14: order_items -->
+    <h3>14. جدول عناصر وبنود الطلب <code>order_items</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span></td><td>NO</td><td>المعرف الفريد لبند الطلب</td></tr>
+        <tr><td><code>order_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → orders.id</span></td><td>NO</td><td>مرجع الطلب التابع له هذا البند (حذف متتالي CASCADE)</td></tr>
+        <tr><td><code>item_type</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span></td><td>NO</td><td>نوع البند: <code>ready_bouquet</code> (باقة جاهزة) أو <code>custom_studio</code> (باقة مصممة بالاستوديو)</td></tr>
+        <tr><td><code>bouquet_id</code></td><td>INTEGER</td><td><span class="badge badge-fk">FK → bouquets.id</span></td><td>YES</td><td>مرجع الباقة الجاهزة إن كان البند من الكتالوج</td></tr>
+        <tr><td><code>item_title</code></td><td>TEXT</td><td>-</td><td>NO</td><td>اسم البند المسجل (مثال: ربيع وردي، أو باقة استوديو مسكة)</td></tr>
+        <tr><td><code>quantity</code></td><td>INTEGER</td><td>DEFAULT 1</td><td>NO</td><td>الكمية المطلوبة من هذا البند</td></tr>
+        <tr><td><code>unit_price</code></td><td>REAL</td><td>-</td><td>NO</td><td>سعر الوحدة بالدينار الليبي لحظة تأكيد الطلب</td></tr>
+        <tr><td><code>total_price</code></td><td>REAL</td><td>-</td><td>NO</td><td>الإجمالي للبند (الكمية × السعر)</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 15: custom_bouquet_details -->
+    <h3>15. جدول تفاصيل باقة الاستوديو والكرت الشمعي <code>custom_bouquet_details</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span></td><td>NO</td><td>المعرف الفريد لتفاصيل الاستوديو</td></tr>
+        <tr><td><code>order_item_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → order_items.id</span> <span class="badge badge-uq">UQ</span></td><td>NO</td><td>مرتبط ببند الطلب المخصص (علاقة 1 إلى 1 وحذف متتالي)</td></tr>
+        <tr><td><code>wrap_type</code></td><td>TEXT</td><td>DEFAULT 'ورق كرافت'</td><td>NO</td><td>نوع التغليف المختار: ورق كرافت فاخر، ورق شفاف مذهب، قماش فاخر</td></tr>
+        <tr><td><code>ribbon_color</code></td><td>TEXT</td><td>DEFAULT 'وردي مذهب'</td><td>NO</td><td>لون شريط الساتان المحيط بالباقة</td></tr>
+        <tr><td><code>wax_seal_text</code></td><td>TEXT</td><td>-</td><td>YES</td><td><b>نص رسالة الإهداء المكتوبة يدوياً والمرفقة بكرت الختم الشمعي</b></td></tr>
+        <tr><td><code>seal_stamp</code></td><td>TEXT</td><td>DEFAULT 'MASKA 🌸'</td><td>NO</td><td>نقش وشعار الختم الشمعي الملكي المعتمد</td></tr>
+        <tr><td><code>seal_color</code></td><td>TEXT</td><td>DEFAULT 'أحمر قرمزي'</td><td>NO</td><td>لون الشمع المستخدم في ختم البطاقة</td></tr>
+        <tr><td><code>flower_composition_json</code></td><td>TEXT (JSON)</td><td>-</td><td>NO</td><td>مصفوفة JSON تشمل أسماء الزهور المختارة وأعدادها وتكلفتها الفردية</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 16: order_status_history -->
+    <h3>16. جدول سجل دورة حياة وتغير حالات الطلب <code>order_status_history</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>المعرف التسلسلي لسجل الحالة</td></tr>
+        <tr><td><code>order_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → orders.id</span></td><td>NO</td><td>مرجع الطلب التابع له السجل (حذف متتالي CASCADE)</td></tr>
+        <tr><td><code>status</code></td><td>TEXT</td><td>-</td><td>NO</td><td>الحالة المسجلة: <code>confirmed</code>, <code>preparing</code>, <code>ready_for_pickup</code>, <code>out_for_delivery</code>, <code>delivered</code></td></tr>
+        <tr><td><code>changed_by_user_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>المستخدم أو الموظف الذي قام بتحديث الحالة</td></tr>
+        <tr><td><code>comment</code></td><td>TEXT</td><td>-</td><td>YES</td><td>شرح تفصيلي للخطوة يظهر للزبون في صفحة التتبع الحي <code>track.html</code></td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>التوقيت الزمني الدقيق لتغير الحالة</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer-bar">
+      <span>متجر واستوديو مسكة — Maska Flower Atelier</span>
+      <span>قاموس البيانات: الطلبات والبنود والختم الشمعي — صفحة 4 من 5</span>
+    </div>
+  </div>
+
+  <!-- ==================== الصفحة 5: التقييمات، السائقين، والمدفوعات والملاحظات ==================== -->
+  <div class="page">
+    <div class="header-bar">
+      <div class="brand"><span class="brand-title">MASKA</span><span class="brand-sub">قاموس البيانات الفني (4)</span></div>
+      <div class="doc-info"><b>الوحدة 4: تقييمات وملاحظات الزبائن، تتبع GPS، والمدفوعات</b></div>
+    </div>
+
+    <div class="section-desc">
+      تتولى هذه الوحدة تسجيل آراء وتقييمات الزبائن لكل طلب مع ردود الإدارة، رصد مسار السائق اللحظي بالـ GPS، وتوثيق حركات الدفع والفواتير.
+    </div>
+
+    <!-- جدول 17: customer_reviews -->
+    <h3>17. جدول تقييمات وملاحظات الزبائن لكل طلب <code>customer_reviews</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span></td><td>NO</td><td>المعرف الفريد لتقييم الزبون</td></tr>
+        <tr><td><code>order_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → orders.id</span></td><td>YES</td><td>مرجع الطلب محل التقييم لضمان مصداقية الرأي</td></tr>
+        <tr><td><code>customer_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>الزبون صاحب التقييم في جدول المستخدمين</td></tr>
+        <tr><td><code>driver_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>YES</td><td>السائق الذي قام بالتوصيل لتقييم أدائه ولباقته</td></tr>
+        <tr><td><code>rating_overall</code></td><td>INTEGER</td><td><span class="badge badge-chk">CHECK (1-5)</span></td><td>NO</td><td>التقييم الشامل للخدمة والتجربة بالنجوم (من 1 إلى 5 نجوم)</td></tr>
+        <tr><td><code>rating_flowers</code></td><td>INTEGER</td><td><span class="badge badge-chk">CHECK (1-5)</span></td><td>YES</td><td>تقييم نضارة وجودة الزهور الطبيعية والتنسيق</td></tr>
+        <tr><td><code>rating_delivery</code></td><td>INTEGER</td><td><span class="badge badge-chk">CHECK (1-5)</span></td><td>YES</td><td>تقييم سرعة والتزام مندوب التوصيل بالموعد المحدد</td></tr>
+        <tr><td><code>rating_packaging</code></td><td>INTEGER</td><td><span class="badge badge-chk">CHECK (1-5)</span></td><td>YES</td><td>تقييم فخامة التغليف اليدوي والكرت بالختم الشمعي الملكي</td></tr>
+        <tr><td><code>customer_comment</code></td><td>TEXT</td><td>-</td><td>NO</td><td><b>ملاحظة ورأي الزبون الصادق وتفاصيل تجربته مع مسكة</b></td></tr>
+        <tr><td><code>customer_name_display</code></td><td>TEXT</td><td>-</td><td>YES</td><td>اسم الزبون المعروض في بطاقة التقييم بالمتجر</td></tr>
+        <tr><td><code>city</code></td><td>TEXT</td><td>-</td><td>YES</td><td>مدينة الزبون (طرابلس، بنغازي، مصراتة...)</td></tr>
+        <tr><td><code>is_approved</code></td><td>INTEGER</td><td>DEFAULT 1</td><td>NO</td><td>اعتماد الإدارة لنشر التقييم في المتجر (1 = معتمد)</td></tr>
+        <tr><td><code>is_featured</code></td><td>INTEGER</td><td>DEFAULT 0</td><td>NO</td><td>شارة التمييز لإظهار التقييم في قسم التوصيات بالصفحة الرئيسية <code>index.html</code></td></tr>
+        <tr><td><code>admin_reply</code></td><td>TEXT</td><td>-</td><td>YES</td><td><b>نص رد إدارة مسكة المباشر على رأي وملاحظة الزبون</b></td></tr>
+        <tr><td><code>admin_reply_at</code></td><td>DATETIME</td><td>-</td><td>YES</td><td>توقيت كتابة رد الإدارة على التقييم</td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ ووقت إرسال التقييم من قبل العميل</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 18: customer_feedback -->
+    <h3>18. جدول الاقتراحات والملاحظات العامة والشكاوى <code>customer_feedback</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>معرف الملاحظة أو الشكوى العامة</td></tr>
+        <tr><td><code>customer_name</code></td><td>TEXT</td><td>-</td><td>NO</td><td>اسم الزبون أو الزائر مقدم الاقتراح</td></tr>
+        <tr><td><code>phone</code></td><td>TEXT</td><td>-</td><td>YES</td><td>رقم الهاتف للتواصل ومتابعة الشكوى أو الاقتراح</td></tr>
+        <tr><td><code>feedback_type</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span> DEFAULT 'suggestion'</td><td>NO</td><td>نوع الملاحظة: <code>suggestion</code> (اقتراح), <code>compliment</code> (ثناء), <code>complaint</code> (شكوى), <code>inquiry</code></td></tr>
+        <tr><td><code>subject</code></td><td>TEXT</td><td>-</td><td>NO</td><td>موضوع الملاحظة العام</td></tr>
+        <tr><td><code>message</code></td><td>TEXT</td><td>-</td><td>NO</td><td>نص الرسالة أو الاقتراح أو تفاصيل الشكوى</td></tr>
+        <tr><td><code>status</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span> DEFAULT 'new'</td><td>NO</td><td>حالة المتابعة: <code>new</code> (جديد), <code>reviewed</code> (تمت المراجعة), <code>resolved</code> (مكتمل)</td></tr>
+        <tr><td><code>admin_notes</code></td><td>TEXT</td><td>-</td><td>YES</td><td>إجراءات وملاحظات فريق خدمة العملاء</td></tr>
+        <tr><td><code>created_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>تاريخ تقديم الملاحظة</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 19: delivery_tracking_logs -->
+    <h3>19. جدول مسار ونقاط السائق بالـ GPS اللحظي <code>delivery_tracking_logs</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>INTEGER</td><td><span class="badge badge-pk">PK</span> AUTOINCREMENT</td><td>NO</td><td>معرف نقطة التتبع الجغرافي</td></tr>
+        <tr><td><code>order_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → orders.id</span></td><td>NO</td><td>مرجع الطلب الجاري توصيله (حذف متتالي)</td></tr>
+        <tr><td><code>driver_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → users.id</span></td><td>NO</td><td>مرجع السائق الذي يرسل إحداثياته الحية</td></tr>
+        <tr><td><code>lat</code></td><td>REAL</td><td>-</td><td>NO</td><td>إحداثي خط العرض GPS للنقطة</td></tr>
+        <tr><td><code>lng</code></td><td>REAL</td><td>-</td><td>NO</td><td>إحداثي خط الطول GPS للنقطة</td></tr>
+        <tr><td><code>heading</code></td><td>REAL</td><td>-</td><td>YES</td><td>اتجاه حركة المركبة بالدرجات البوصلية (0 - 360)</td></tr>
+        <tr><td><code>speed</code></td><td>REAL</td><td>-</td><td>YES</td><td>سرعة حركة السائق لحظة تسجيل النقطة (كم/ساعة)</td></tr>
+        <tr><td><code>recorded_at</code></td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>NO</td><td>التوقيت الزمني الدقيق لتسجيل النقطة الجغرافية</td></tr>
+      </tbody>
+    </table>
+
+    <!-- جدول 20: payments -->
+    <h3>20. جدول المدفوعات والفواتير والتحقق المالي <code>payments</code></h3>
+    <table>
+      <thead>
+        <tr><th>اسم الحقل</th><th>النوع</th><th>القيود</th><th>فارغ؟</th><th>الوصف الوظيفي</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-pk">PK</span></td><td>NO</td><td>معرف عملية الدفع والفاتورة</td></tr>
+        <tr><td><code>order_id</code></td><td>TEXT (UUID)</td><td><span class="badge badge-fk">FK → orders.id</span> <span class="badge badge-uq">UQ</span></td><td>NO</td><td>مرتبط بالطلب (علاقة 1 إلى 1 وحذف متتالي CASCADE)</td></tr>
+        <tr><td><code>method</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span></td><td>NO</td><td>طريقة السداد: <code>cash_on_delivery</code> (كاش), <code>sadad</code>, <code>tadawul</code>, <code>bank_transfer</code></td></tr>
+        <tr><td><code>status</code></td><td>TEXT</td><td><span class="badge badge-chk">CHECK</span> DEFAULT 'pending'</td><td>NO</td><td>حالة السداد: <code>pending</code> (قيد التحصيل), <code>paid</code> (مسدد), <code>failed</code>, <code>refunded</code></td></tr>
+        <tr><td><code>transaction_ref</code></td><td>TEXT</td><td>-</td><td>YES</td><td>رقم المعاملة البنكية أو إيصال سداد/تداول أو إيصال الكاش</td></tr>
+        <tr><td><code>amount</code></td><td>REAL</td><td>-</td><td>NO</td><td>المبلغ المستحق والمسدد بالدينار الليبي</td></tr>
+        <tr><td><code>paid_at</code></td><td>DATETIME</td><td>-</td><td>YES</td><td>توقيت وتاريخ تأكيد استلام المبلغ بالكامل</td></tr>
+        <tr><td><code>notes</code></td><td>TEXT</td><td>-</td><td>YES</td><td>ملاحظات إضافية خاصة بالمطابقة المحاسبية</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer-bar">
+      <span>متجر واستوديو مسكة — Maska Flower Atelier</span>
+      <span>وثيقة المواصفات الفنية الشاملة — صفحة 5 من 5 (نهاية الوثيقة)</span>
+    </div>
+  </div>
+
+</body>
+</html>

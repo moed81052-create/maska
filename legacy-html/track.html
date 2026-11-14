@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مسكة | تتبع الطلب — متابعة فورية لحالة باقتك</title>
+  <script>try{const t=localStorage.getItem('maska-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 18px 24px;
+      margin-bottom: 28px;
+    }
+    .search h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--olive);
+      white-space: nowrap;
+    }
+    .search .input {
+      max-width: 440px;
+      margin-inline-end: auto;
+    }
+    .track-grid {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 28px;
+      align-items: start;
+      padding-bottom: 80px;
+    }
+    .status-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .status-head h3 {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--olive);
+    }
+    .timeline {
+      list-style: none;
+      position: relative;
+    }
+    .timeline li {
+      position: relative;
+      padding: 0 44px 34px 0;
+    }
+    .timeline li::before {
+      content: "";
+      position: absolute;
+      right: 9px;
+      top: 26px;
+      bottom: 0;
+      width: 2.5px;
+      background: #ebd8dc;
+      border-radius: 99px;
+    }
+    .timeline li:last-child::before {
+      display: none;
+    }
+    .timeline li.done::before {
+      background: linear-gradient(180deg, var(--olive), var(--olive-2));
+    }
+    .timeline i {
+      position: absolute;
+      right: 0;
+      top: 4px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 3px solid #ded6cd;
+      background: #fff;
+      transition: all 0.3s var(--ease-spring);
+    }
+    .timeline .done i {
+      background: var(--olive);
+      border-color: #fff;
+      box-shadow: 0 0 0 2px var(--olive), 0 4px 10px rgba(94, 107, 44, 0.35);
+    }
+    .timeline .current i {
+      background: #fff;
+      border: 4px solid var(--olive);
+      box-shadow: 0 0 0 3px rgba(94, 107, 44, 0.2), 0 4px 12px rgba(94, 107, 44, 0.3);
+      animation: pulseMarker 1.8s infinite ease-in-out;
+    }
+    @keyframes pulseMarker {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 3px rgba(94, 107, 44, 0.2); }
+      50% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(94, 107, 44, 0.35); }
+    }
+    .timeline h4 {
+      font-size: 16.5px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .timeline .done h4, .timeline .current h4 {
+      color: var(--olive);
+      font-weight: 800;
+    }
+    .timeline small {
+      color: var(--text-muted);
+      font-size: 12.5px;
+    }
+    .place {
+      background: linear-gradient(135deg, var(--lime), #f7f9e5);
+      border-radius: 20px;
+      padding: 20px 22px;
+      margin-top: 10px;
+      border: 1px solid rgba(226, 232, 176, 0.9);
+      box-shadow: var(--shadow-xs);
+    }
+    .place h4 {
+      color: var(--olive-darker);
+      font-size: 15.5px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .place .row {
+      padding: 6px 0;
+      font-size: 13.5px;
+      border-bottom-color: rgba(104, 105, 64, 0.12);
+    }
+    .details {
+      position: sticky;
+      top: 100px;
+      box-shadow: var(--shadow-lg);
+    }
+    .details h3 {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--olive);
+      margin-bottom: 16px;
+    }
+    .details .bouquet-box {
+      height: 230px;
+      margin-bottom: 18px;
+    }
+    .gift {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-xs);
+    }
+    .gift b {
+      font-size: 13px;
+      color: var(--rose-text);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .gift p {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 960px) {
+      .track-grid { grid-template-columns: 1fr; }
+      .search { flex-wrap: wrap; }
+      .details { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav class="nav">
+        <a href="index.html">الرئيسية</a>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="track.html" class="active">تتبع الطلب</a>
+      </nav>
+      <div class="header-actions">
+        <button class="theme-toggle-btn" aria-label="تبديل الوضع الليلي" title="تبديل الوضع الليلي">
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <a href="cart.html" class="btn btn-primary btn-sm"><span>السلة (<span data-cart-count>2</span>)</span></a>
+        <a href="login.html" class="btn btn-ghost btn-sm">تسجيل الدخول</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="track">
+    <div class="container">
+      <div class="page-head">
+        <h1 class="page-title">تتبع الطلب</h1>
+        <p class="page-sub">تابع مسار طلبك وحالته خطوة بخطوة من التجهيز حتى وصول الباقة إلى المستلم.</p>
+      </div>
+
+      <form class="card search" id="track-form">
+        <h3>ابحث عن طلبك:</h3>
+        <input class="input" id="order-no" placeholder="أدخل رقم الطلب، مثال: 1048">
+        <button class="btn btn-primary">تتبّع الآن</button>
+      </form>
+
+      <div class="track-grid">
+        <section class="card card-pad">
+          <div class="status-head">
+            <h3>حالة الطلب المباشرة</h3>
+            <span class="badge badge-lime">الوصول المتوقع: اليوم خلال ساعتين</span>
+          </div>
+          <ul class="timeline">
+            <li class="done">
+              <i></i>
+              <h4>تم استلام الطلب</h4>
+              <small>تم تأكيد طلبك ومطابقة الأصناف بنجاح</small>
+            </li>
+            <li class="current">
+              <i></i>
+              <h4>جارٍ تجهيز الباقة وتنسيقها</h4>
+              <small>يقوم خبير الزهور بتنسيق باقتك وتغليفها بعناية الآن</small>
+            </li>
+            <li>
+              <i></i>
+              <h4>خرج للتوصيل مع المندوب</h4>
+              <small>سيصلك إشعار فوري عند انطلاق السائق</small>
+            </li>
+            <li>
+              <i></i>
+              <h4>تم التسليم بنجاح</h4>
+              <small>تسليم الهدية مع بطاقة الإهداء</small>
+            </li>
+          </ul>
+          <div class="place">
+            <h4>تفاصيل مكان وموعد التوصيل</h4>
+            <div class="row"><span class="k">العنوان المحدد</span><span>طرابلس — النوفليين، بجوار مسجد القدس</span></div>
+            <div class="row"><span class="k">المنطقة</span><span>طرابلس المركز</span></div>
+            <div class="row"><span class="k">نافذة التسليم</span><span>اليوم — بين 4:00 إلى 6:00 مساءً</span></div>
+          </div>
+        </section>
+
+        <aside class="card card-pad details">
+          <h3>تفاصيل الطلب</h3>
+          <div class="bouquet-box"><img src="assets/bouquet.svg" alt="باقة الطلب"></div>
+          <div class="row"><span class="k">رقم الطلب</span><b id="d-order">#1048</b></div>
+          <div class="row"><span class="k">نوع الباقة</span><span>باقة مخصصة (استوديو مسكة)</span></div>
+          <div class="row"><span class="k">المبلغ الإجمالي</span><span class="price">145 د.ل</span></div>
+          <div class="row"><span class="k">موعد التسليم</span><span>اليوم عصراً</span></div>
+          <div class="gift">
+            <b>نص رسالة الإهداء المرفقة:</b>
+            <p>«كل عام وأنتِ الخير والجمال في حياتنا، باقة من كل قلبي لتليق بيومك الجميل»</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="#">تواصل معنا</a>
+      </nav>
+      <small class="copy">© 2026 مسكة — مشروع تخرج</small>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

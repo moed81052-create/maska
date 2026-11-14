@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-apology" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff2f4"/>
+      <stop offset="50%" stop-color="#fae1e7"/>
+      <stop offset="100%" stop-color="#f3cdd7"/>
+    </linearGradient>
+    <radialGradient id="heart-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#f5d3dc" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pastel-rose" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fce4ec"/>
+      <stop offset="50%" stop-color="#f48fb1"/>
+      <stop offset="100%" stop-color="#c2185b"/>
+    </linearGradient>
+    <linearGradient id="peach-rose" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff0ea"/>
+      <stop offset="60%" stop-color="#ffab91"/>
+      <stop offset="100%" stop-color="#d84315"/>
+    </linearGradient>
+    <linearGradient id="heart-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff7597"/>
+      <stop offset="100%" stop-color="#d81b60"/>
+    </linearGradient>
+    <filter id="shadow-apology" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#702d41" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- خلفية متدرجة ناعمة رقيقة -->
+  <rect width="360" height="240" fill="url(#bg-apology)"/>
+
+  <!-- هالة مركزية دافئة -->
+  <circle cx="180" cy="115" r="105" fill="url(#heart-glow)"/>
+
+  <!-- بتلات عائمة متطايرة تعبّر عن اللطف والمصالحة -->
+  <g fill="#ec7292" opacity="0.6">
+    <!-- بتلة يسار أعلى -->
+    <path d="M75 55 Q90 40 95 60 Q85 75 75 55 Z" transform="rotate(-15, 85, 55)"/>
+    <!-- بتلة يمين أعلى -->
+    <path d="M275 45 Q290 30 295 50 Q285 65 275 45 Z" transform="rotate(35, 285, 45)"/>
+    <!-- بتلة صغيرة -->
+    <path d="M55 125 Q65 115 68 128 Q60 138 55 125 Z"/>
+    <path d="M305 135 Q315 125 318 138 Q310 148 305 135 Z"/>
+  </g>
+
+  <!-- قلوب صغيرة عائمة للدلالة على المودة والتسامح -->
+  <g fill="#e86386" opacity="0.45">
+    <path d="M110 45 C110 38 102 34 97 40 C92 34 84 38 84 45 C84 54 97 62 97 62 C97 62 110 54 110 45 Z" transform="scale(0.8) translate(20, 10)"/>
+    <path d="M260 40 C260 33 252 29 247 35 C242 29 234 33 234 40 C234 49 247 57 247 57 C247 57 260 49 260 40 Z" transform="scale(0.8) translate(60, 5)"/>
+  </g>
+
+  <!-- تكوين باقة الاعتذار والقلب الرقيق -->
+  <g filter="url(#shadow-apology)">
+    <!-- قلب المودة المركزي اللطيف في الأعلى -->
+    <g transform="translate(180, 70)">
+      <path d="M0 25 C-38 -15 -18 -38 0 -20 C18 -38 38 -15 0 25 Z" fill="url(#heart-grad)"/>
+      <ellipse cx="-8" cy="-16" rx="6" ry="3" fill="#ffffff" opacity="0.6" transform="rotate(-30, -8, -16)"/>
+    </g>
+
+    <!-- وردة رقيقة رئيسية خوخية في المنتصف -->
+    <g transform="translate(180, 145)">
+      <circle cx="0" cy="0" r="28" fill="url(#peach-rose)"/>
+      <circle cx="0" cy="0" r="20" fill="#ffccbc"/>
+      <circle cx="0" cy="0" r="13" fill="#ff8a65"/>
+      <circle cx="0" cy="0" r="6" fill="#d84315"/>
+    </g>
+
+    <!-- وردة باستيل وردية يسار -->
+    <g transform="translate(125, 140)">
+      <circle cx="0" cy="0" r="22" fill="url(#pastel-rose)"/>
+      <circle cx="0" cy="0" r="15" fill="#f8bbd0"/>
+      <circle cx="0" cy="0" r="9" fill="#ec407a"/>
+      <circle cx="0" cy="0" r="4.5" fill="#880e4f"/>
+      <path d="M-10 12 Q-22 22 -14 30 Q-4 24 -4 14 Z" fill="#75884d"/>
+    </g>
+
+    <!-- وردة بيضاء نقية يمين -->
+    <g transform="translate(235, 140)">
+      <circle cx="0" cy="0" r="22" fill="#ffffff"/>
+      <circle cx="0" cy="0" r="16" fill="#fce4ec"/>
+      <circle cx="0" cy="0" r="10" fill="#f48fb1"/>
+      <circle cx="0" cy="0" r="5" fill="#c2185b"/>
+      <path d="M10 12 Q22 22 14 30 Q4 24 4 14 Z" fill="#75884d"/>
+    </g>
+
+    <!-- بطاقة رسالة اعتذار صغيرة مزينة بفيونكة -->
+    <g transform="translate(180, 182)">
+      <!-- مغلف أو بطاقة بيضاء -->
+      <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#ffffff" stroke="#f0c2cf" stroke-width="1.2"/>
+      <path d="M-35 -12 L0 5 L35 -12" fill="none" stroke="#eab1bf" stroke-width="1.2"/>
+      <!-- قلب صغير ختم على المغلف -->
+      <circle cx="0" cy="5" r="5" fill="#e91e63"/>
+      <path d="M0 6.5 C-3.5 3 -1.5 1 0 2.5 C1.5 1 3.5 3 0 6.5 Z" fill="#ffffff"/>
+    </g>
+  </g>
+</svg>
+

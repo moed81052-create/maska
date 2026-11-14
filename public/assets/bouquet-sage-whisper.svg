@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" width="100%" height="100%">
+  <defs>
+    <radialGradient id="sw-rose-peach" cx="45%" cy="38%" r="62%">
+      <stop offset="0%" stop-color="#fff4ef"/>
+      <stop offset="50%" stop-color="#f8c3af"/>
+      <stop offset="85%" stop-color="#df896d"/>
+      <stop offset="100%" stop-color="#b85a3d"/>
+    </radialGradient>
+    <radialGradient id="sw-rose-dusty" cx="42%" cy="36%" r="64%">
+      <stop offset="0%" stop-color="#fdf0f2"/>
+      <stop offset="50%" stop-color="#e3a7b5"/>
+      <stop offset="85%" stop-color="#b66679"/>
+      <stop offset="100%" stop-color="#8a374b"/>
+    </radialGradient>
+    <linearGradient id="sw-kraft-wrap" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eed8c1"/>
+      <stop offset="50%" stop-color="#dfc0a2"/>
+      <stop offset="100%" stop-color="#c9a37e"/>
+    </linearGradient>
+    <linearGradient id="sw-olive-ribbon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#84944b"/>
+      <stop offset="50%" stop-color="#647330"/>
+      <stop offset="100%" stop-color="#495520"/>
+    </linearGradient>
+    <linearGradient id="sw-eucalyptus" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#93a878"/>
+      <stop offset="100%" stop-color="#566940"/>
+    </linearGradient>
+    <filter id="sw-shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#404c1f" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#sw-shadow)">
+    <!-- أغصان الأوكالبتوس المريمية الكثيفة -->
+    <g fill="url(#sw-eucalyptus)">
+      <path d="M60 115 Q30 85 45 45 Q70 65 72 105 Z"/>
+      <circle cx="45" cy="60" r="9" fill="#a4b88a"/>
+      <circle cx="56" cy="80" r="11" fill="#758c5c"/>
+      <path d="M180 115 Q210 85 195 45 Q170 65 168 105 Z"/>
+      <circle cx="195" cy="60" r="9" fill="#a4b88a"/>
+      <circle cx="184" cy="80" r="11" fill="#758c5c"/>
+      <!-- غصن علوي مريمي ممتد -->
+      <path d="M120 60 Q105 20 115 15 Q125 35 122 65 Z"/>
+      <circle cx="112" cy="30" r="7" fill="#a4b88a"/>
+      <circle cx="118" cy="45" r="8" fill="#758c5c"/>
+    </g>
+
+    <!-- براعم أزهار برية مجففة بلون كريمي -->
+    <g fill="#fcf8f0" stroke="#dfd2bc" stroke-width="0.8">
+      <circle cx="72" cy="98" r="4"/><circle cx="82" cy="85" r="3.5"/><circle cx="68" cy="72" r="4"/>
+      <circle cx="168" cy="98" r="4"/><circle cx="158" cy="85" r="3.5"/><circle cx="172" cy="72" r="4"/>
+    </g>
+
+    <!-- غلاف كرافت بني طبيعي فاخر -->
+    <polygon points="60,110 180,110 145,230 95,230" fill="#c49a72"/>
+    <polygon points="50,115 190,115 140,240 100,240" fill="url(#sw-kraft-wrap)"/>
+    <path d="M50 115 Q90 135 120 240 L100 240 Z" fill="#f2e2d0" opacity="0.6"/>
+    <path d="M190 115 Q150 135 120 240 L140 240 Z" fill="#b88f67" opacity="0.45"/>
+
+    <!-- زهور همسة المريمي -->
+    <!-- وردة وردية عتيقة يسار -->
+    <g transform="translate(80, 108)">
+      <circle cx="0" cy="0" r="23" fill="url(#sw-rose-dusty)"/>
+      <circle cx="0" cy="0" r="16" fill="#d291a2"/>
+      <circle cx="0" cy="0" r="10" fill="#b05b70"/>
+      <circle cx="0" cy="0" r="5" fill="#fce4eb"/>
+      <path d="M-8 -14 Q0 -22 8 -14" fill="none" stroke="#fff" stroke-width="1.6" opacity="0.6"/>
+    </g>
+
+    <!-- وردة خوخية دافئة يمين -->
+    <g transform="translate(160, 108)">
+      <circle cx="0" cy="0" r="23" fill="url(#sw-rose-peach)"/>
+      <circle cx="0" cy="0" r="16" fill="#f0ad97"/>
+      <circle cx="0" cy="0" r="10" fill="#d6775a"/>
+      <circle cx="0" cy="0" r="5" fill="#fff0ea"/>
+      <path d="M-8 -14 Q0 -22 8 -14" fill="none" stroke="#fff" stroke-width="1.6" opacity="0.6"/>
+    </g>
+
+    <!-- زهرة قرنفل كارنيشن علوية خوخية -->
+    <g transform="translate(120, 75)">
+      <circle cx="0" cy="0" r="18" fill="url(#sw-rose-peach)"/>
+      <circle cx="0" cy="0" r="12" fill="#ffccbc"/>
+      <circle cx="0" cy="0" r="7" fill="#d84315"/>
+      <path d="M-6 -10 Q0 -16 6 -10" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.7"/>
+    </g>
+
+    <!-- وردة جورية مركزية كبرى مريمية دافئة -->
+    <g transform="translate(120, 120)">
+      <circle cx="0" cy="0" r="27" fill="url(#sw-rose-dusty)"/>
+      <circle cx="0" cy="0" r="19" fill="#c97c90"/>
+      <circle cx="0" cy="0" r="12" fill="#9e3e55"/>
+      <circle cx="0" cy="0" r="6" fill="#fedfe7"/>
+      <path d="M-12 -12 Q0 -24 12 -12" fill="none" stroke="#fff" stroke-width="2" opacity="0.7"/>
+      <path d="M-14 4 Q0 18 14 4" fill="none" stroke="#ffebee" stroke-width="1.6" opacity="0.6"/>
+    </g>
+
+    <!-- شريط زيتوني أنيق من قماش الكتان مع فيونكة -->
+    <g transform="translate(120, 205)">
+      <ellipse cx="0" cy="0" rx="18" ry="7" fill="url(#sw-olive-ribbon)"/>
+      <path d="M0 0 C-15 -18 -32 -6 -18 4 Z" fill="url(#sw-olive-ribbon)"/>
+      <path d="M0 0 C15 -18 32 -6 18 4 Z" fill="url(#sw-olive-ribbon)"/>
+      <circle cx="0" cy="0" r="4.5" fill="#dfe7c2"/>
+      <path d="M-4 5 Q-14 26 -22 36 M4 5 Q14 26 22 36" stroke="url(#sw-olive-ribbon)" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+    </g>
+  </g>
+</svg>
+

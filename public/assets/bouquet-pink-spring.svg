@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" width="100%" height="100%">
+  <defs>
+    <radialGradient id="ps-rose-1" cx="45%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#fff0f3"/>
+      <stop offset="45%" stop-color="#f8a5b8"/>
+      <stop offset="100%" stop-color="#df5c78"/>
+    </radialGradient>
+    <radialGradient id="ps-rose-2" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#fef5f7"/>
+      <stop offset="55%" stop-color="#f3b8c5"/>
+      <stop offset="100%" stop-color="#cf7286"/>
+    </radialGradient>
+    <linearGradient id="ps-wrap" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fce8ed"/>
+      <stop offset="60%" stop-color="#f7cad5"/>
+      <stop offset="100%" stop-color="#edaec0"/>
+    </linearGradient>
+    <linearGradient id="ps-ribbon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e25777"/>
+      <stop offset="100%" stop-color="#b62b4b"/>
+    </linearGradient>
+    <linearGradient id="ps-leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9eb560"/>
+      <stop offset="100%" stop-color="#677a2f"/>
+    </linearGradient>
+    <filter id="ps-shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#7a2a3e" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#ps-shadow)">
+    <!-- أوراق خضراء جانبية في الخلفية -->
+    <g fill="url(#ps-leaf)">
+      <path d="M70 110 Q40 85 55 55 Q75 75 78 105 Z"/>
+      <path d="M170 110 Q200 85 185 55 Q165 75 162 105 Z"/>
+      <path d="M120 70 Q120 30 135 25 Q140 50 130 75 Z"/>
+      <circle cx="50" cy="80" r="5" fill="#a4be5a"/>
+      <circle cx="190" cy="80" r="5" fill="#a4be5a"/>
+    </g>
+
+    <!-- حبّات جبسوفيلا بيضاء ناعمة متناثرة -->
+    <g fill="#ffffff" stroke="#f0cad2" stroke-width="0.8">
+      <circle cx="65" cy="95" r="4.5"/><circle cx="75" cy="82" r="3.5"/><circle cx="60" cy="72" r="4"/>
+      <circle cx="175" cy="95" r="4.5"/><circle cx="165" cy="82" r="3.5"/><circle cx="180" cy="72" r="4"/>
+      <circle cx="120" cy="52" r="4"/><circle cx="108" cy="45" r="3.5"/><circle cx="132" cy="48" r="4"/>
+    </g>
+
+    <!-- غلاف الباقة الوردي المخروطي -->
+    <!-- الطبقة الخلفية للغلاف -->
+    <polygon points="60,110 180,110 145,230 95,230" fill="#e9a3b5"/>
+    <polygon points="50,115 190,115 140,240 100,240" fill="url(#ps-wrap)"/>
+    <!-- طيات الغلاف الفاخرة -->
+    <path d="M50 115 Q90 135 120 240 L100 240 Z" fill="#fce4eb" opacity="0.6"/>
+    <path d="M190 115 Q150 135 120 240 L140 240 Z" fill="#eb9fb3" opacity="0.5"/>
+
+    <!-- ورود ربيع وردي الفاتنة -->
+    <!-- وردة يسار -->
+    <g transform="translate(82, 105)">
+      <circle cx="0" cy="0" r="22" fill="url(#ps-rose-2)"/>
+      <circle cx="0" cy="0" r="15" fill="#e8859b"/>
+      <circle cx="0" cy="0" r="9" fill="#d25873"/>
+      <circle cx="0" cy="0" r="4.5" fill="#fae2e8"/>
+      <path d="M-8 -14 Q0 -22 8 -14" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.6"/>
+    </g>
+
+    <!-- وردة يمين -->
+    <g transform="translate(158, 105)">
+      <circle cx="0" cy="0" r="22" fill="url(#ps-rose-2)"/>
+      <circle cx="0" cy="0" r="15" fill="#e8859b"/>
+      <circle cx="0" cy="0" r="9" fill="#d25873"/>
+      <circle cx="0" cy="0" r="4.5" fill="#fae2e8"/>
+      <path d="M-8 -14 Q0 -22 8 -14" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.6"/>
+    </g>
+
+    <!-- زهرة توليب وردية علوية -->
+    <g transform="translate(120, 75)">
+      <path d="M-15 15 C-22 -10 0 -22 0 -22 C0 -22 22 -10 15 15 C8 24 -8 24 -15 15 Z" fill="url(#ps-rose-1)"/>
+      <path d="M0 -20 C-6 -8 -4 14 0 18 C4 14 6 -8 0 -20 Z" fill="#ffffff" opacity="0.4"/>
+    </g>
+
+    <!-- وردة جورية مركزية كبرى -->
+    <g transform="translate(120, 118)">
+      <circle cx="0" cy="0" r="26" fill="url(#ps-rose-1)"/>
+      <circle cx="0" cy="0" r="18" fill="#e86380"/>
+      <circle cx="0" cy="0" r="11" fill="#be2d4d"/>
+      <circle cx="0" cy="0" r="5" fill="#ffdbe3"/>
+      <path d="M-12 -12 Q0 -24 12 -12" fill="none" stroke="#fff" stroke-width="2" opacity="0.7"/>
+      <path d="M-15 4 Q0 18 15 4" fill="none" stroke="#ffeef2" stroke-width="1.5" opacity="0.6"/>
+    </g>
+
+    <!-- شريط ساتان أحمر قرمزي أنيق مع فيونكة -->
+    <g transform="translate(120, 205)">
+      <ellipse cx="0" cy="0" rx="18" ry="7" fill="url(#ps-ribbon)"/>
+      <!-- جناحي الفيونكة -->
+      <path d="M0 0 C-15 -18 -32 -6 -18 4 Z" fill="url(#ps-ribbon)"/>
+      <path d="M0 0 C15 -18 32 -6 18 4 Z" fill="url(#ps-ribbon)"/>
+      <circle cx="0" cy="0" r="4.5" fill="#ffffff"/>
+      <!-- ذيل الشريط المتدلي -->
+      <path d="M-4 5 Q-14 26 -22 36 M4 5 Q14 26 22 36" stroke="url(#ps-ribbon)" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+    </g>
+  </g>
+</svg>
+

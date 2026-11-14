@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مسكة | تسجيل الدخول</title>
+  <script>try{const t=localStorage.getItem('maska-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 32px 20px;
+      background: #e9dcd7 url("assets/photos/login-bouquet.jpg") center 30% / cover no-repeat fixed;
+    }
+    /* طبقة خفيفة تهدّئ ألوان الصورة خلف النموذج */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(60% 70% at 50% 50%, rgba(35, 30, 28, 0.10), rgba(35, 30, 28, 0.28));
+      pointer-events: none;
+      z-index: 0;
+    }
+    [data-theme="dark"] body::before { background: rgba(10, 12, 8, 0.55); }
+
+    .login-card {
+      position: relative;
+      z-index: 1;
+      width: min(420px, 100%);
+      padding: 36px 34px 30px;
+      border-radius: 24px;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 30px 60px -30px rgba(30, 20, 20, 0.55);
+      backdrop-filter: blur(22px) saturate(140%);
+      -webkit-backdrop-filter: blur(22px) saturate(140%);
+      text-shadow: 0 1px 2px rgba(40, 25, 25, 0.25);
+    }
+    [data-theme="dark"] .login-card { background: rgba(20, 22, 16, 0.35); border-color: rgba(255, 255, 255, 0.16); }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+    .login-card .logo b, .login-card .logo small { color: #fff; -webkit-text-fill-color: #fff; }
+    .login-card h1 {
+      font-family: var(--display);
+      font-size: 34px;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.4;
+      margin-bottom: 26px;
+    }
+
+    .input-box { position: relative; margin-bottom: 16px; }
+    .input-box input {
+      width: 100%;
+      height: 52px;
+      border-radius: 999px;
+      padding: 0 22px 0 52px;
+      font-size: 15px;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      outline: none;
+      transition: background .2s, border-color .2s;
+    }
+    .input-box input::placeholder { color: rgba(255, 255, 255, 0.85); }
+    .input-box input:focus { background: rgba(255, 255, 255, 0.26); border-color: #fff; }
+    .input-box svg {
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      transform: translateY(-50%);
+      color: #fff;
+      pointer-events: none;
+    }
+    .input-box label {
+      position: absolute;
+      width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+    }
+
+    .remember-forgot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      margin: 4px 4px 22px;
+    }
+    .remember-forgot label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; min-height: 44px; }
+    .remember-forgot input { width: 16px; height: 16px; accent-color: #fff; }
+    .remember-forgot a, .register-link a {
+      color: #fff;
+      background-image: linear-gradient(currentColor, currentColor);
+      background-size: 0 1px;
+      background-position: 100% 100%;
+      background-repeat: no-repeat;
+      transition: background-size .25s var(--ease-out);
+      display: inline-flex; align-items: center; min-height: 44px;
+    }
+    .remember-forgot a:hover, .register-link a:hover { background-size: 100% 1px; }
+
+    /* الزر الرئيسي هنا زجاج أبيض كما في المرجع */
+    .login-card .btn-primary {
+      color: var(--olive-darker);
+      background: rgba(255, 255, 255, 0.88);
+      border-color: rgba(255, 255, 255, 0.95);
+      text-shadow: none;
+      font-weight: 700;
+      box-shadow: inset 0 1px 0 #fff, 0 12px 26px -14px rgba(30, 20, 20, 0.6);
+    }
+    .login-card .btn-primary:hover { background: #fff; color: var(--olive-darker); }
+
+    .register-link { text-align: center; font-size: 14px; margin-top: 14px; }
+    .register-link a { font-weight: 700; }
+
+    .login-card .theme-toggle-btn {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.5);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    @media (max-width: 480px) {
+      body { background-attachment: scroll; background-position: 45% 20%; }
+      .login-card { padding: 28px 22px 22px; }
+      .login-card h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <form class="login-card" id="login-form" novalidate>
+    <div class="card-top">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <button type="button" class="theme-toggle-btn" aria-label="تبديل الوضع الليلي" title="تبديل الوضع الليلي">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+
+    <h1>تسجيل الدخول</h1>
+
+    <div class="input-box">
+      <label for="email">البريد الإلكتروني</label>
+      <input id="email" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </div>
+    <div class="input-box">
+      <label for="pass">كلمة المرور</label>
+      <input id="pass" type="password" placeholder="كلمة المرور" autocomplete="current-password" required>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    </div>
+
+    <div class="remember-forgot">
+      <label><input type="checkbox" id="remember"> تذكّرني</label>
+      <a href="#">نسيت كلمة المرور؟</a>
+    </div>
+
+    <button class="btn btn-primary btn-block" type="submit">تسجيل الدخول</button>
+    <p class="register-link">ليس لديك حساب؟ <a href="#">إنشاء حساب</a></p>
+  </form>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

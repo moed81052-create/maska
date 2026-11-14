@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مسكة | استوديو التصميم — صمّم باقتك بنفسك</title>
+  <script>try{const t=localStorage.getItem('maska-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .studio {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 28px;
+      align-items: start;
+      padding-bottom: 80px;
+    }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .colors-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .flower-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 24px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+      border-radius: 16px;
+      border: 1px solid transparent;
+      transition: all 0.25s var(--ease-out);
+    }
+    .flower-row:hover {
+      background: rgba(255, 255, 255, 0.7);
+      border-color: rgba(235, 226, 220, 0.9);
+      box-shadow: var(--shadow-xs);
+      transform: translateX(-4px);
+    }
+    .flower-row .name {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .flower-row .dot {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      border: 2px solid #fff;
+    }
+    .flower-row h4 {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .flower-row small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .flower-row .line-price {
+      color: var(--price);
+      font-weight: 800;
+      min-width: 65px;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-xs);
+      cursor: pointer;
+      transition: all 0.25s var(--ease-spring);
+    }
+    .swatch:hover {
+      transform: scale(1.18);
+    }
+    .swatch.active {
+      box-shadow: 0 0 0 2.5px var(--olive), 0 4px 10px rgba(94, 107, 44, 0.3);
+      transform: scale(1.2);
+    }
+
+    /* المعاينة */
+    .preview-card {
+      position: sticky;
+      top: 100px;
+      box-shadow: var(--shadow-lg);
+    }
+    .preview-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .preview-head h3 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--olive);
+    }
+    .view-toggle {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: var(--radius-full);
+      padding: 5px;
+      width: max-content;
+      margin: 0 auto 18px;
+      border: 1px solid var(--line-strong);
+      box-shadow: var(--shadow-xs);
+    }
+    .view-toggle button {
+      padding: 7px 20px;
+      border-radius: var(--radius-full);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--muted);
+      transition: all 0.25s var(--ease-out);
+    }
+    .view-toggle button.active {
+      background: linear-gradient(135deg, var(--olive-2), var(--olive));
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(94, 107, 44, 0.25);
+    }
+    .preview {
+      height: 310px;
+      border-radius: 20px;
+      position: relative;
+    }
+    .preview img {
+      width: 48%;
+      transition: transform 0.6s var(--ease-spring);
+      animation: spin 10s linear infinite;
+      filter: drop-shadow(0 15px 25px rgba(120, 90, 80, 0.2));
+    }
+    .preview img.flat {
+      animation: none;
+      transform: none !important;
+    }
+    @keyframes spin {
+      0%, 100% { transform: rotateY(0) scale(1); }
+      50% { transform: rotateY(25deg) scale(1.03); }
+    }
+    .preview .plate {
+      position: absolute;
+      bottom: 28px;
+      width: 72%;
+      height: 42px;
+      border-radius: 50%;
+      border: 2px dashed #e3a9b6;
+      background: radial-gradient(ellipse at center, rgba(240, 190, 200, 0.5) 0%, rgba(240, 190, 200, 0.1) 70%);
+      box-shadow: 0 8px 20px rgba(218, 134, 153, 0.15);
+    }
+    .preview .b360 {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+    }
+    .preview .bsug {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+    }
+    .preview .hint {
+      position: absolute;
+      bottom: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .budget {
+      margin: 20px 0;
+      font-size: 13.5px;
+    }
+    .budget .labels {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .budget .used {
+      color: var(--price);
+      font-weight: 800;
+      transition: color 0.25s;
+    }
+    .budget .used.over {
+      color: #c0392b;
+    }
+    .bar {
+      height: 10px;
+      background: #ece8df;
+      border-radius: 99px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .bar i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--olive-2), var(--olive));
+      border-radius: 99px;
+      transition: width 0.35s var(--ease-out), background 0.35s;
+      box-shadow: 0 0 10px rgba(94, 107, 44, 0.4);
+    }
+    .bar i.over {
+      background: linear-gradient(90deg, #e74c3c, #c0392b);
+      box-shadow: 0 0 10px rgba(192, 57, 43, 0.4);
+    }
+    .summary {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      box-shadow: var(--shadow-sm);
+    }
+
+    @media (max-width: 960px) {
+      .studio { grid-template-columns: 1fr; }
+      .preview-card { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav class="nav">
+        <a href="index.html">الرئيسية</a>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html" class="active">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="track.html">تتبع الطلب</a>
+      </nav>
+      <div class="header-actions">
+        <button class="theme-toggle-btn" aria-label="تبديل الوضع الليلي" title="تبديل الوضع الليلي">
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <a href="cart.html" class="btn btn-primary btn-sm"><span>السلة (<span data-cart-count>2</span>)</span></a>
+        <a href="login.html" class="btn btn-ghost btn-sm">تسجيل الدخول</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="studio">
+    <div class="container">
+      <div class="page-head">
+        <h1 class="page-title">استوديو التصميم</h1>
+        <p class="page-sub">اختر الزهور والغلاف وشاهد السعر والمعاينة يتغيران مباشرة أثناء التصميم، كل ذلك ضمن ميزانيتك المحددة وبذوقك الخاص.</p>
+      </div>
+
+      <div class="studio">
+        <!-- الخطوات -->
+        <div class="stack">
+          <section class="card card-pad">
+            <h2 class="step-title"><span class="step-num olive">1</span> المناسبة والميزانية</h2>
+            <div class="grid-2">
+              <div class="field">
+                <label for="occasion">المناسبة</label>
+                <select id="occasion" class="select">
+                  <option>عيد ميلاد</option>
+                  <option>زفاف</option>
+                  <option>تخرج</option>
+                  <option>اعتذار</option>
+                  <option>شكر</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="budget">الميزانية (د.ل)</label>
+                <input id="budget" class="input" type="number" value="120" min="0">
+              </div>
+            </div>
+            <div class="colors-row">
+              <div class="chips">
+                <button class="chip active">أبيض</button>
+                <button class="chip">أخضر مريمي</button>
+                <button class="chip active">وردي</button>
+                <button class="chip">خوخي</button>
+              </div>
+              <span class="chip-label">درجات الألوان:</span>
+            </div>
+          </section>
+
+          <section class="card card-pad">
+            <h2 class="step-title"><span class="step-num olive">2</span> اختر الزهور وكمياتها</h2>
+            <div class="flower-row" data-price="4">
+              <div class="name">
+                <span class="dot" style="background:linear-gradient(135deg, #e57d98, #d45979)"></span>
+                <div>
+                  <h4>وردة جورية</h4>
+                  <small>4 د.ل للواحدة</small>
+                </div>
+              </div>
+              <span class="line-price">24 د.ل</span>
+              <div class="qty"><button class="plus">+</button><span>6</span><button class="minus">−</button></div>
+            </div>
+            <div class="flower-row" data-price="5">
+              <div class="name">
+                <span class="dot" style="background:linear-gradient(135deg, #f7b7c7, #e895a9)"></span>
+                <div>
+                  <h4>توليب وردي</h4>
+                  <small>5 د.ل للواحدة</small>
+                </div>
+              </div>
+              <span class="line-price">25 د.ل</span>
+              <div class="qty"><button class="plus">+</button><span>5</span><button class="minus">−</button></div>
+            </div>
+            <div class="flower-row" data-price="9">
+              <div class="name">
+                <span class="dot" style="background:linear-gradient(135deg, #fcf2f4, #f3d4dc)"></span>
+                <div>
+                  <h4>فاوانيا ملكية</h4>
+                  <small>9 د.ل للواحدة</small>
+                </div>
+              </div>
+              <span class="line-price">27 د.ل</span>
+              <div class="qty"><button class="plus">+</button><span>3</span><button class="minus">−</button></div>
+            </div>
+            <p class="note" style="margin-top:14px"> الكميات محدودة بالمخزون المتاح، ويظهر لك بديل فوري ومناسب إذا نفد أي صنف أثناء اختيارك.</p>
+          </section>
+
+          <section class="card card-pad">
+            <h2 class="step-title"><span class="step-num olive">3</span> الغلاف والشريط وبطاقة الإهداء</h2>
+            <div class="chips" id="wrap-chips" data-group="single" style="justify-content:flex-start">
+              <span class="chip-label" style="margin:0">نوع التغليف:</span>
+              <button class="chip active">ورق كرافت</button>
+              <button class="chip">ورق شفاف</button>
+              <button class="chip">قماش فاخر</button>
+            </div>
+            <div class="swatches" style="margin:18px 0">
+              <span class="chip-label" style="margin:0">لون الشريط:</span>
+              <span class="swatch" style="background:#fff"></span>
+              <span class="swatch active" style="background:#d9899b"></span>
+              <span class="swatch" style="background:#66702f"></span>
+              <span class="swatch" style="background:#8a2f40"></span>
+            </div>
+            <div class="field">
+              <label>رسالة الإهداء (تُكتب بخط اليد)</label>
+              <textarea class="textarea" id="gift-message-input" placeholder="اكتب عبارة الإهداء هنا لتُرفق ببطاقة أنيقة مع الباقة…"></textarea>
+            </div>
+            <!-- بطاقة المعاينة بالختم الشمعي -->
+            <div class="wax-seal-card" id="wax-card-preview">
+              <div class="wax-seal-badge"><i></i><span>MASKA</span></div>
+              <div class="wax-card-content">
+                <h5>بطاقة الإهداء الملكية المرفقة</h5>
+                <p class="wax-card-text" id="wax-card-text">"أجمل اللحظات هي التي تبدأ بوردة صادقة… كل عام وأنت بألف خير وسعادة."</p>
+                <span class="wax-card-sign">مختومة يدوياً بالشمع الملكي الأحمر</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- المعاينة -->
+        <aside class="card card-pad preview-card">
+          <div class="preview-head">
+            <h3>معاينة الباقة</h3>
+            <span class="badge badge-white">تصميم حي</span>
+          </div>
+          <div class="view-toggle">
+            <button class="active" data-view="3d">دوران 3D</button>
+            <button data-view="2d">معاينة ثابتة</button>
+          </div>
+          <div class="bouquet-box preview">
+            <span class="badge badge-white b360">360°</span>
+            <span class="badge badge-lime bsug">تناسق متوازن</span>
+            <div class="plate"></div>
+            <img src="assets/bouquet.svg" alt="معاينة الباقة" style="position:relative">
+            <span class="hint">← دوران تفاعلي ثلاثي الأبعاد →</span>
+          </div>
+
+          <div class="budget">
+            <div class="labels">
+              <span>الميزانية: <b id="budget-label">120 د.ل</b></span>
+              <span class="used">المستخدم: <b id="used-label">86 د.ل</b></span>
+            </div>
+            <div class="bar"><i id="budget-bar" style="width:72%"></i></div>
+          </div>
+
+          <div class="summary">
+            <div class="row"><span class="k" id="sum-flowers-label">الورد (14 زهرة)</span><span id="sum-flowers">76 د.ل</span></div>
+            <div class="row"><span class="k">الغلاف والشريط الفاخر</span><span>10 د.ل</span></div>
+            <div class="total-row"><span class="k">الإجمالي</span><span class="price" id="sum-total">86 د.ل</span></div>
+            <button class="btn btn-primary btn-block" id="add-studio">أضف إلى السلة — 86 د.ل</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="#">تواصل معنا</a>
+      </nav>
+      <small class="copy">© 2026 مسكة — مشروع تخرج</small>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

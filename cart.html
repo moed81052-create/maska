@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مسكة | السلة وإتمام الطلب</title>
+  <script>try{const t=localStorage.getItem('maska-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .checkout {
+      display: grid;
+      grid-template-columns: 1.65fr 1fr;
+      gap: 28px;
+      align-items: start;
+      padding-bottom: 80px;
+    }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .cart-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 24px;
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 20px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-xs);
+      transition: all 0.28s var(--ease-out);
+    }
+    .cart-item:hover {
+      box-shadow: var(--shadow-sm);
+      transform: translateY(-2px);
+      border-color: rgba(235, 226, 220, 0.95);
+    }
+    .cart-item .thumb {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #fce8ed, #f7dfe5);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 2px 6px rgba(218, 134, 153, 0.15);
+    }
+    .cart-item .thumb img {
+      width: 72%;
+      filter: drop-shadow(0 4px 8px rgba(120, 90, 80, 0.15));
+    }
+    .cart-item h4 {
+      font-size: 16.5px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .cart-item small {
+      color: var(--muted);
+      font-size: 12.5px;
+      display: block;
+      margin-top: 2px;
+    }
+    .cart-item .price {
+      min-width: 80px;
+      text-align: center;
+      font-size: 16px;
+    }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 30px;
+      font-size: 15px;
+    }
+    .full {
+      grid-column: 1 / -1;
+    }
+    .input.error, .textarea.error {
+      border-color: #d9899b;
+      box-shadow: 0 0 0 4px rgba(217, 137, 155, 0.25);
+    }
+    .summary-card {
+      position: sticky;
+      top: 100px;
+      box-shadow: var(--shadow-lg);
+    }
+    .summary-card h3 {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--olive);
+      margin-bottom: 14px;
+    }
+    .discount {
+      color: var(--olive);
+      font-weight: 700;
+    }
+    .coupon {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .coupon .btn {
+      flex-shrink: 0;
+    }
+    .cod {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12.5px;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 960px) {
+      .checkout { grid-template-columns: 1fr; }
+      .summary-card { position: static; }
+      .cart-item { grid-template-columns: auto 1fr; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav class="nav">
+        <a href="index.html">الرئيسية</a>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="track.html">تتبع الطلب</a>
+      </nav>
+      <div class="header-actions">
+        <button class="theme-toggle-btn" aria-label="تبديل الوضع الليلي" title="تبديل الوضع الليلي">
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <a href="cart.html" class="btn btn-primary btn-sm"><span>السلة (<span data-cart-count>2</span>)</span></a>
+        <a href="login.html" class="btn btn-ghost btn-sm">تسجيل الدخول</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="cart">
+    <div class="container">
+      <div class="page-head">
+        <h1 class="page-title">السلة وإتمام الطلب</h1>
+        <p class="page-sub">راجع باقاتك وأدخل بيانات التسليم وأكّد طلبك بكل سهولة وأمان.</p>
+      </div>
+
+      <div class="checkout">
+        <div class="stack">
+          <section class="card card-pad">
+            <h2 class="step-title"><span class="step-num pink">1</span> باقاتك المختارة</h2>
+            <div id="cart-items"></div>
+          </section>
+
+          <section class="card card-pad">
+            <h2 class="step-title"><span class="step-num pink">2</span> بيانات المستلم والتسليم</h2>
+            <div class="grid-2" id="delivery-form">
+              <div class="field">
+                <label>الاسم الكامل للمستلم</label>
+                <input class="input" placeholder="اسم المستلم" required>
+              </div>
+              <div class="field">
+                <label>رقم هاتف التواصل</label>
+                <input class="input" type="tel" placeholder="09X XXX XXXX" dir="ltr" style="text-align:right" required>
+              </div>
+              <div class="field">
+                <label>المدينة / المنطقة</label>
+                <input class="input" placeholder="مثال: طرابلس - النوفليين" required>
+              </div>
+              <div class="field">
+                <label>تاريخ ووقت التسليم المفضل</label>
+                <input class="input" type="datetime-local" required>
+              </div>
+              <div class="field full">
+                <label>العنوان بالتفصيل</label>
+                <textarea class="textarea" placeholder="اسم الشارع، أقرب نقطة دالة، أي تعليمات للتوصيل…" required></textarea>
+              </div>
+            </div>
+          </section>
+
+          <section class="card card-pad">
+            <h2 class="step-title"><span class="step-num pink">3</span> وسيلة الدفع المفضلة</h2>
+            <div class="chips" data-group="single">
+              <button class="chip active">الدفع عند الاستلام (كاش)</button>
+              <button class="chip">سداد / تداول / تداول بلس</button>
+              <button class="chip">تحويل مصرفي مباشر</button>
+            </div>
+          </section>
+        </div>
+
+        <aside class="card card-pad summary-card">
+          <h3>ملخص الطلب</h3>
+          <div class="row"><span class="k">المجموع الفرعي</span><span id="c-sub">150 د.ل</span></div>
+          <div class="row"><span class="k">خصم الكوبون</span><span class="discount" id="c-disc">−15 د.ل</span></div>
+          <div class="row"><span class="k">خدمة التوصيل</span><span id="c-del">10 د.ل</span></div>
+          <div class="divider"></div>
+          <div class="total-row"><span class="k">الإجمالي النهائي</span><span class="price" id="c-total">145 د.ل</span></div>
+          <div class="coupon">
+            <input class="input" id="coupon" placeholder="كود الخصم (جرب MASKA15)">
+            <button class="btn btn-ghost" id="apply-coupon">تطبيق</button>
+          </div>
+          <button class="btn btn-primary btn-block" id="confirm">تأكيد الطلب الآن</button>
+          <p class="cod"> الدفع الآمن عند الاستلام والمعاينة</p>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="#">تواصل معنا</a>
+      </nav>
+      <small class="copy">© 2026 مسكة — مشروع تخرج</small>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

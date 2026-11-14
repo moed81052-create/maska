@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f6f7eb"/>
+      <stop offset="50%" stop-color="#e8edd1"/>
+      <stop offset="100%" stop-color="#dbe4b8"/>
+    </linearGradient>
+    <radialGradient id="grad-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#e4ebb8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cap-dark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3d461f"/>
+      <stop offset="60%" stop-color="#2c3314"/>
+      <stop offset="100%" stop-color="#1b210a"/>
+    </linearGradient>
+    <linearGradient id="gold-tassel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe28a"/>
+      <stop offset="50%" stop-color="#d4aa37"/>
+      <stop offset="100%" stop-color="#a07a1b"/>
+    </linearGradient>
+    <linearGradient id="sun-yellow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffdc5e"/>
+      <stop offset="60%" stop-color="#f4b728"/>
+      <stop offset="100%" stop-color="#d48c08"/>
+    </linearGradient>
+    <filter id="shadow-grad" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#384218" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <!-- خلفية متدرجة ملكية -->
+  <rect width="360" height="240" fill="url(#bg-grad)"/>
+
+  <!-- هالة احتفال مشعة -->
+  <circle cx="180" cy="115" r="110" fill="url(#grad-glow)"/>
+
+  <!-- نجوم الاحتفال بالنجاح والتخرج -->
+  <g fill="#d8ae35" opacity="0.75">
+    <path d="M50 50 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 z"/>
+    <path d="M305 60 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 z"/>
+    <path d="M100 25 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z"/>
+    <path d="M260 30 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z"/>
+    <circle cx="70" cy="110" r="3" fill="#697a31"/>
+    <circle cx="290" cy="120" r="3" fill="#d8ae35"/>
+  </g>
+
+  <!-- تكوين قبعة التخرج وشهادة النجاح والزهور -->
+  <g filter="url(#shadow-grad)">
+    <!-- زهور وريحان التخرج في الخلفية -->
+    <!-- زهرة دوار شمس / جوري ذهبي يسار -->
+    <g transform="translate(115, 155)">
+      <!-- بتلات -->
+      <g fill="url(#sun-yellow)">
+        <ellipse cx="0" cy="-22" rx="6" ry="14"/>
+        <ellipse cx="16" cy="-16" rx="6" ry="14" transform="rotate(45, 16, -16)"/>
+        <ellipse cx="22" cy="0" rx="6" ry="14" transform="rotate(90, 22, 0)"/>
+        <ellipse cx="16" cy="16" rx="6" ry="14" transform="rotate(135, 16, 16)"/>
+        <ellipse cx="0" cy="22" rx="6" ry="14"/>
+        <ellipse cx="-16" cy="16" rx="6" ry="14" transform="rotate(45, -16, 16)"/>
+        <ellipse cx="-22" cy="0" rx="6" ry="14" transform="rotate(90, -22, 0)"/>
+        <ellipse cx="-16" cy="-16" rx="6" ry="14" transform="rotate(135, -16, -16)"/>
+      </g>
+      <!-- قلب الزهرة البني الداكن -->
+      <circle cx="0" cy="0" r="14" fill="#61441a"/>
+      <circle cx="0" cy="0" r="10" fill="#442f11"/>
+    </g>
+
+    <!-- زهرة ملكية بنفسجية/وردية يمين -->
+    <g transform="translate(245, 155)">
+      <circle cx="0" cy="0" r="22" fill="#91538c"/>
+      <circle cx="0" cy="0" r="15" fill="#ba7bb5"/>
+      <circle cx="0" cy="0" r="9" fill="#e2aedf"/>
+      <circle cx="0" cy="0" r="4" fill="#ffffff"/>
+      <path d="M12 12 Q24 20 16 30 Q6 24 6 14 Z" fill="#6a7d36"/>
+    </g>
+
+    <!-- وثيقة التخرج والشهادة الملفوفة بشريط أحمر في المنتصف -->
+    <g transform="translate(180, 165)">
+      <!-- أوراق الشهادة الملفوفة العاجية -->
+      <rect x="-42" y="-9" width="84" height="18" rx="4" fill="#ffffff" stroke="#e0dbcb" stroke-width="1.2"/>
+      <ellipse cx="-42" cy="0" rx="3" ry="9" fill="#f2ecdc"/>
+      <ellipse cx="42" cy="0" rx="3" ry="9" fill="#ffffff"/>
+      <!-- شريط الشهادة الأحمر الملكي -->
+      <rect x="-7" y="-10" width="14" height="20" fill="#c0392b" rx="2"/>
+      <!-- ذيل شريط الشهادة -->
+      <path d="M-6 10 L-10 24 L-2 20 L2 24 L0 10 Z" fill="#c0392b"/>
+    </g>
+
+    <!-- قبعة التخرج (Mortarboard Cap) الأنيقة في الأعلى -->
+    <g transform="translate(180, 75)">
+      <!-- جسم القبعة السفلي (الجمجمة) -->
+      <path d="M-30 20 Q0 35 30 20 L30 10 Q0 25 -30 10 Z" fill="url(#cap-dark)"/>
+
+      <!-- سطح القبعة المعين المائل -->
+      <polygon points="0,-18 72,6 0,26 -72,6" fill="url(#cap-dark)" stroke="#525e2d" stroke-width="1.2"/>
+
+      <!-- زر منتصف القبعة -->
+      <circle cx="0" cy="4" r="4.5" fill="url(#gold-tassel)"/>
+
+      <!-- حبل الشرابة الذهبية المتدلية -->
+      <path d="M0 4 Q35 12 45 28" fill="none" stroke="url(#gold-tassel)" stroke-width="2.5"/>
+      <!-- رأس الشرابة الذهبية وحباتها -->
+      <ellipse cx="45" cy="30" rx="3" ry="4" fill="#a07a1b"/>
+      <polygon points="41,32 49,32 52,52 38,52" fill="url(#gold-tassel)"/>
+    </g>
+  </g>
+</svg>
+

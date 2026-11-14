@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مسكة | الرئيسية — باقات ورد بتصميمك</title>
+  <script>try{const t=localStorage.getItem('maska-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav class="nav">
+        <a href="index.html" class="active">الرئيسية</a>
+        <a href="index.html#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="track.html">تتبع الطلب</a>
+      </nav>
+      <div class="header-actions">
+        <button class="theme-toggle-btn" aria-label="تبديل الوضع الليلي" title="تبديل الوضع الليلي">
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <a href="cart.html" class="btn btn-primary btn-sm"><span>السلة (<span data-cart-count>2</span>)</span></a>
+        <a href="login.html" class="btn btn-ghost btn-sm">تسجيل الدخول</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="info-strip">
+    <div class="container">
+      <span>ورد طبيعي يُنسَّق في نفس يوم الطلب</span>
+      <span>توصيل داخل طرابلس وبنغازي ومصراتة</span>
+      <span>بطاقة إهداء مكتوبة باليد مع كل باقة</span>
+    </div>
+  </div>
+
+  <main class="page">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-copy">
+          <p class="hero-eyebrow">محل ورد إلكتروني · ليبيا</p>
+          <h1>صمّم باقتك الخاصة <em>بحسب ميزانيتك</em> ومناسبتك</h1>
+          <p class="hero-lead">اختر الورد والألوان والتغليف وشاهد السعر يتغيّر وأنت تختار، أو اكتب وصفك ودع المصمم الذكي يقترح باقة من الزهور المتوفرة فعلاً في المحل.</p>
+          <div class="actions">
+            <a href="studio.html" class="btn btn-primary">ابدأ تصميم باقتك</a>
+            <a href="designer.html" class="btn btn-ghost">جرّب المصمم الذكي</a>
+          </div>
+          <dl class="hero-facts">
+            <div><dt>1,400+</dt><dd>باقة سُلّمت</dd></div>
+            <div><dt>4.9</dt><dd>تقييم العملاء</dd></div>
+            <div><dt>ساعتان</dt><dd>توصيل نفس اليوم</dd></div>
+          </dl>
+        </div>
+        <div class="hero-art">
+          <div class="arch">
+            <img src="assets/flowers.svg" alt="باقة ورد من مسكة">
+          </div>
+          <div class="glass-tag">
+            <small>الباقات تبدأ من</small>
+            <b>64 د.ل</b>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Occasions -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-title">تسوّق حسب المناسبة</h2>
+        <div class="occasions">
+          <a href="studio.html?occasion=عيد ميلاد" class="card occasion-card">
+            <div class="occasion-img-box">
+              <img src="assets/occasion-birthday.svg" alt="عيد ميلاد" loading="lazy">
+              <span class="occasion-tag badge-pink">عيد ميلاد</span>
+            </div>
+            <div class="occasion-body">
+              <h3>عيد ميلاد</h3>
+              <p>باقات مبهجة تزرع الفرح والابتسامة في يوم ميلاد من تحب</p>
+              <span class="occasion-btn">تصفّح الباقات <span>←</span></span>
+            </div>
+          </a>
+
+          <a href="studio.html?occasion=زفاف" class="card occasion-card">
+            <div class="occasion-img-box">
+              <img src="assets/occasion-wedding.svg" alt="زفاف وخطوبة" loading="lazy">
+              <span class="occasion-tag badge-lime">زفاف وخطوبة</span>
+            </div>
+            <div class="occasion-body">
+              <h3>زفاف وخطوبة</h3>
+              <p>أناقة عاجية وتصاميم ملكية تليق بأجمل ليالي العمر</p>
+              <span class="occasion-btn">تصفّح الباقات <span>←</span></span>
+            </div>
+          </a>
+
+          <a href="studio.html?occasion=تخرج" class="card occasion-card">
+            <div class="occasion-img-box">
+              <img src="assets/occasion-graduation.svg" alt="تخرج ونجاح" loading="lazy">
+              <span class="occasion-tag badge-lime">تخرج ونجاح</span>
+            </div>
+            <div class="occasion-body">
+              <h3>تخرج ونجاح</h3>
+              <p>باقات احتفالية مهيبة تتوج سنوات الجهد والإنجاز</p>
+              <span class="occasion-btn">تصفّح الباقات <span>←</span></span>
+            </div>
+          </a>
+
+          <a href="studio.html?occasion=اعتذار" class="card occasion-card">
+            <div class="occasion-img-box">
+              <img src="assets/occasion-apology.svg" alt="اعتذار ومودة" loading="lazy">
+              <span class="occasion-tag badge-pink">اعتذار ومودة</span>
+            </div>
+            <div class="occasion-body">
+              <h3>اعتذار ومودة</h3>
+              <p>ورود رقيقة تحمل أصدق المشاعر وتصلح كل خاطر</p>
+              <span class="occasion-btn">تصفّح الباقات <span>←</span></span>
+            </div>
+          </a>
+
+          <a href="studio.html?occasion=شكر" class="card occasion-card">
+            <div class="occasion-img-box">
+              <img src="assets/occasion-thanks.svg" alt="شكر وامتنان" loading="lazy">
+              <span class="occasion-tag badge-lime">شكر وامتنان</span>
+            </div>
+            <div class="occasion-body">
+              <h3>شكر وامتنان</h3>
+              <p>زهور مشعة تعبّر عن أسمى آيات التقدير والوفاء</p>
+              <span class="occasion-btn">تصفّح الباقات <span>←</span></span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ready bouquets -->
+    <section class="section" id="bouquets">
+      <div class="container">
+        <div class="section-head">
+          <h2 class="section-title">باقات جاهزة</h2>
+          <a href="#bouquets" class="link-pink">عرض كل الباقات ←</a>
+        </div>
+
+        <!-- أزرار تصفية الباقات -->
+        <div class="product-filter">
+          <button class="filter-btn active" data-filter="all">الكل (4)</button>
+          <button class="filter-btn" data-filter="عيد ميلاد">أعياد ميلاد</button>
+          <button class="filter-btn" data-filter="زفاف">زفاف وخطوبة</button>
+          <button class="filter-btn" data-filter="شكر">شكر وامتنان</button>
+          <button class="filter-btn" data-filter="تخرج">تخرج ونجاح</button>
+        </div>
+
+        <div class="products">
+          <article class="card product" data-category="عيد ميلاد">
+            <div class="bouquet-box">
+              <span class="badge badge-pink badge-float">الأكثر طلباً</span>
+              <img src="assets/bouquet-pink-spring.svg" alt="ربيع وردي" loading="lazy">
+              <button class="quick-view-btn" data-quick="ربيع وردي" type="button">نظرة سريعة</button>
+            </div>
+            <div class="info">
+              <span class="tag">عيد ميلاد</span>
+              <h3>ربيع وردي</h3>
+              <div class="foot">
+                <span class="price">64 د.ل</span>
+                <button class="btn btn-ghost btn-sm" data-add='{"name":"ربيع وردي","price":64,"desc":"باقة جاهزة"}'>أضف للسلة</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card product" data-category="زفاف">
+            <div class="bouquet-box">
+              <span class="badge badge-lime badge-float">فاخرة</span>
+              <img src="assets/bouquet-ivory-elegance.svg" alt="أناقة العاج" loading="lazy">
+              <button class="quick-view-btn" data-quick="أناقة العاج" type="button">نظرة سريعة</button>
+            </div>
+            <div class="info">
+              <span class="tag">زفاف</span>
+              <h3>أناقة العاج</h3>
+              <div class="foot">
+                <span class="price">78 د.ل</span>
+                <button class="btn btn-ghost btn-sm" data-add='{"name":"أناقة العاج","price":78,"desc":"باقة جاهزة"}'>أضف للسلة</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card product" data-category="شكر">
+            <div class="bouquet-box">
+              <img src="assets/bouquet-sage-whisper.svg" alt="همسة المريمي" loading="lazy">
+              <button class="quick-view-btn" data-quick="همسة المريمي" type="button">نظرة سريعة</button>
+            </div>
+            <div class="info">
+              <span class="tag">شكر</span>
+              <h3>همسة المريمي</h3>
+              <div class="foot">
+                <span class="price">92 د.ل</span>
+                <button class="btn btn-ghost btn-sm" data-add='{"name":"همسة المريمي","price":92,"desc":"باقة جاهزة"}'>أضف للسلة</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card product" data-category="تخرج">
+            <div class="bouquet-box">
+              <span class="badge badge-pink badge-float">ملكية</span>
+              <img src="assets/bouquet-royal.svg" alt="الباقة الملكية" loading="lazy">
+              <button class="quick-view-btn" data-quick="الباقة الملكية" type="button">نظرة سريعة</button>
+            </div>
+            <div class="info">
+              <span class="tag">تخرج</span>
+              <h3>الباقة الملكية</h3>
+              <div class="foot">
+                <span class="price">120 د.ل</span>
+                <button class="btn btn-ghost btn-sm" data-add='{"name":"الباقة الملكية","price":120,"desc":"باقة جاهزة"}'>أضف للسلة</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Delivery & tracking -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-title">التوصيل والتتبع</h2>
+        <div class="delivery">
+          <div class="card feature">
+            <div class="dot-radar"></div>
+            <h3>توصيل في موعدك</h3>
+            <p>اختر اليوم والوقت المناسبين لتسليم الباقة بدقة متناهية، ويمكن طلب التوصيل لنفس اليوم.</p>
+          </div>
+          <div class="card feature">
+            <div class="dot-radar"></div>
+            <h3>مناطق التوصيل</h3>
+            <p>تظهر رسوم التوصيل حسب منطقتك بكل شفافية ووضوح قبل تأكيد طلبك.</p>
+          </div>
+          <div class="card feature">
+            <div class="dot-radar"></div>
+            <h3>تتبع كل خطوة</h3>
+            <p>استلام، تجهيز، توصيل، تسليم. وتصلك حالة الطلب وإشعار فوري في كل مرحلة.</p>
+          </div>
+          <form class="card track-card" action="track.html">
+            <h3>تتبّع طلبك</h3>
+            <p>أدخل رقم الطلب لمعرفة حالته ومكانه الآن مباشرة.</p>
+            <input class="input" name="order" placeholder="رقم الطلب، مثال: 1048" style="margin-bottom:12px">
+            <button class="btn btn-primary btn-block">تتبع الآن</button>
+            <div class="mini-steps">
+              <div class="done"><i></i>استلام</div>
+              <div class="done"><i></i>تجهيز</div>
+              <div><i></i>توصيل</div>
+              <div><i></i>تسليم</div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-title">كيف تعمل مسكة؟</h2>
+        <div class="how">
+          <div class="card">
+            <div class="num">1</div>
+            <h3>حدّد الميزانية والمناسبة</h3>
+            <p>أخبرنا بمناسبتك وألوانك المفضلة والمبلغ الذي تريد صرفه بدقة وسهولة.</p>
+          </div>
+          <div class="card">
+            <div class="num">2</div>
+            <h3>صمّم أو اقترح</h3>
+            <p>اختر الزهور بنفسك قطعة بقطعة، أو اكتب وصفك ليقترح المصمم الذكي باقة متكاملة.</p>
+          </div>
+          <div class="card">
+            <div class="num">3</div>
+            <h3>اطلب وتابع براحة بال</h3>
+            <p>أكّد طلبك وتابع كل مراحله عبر شاشة التتبع حتى وصول الباقة لباب من تحب.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="section">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2 class="section-title">قصص وتجارب أحباب مسكة</h2>
+            <p class="section-sub">أكثر من 1,400 ابتسـامة وثقة لا تُثمّن زرعناها في مختلف المدن الليبية</p>
+          </div>
+          <span class="badge badge-pink">تقييم 4.9 ★ من عملائنا</span>
+        </div>
+        <div class="testimonials">
+          <div class="review-card">
+            <div class="review-head">
+              <span class="review-stars">★★★★★</span>
+              <span class="review-badge">طلب مؤكد ✓</span>
+            </div>
+            <p class="review-quote">"طلبت باقة ربيع وردي لعيد ميلاد أختي، التغليف اليدوي والكرت المكتوب بخط أنيق مع الختم الشمعي خلى المفاجأة استثنائية! والورد قعد نضر ومفتح أكثر من 12 يوم."</p>
+            <div class="reviewer">
+              <div class="reviewer-avatar">س</div>
+              <div class="reviewer-info">
+                <h4>سارة الورفلي</h4>
+                <span>طرابلس — باقة ربيع وردي</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-card">
+            <div class="review-head">
+              <span class="review-stars">★★★★★</span>
+              <span class="review-badge">طلب مؤكد ✓</span>
+            </div>
+            <p class="review-quote">"فكرة المصمم الذكي اختصرت عليّ ساعات من التفكير. حددت ميزانيتي والمناسبة واقترحلي توليفة زهور وتنسيق أفخم مما تخيلت، والتوصيل كان في الموعد بالدقيقة."</p>
+            <div class="reviewer">
+              <div class="reviewer-avatar">أ</div>
+              <div class="reviewer-info">
+                <h4>م. أسامة التاجوري</h4>
+                <span>بنغازي — تصميم ذكي مخصص</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-card">
+            <div class="review-head">
+              <span class="review-stars">★★★★★</span>
+              <span class="review-badge">طلب مؤكد ✓</span>
+            </div>
+            <p class="review-quote">"باقة أناقة العاج في يوم عقد قراني كانت حديث كل الحاضرين في الصالة! لمسة زهور التوليب البيضاء مع شريط الساتان راقية جداً وذوق لا يوصف."</p>
+            <div class="reviewer">
+              <div class="reviewer-avatar">ن</div>
+              <div class="reviewer-info">
+                <h4>نور الهدى القماطي</h4>
+                <span>مصراتة — باقة أناقة العاج</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-title">الأسئلة الشائعة والعناية بالزهور</h2>
+        <p class="section-sub" style="margin-bottom:28px">كل ما تود معرفته عن باقات مسكة، مواعيد التوصيل، والكرت الشمعي الفاخر.</p>
+        
+        <div class="faq-list">
+          <div class="faq-item active">
+            <button class="faq-question" type="button">
+              <span>هل الزهور طبيعية وطازجة يومياً؟</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              نعم، نحرص في مسكة على استيراد وانتقاء أفضل أنواع الزهور الطبيعية يومياً (زهور هولندية، كينية وإكوادورية فائقة الجودة)، وتُحفظ في غرف تبريد بدرجة حرارة ورطوبة مدروسة لضمان وصولها بأعلى درجات النضارة والحيوية.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span>كم يستغرق التوصيل داخل المدن الليبية؟</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              يتوفر لدينا توصيل سريع في نفس اليوم خلال ساعتين إلى 4 ساعات كحد أقصى داخل نطاق التوصيل. كما يمكنك جدولة تاريخ وساعة التوصيل بدقة مسبقاً لضمان وصول هديتك في اللحظة المنشودة.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span>هل يتم إرفاق كرت إهداء مع الباقة؟ وهل هو مجاني؟</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              نعم، مع كل طلب نقدّم بطاقة إهداء فاخرة مجاناً تُكتب بخط اليد بحبر أنيق ومغلفة بختم شمعي أحمر يضفي طابعاً ملكياً خاصاً لهديتك. يمكنك كتابة عبارة الإهداء أثناء تخصيص الباقة أو في السلة.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span>كيف أحافظ على نضارة الباقة لأطول فترة ممكنة؟</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              للحفاظ على جمال الزهور: قص أطراف السيقان بمقدار 2 سم بزاوية 45 درجة تحت الماء، بدّل ماء المزهرية كل يومين وضع المغذي المرفق، وأبعد الباقة عن تيار الهواء المباشر، وأشعة الشمس الحارقة أو الأجهزة الإلكترونية الدافئة.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span>ما هي طرق الدفع المتوفرة لديكم؟</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              نوفر خيارات دفع مرنة تشمل الدفع عند الاستلام (كاش)، والتحويل عبر التطبيقات المصرفية المحلية (سداد، تداول، يسر باي، إدفع لي)، بالإضافة إلى بطاقات الدفع الإلكتروني.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- CTA -->
+  <section class="cta-band">
+    <div class="container">
+      <div>
+        <span class="eyebrow">المصمم الذكي</span>
+        <h2>اكتب مناسبتك وميزانيتك…<br>ونحن نقترح لك الباقة المثالية</h2>
+        <p>يقرأ النظام وصفك، ثم يبني الباقة من الأصناف المتوفرة فعلاً بسعر دقيق ومحسوب ضمن ميزانيتك.</p>
+        <a href="designer.html" class="btn btn-light">جرّب المصمم الذكي الآن</a>
+      </div>
+      <div class="bouquet-mini"><img src="assets/bouquet.svg" alt="باقة"></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <a href="index.html" class="logo"><b>MASKA</b><small>مسكة</small></a>
+      <nav>
+        <a href="#bouquets">الباقات</a>
+        <a href="studio.html">صمّم باقتك</a>
+        <a href="designer.html">المصمم الذكي</a>
+        <a href="#">تواصل معنا</a>
+        <a href="#">الخصوصية</a>
+      </nav>
+      <small class="copy">© 2026 مسكة — مشروع تخرج</small>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
