@@ -61,6 +61,8 @@ export const api = {
   addFlower: (flowerData) => request('/inventory', { method: 'POST', body: flowerData }),
   updateFlower: (id, flowerData) => request(`/inventory/${id}`, { method: 'PUT', body: flowerData }),
   deleteFlower: (id) => request(`/inventory/${id}`, { method: 'DELETE' }),
+  uploadFlowerAngle: (angle, base64Data, fileName = '') => 
+    request('/upload/flower-angle', { method: 'POST', body: { angle, base64Data, fileName } }),
   updateInventory: (flowerId, quantity, unitPrice = null) => 
     request(`/inventory/${flowerId}`, { method: 'PATCH', body: { quantity, unitPrice } }),
 

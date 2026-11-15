@@ -114,6 +114,7 @@
     image_stem: '/assets/flowers/pink-rose-stem.svg',
     description: '',
     activeAnglePreview: 'front',
+    uploadingAngle: '',
     saving: false,
     errorMsg: '',
     successMsg: ''
@@ -124,6 +125,131 @@
     flower: null,
     activeAngle: 'front'
   };
+
+  function getAngleLabel(angle) {
+    switch (angle) {
+      case 'front': return 'الزاوية الأمامية';
+      case 'side': return 'الزاوية الجانبية';
+      case 'top': return 'الزاوية العلوية والبتلات';
+      case 'stem': return 'تفاصيل الساق والأوراق';
+      default: return angle;
+    }
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleAngleFileUpload(event, angle) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    flowerModal.uploadingAngle = angle;
+    flowerModal.errorMsg = '';
+    flowerModal.successMsg = '';
+
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await api.uploadFlowerAngle(angle, base64, file.name);
+      const fileUrl = res.url || base64;
+
+      flowerModal['image_' + angle] = fileUrl;
+      flowerModal.activeAnglePreview = angle;
+      flowerModal.successMsg = `تم رفع وتعيين صورة (${getAngleLabel(angle)}) بنجاح 🌸`;
+    } catch (err) {
+      console.error('Upload error:', err);
+      try {
+        const base64 = await fileToBase64(file);
+        flowerModal['image_' + angle] = base64;
+        flowerModal.activeAnglePreview = angle;
+        flowerModal.successMsg = `تم اعتماد صورة (${getAngleLabel(angle)}) بنجاح 🌸`;
+      } catch (e) {
+        flowerModal.errorMsg = 'تعذر قراءة ملف الصورة: ' + (err.message || 'خطأ');
+      }
+    } finally {
+      flowerModal.uploadingAngle = '';
+      if (event.target) event.target.value = '';
+    }
+  }
+
+  async function handleBulkAngleUpload(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    flowerModal.uploadingAngle = 'bulk';
+    flowerModal.errorMsg = '';
+    flowerModal.successMsg = `جاري معالجة ورفع ${Math.min(files.length, 4)} صور للزوايا...`;
+
+    const angleKeys = ['front', 'side', 'top', 'stem'];
+    let count = 0;
+
+    for (let i = 0; i < Math.min(files.length, 4); i++) {
+      const file = files[i];
+      const angle = angleKeys[i];
+      try {
+        const base64 = await fileToBase64(file);
+        const res = await api.uploadFlowerAngle(angle, base64, file.name);
+        flowerModal['image_' + angle] = res.url || base64;
+        count++;
+      } catch (err) {
+        const base64 = await fileToBase64(file);
+        flowerModal['image_' + angle] = base64;
+        count++;
+      }
+    }
+
+    flowerModal.uploadingAngle = '';
+    flowerModal.successMsg = `تم بنجاح رفع وتعيين ${count} صور لزوايا الوردة 🌸`;
+    flowerModal.activeAnglePreview = 'front';
+    if (event.target) event.target.value = '';
+  }
+
+  function downloadImageFile(url, fileName) {
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || 'flower-angle.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function downloadAllFlowerAngles(flower) {
+    if (!flower) return;
+    const cleanName = (flower.name_ar || 'flower').replace(/\s+/g, '_');
+    const angles = [
+      { key: 'front', label: '1_front', url: flower.image_front || flower.image_url },
+      { key: 'side', label: '2_side', url: flower.image_side },
+      { key: 'top', label: '3_top', url: flower.image_top },
+      { key: 'stem', label: '4_stem', url: flower.image_stem }
+    ];
+
+    angles.forEach((item, index) => {
+      if (item.url) {
+        setTimeout(() => {
+          const ext = item.url.includes('.svg') ? 'svg' : (item.url.includes('.webp') ? 'webp' : 'jpg');
+          downloadImageFile(item.url, `${cleanName}_${item.label}.${ext}`);
+        }, index * 250);
+      }
+    });
+  }
+
+  function getCurrentViewerUrl() {
+    if (!flowerAnglesViewer.flower) return '';
+    const f = flowerAnglesViewer.flower;
+    switch (flowerAnglesViewer.activeAngle) {
+      case 'front': return f.image_front || f.image_url || '/assets/flowers/pink-rose-front.svg';
+      case 'side': return f.image_side || '/assets/flowers/pink-rose-side.svg';
+      case 'top': return f.image_top || '/assets/flowers/pink-rose-top.svg';
+      case 'stem': return f.image_stem || '/assets/flowers/pink-rose-stem.svg';
+      default: return f.image_front || f.image_url;
+    }
+  }
 
   const flowerPresets = [
     { name: 'جوري وردي نضر', color: 'وردي', price: 4, front: '/assets/flowers/pink-rose-front.svg', side: '/assets/flowers/pink-rose-side.svg', top: '/assets/flowers/pink-rose-top.svg', stem: '/assets/flowers/pink-rose-stem.svg' },
@@ -160,6 +286,7 @@
       image_stem: '/assets/flowers/pink-rose-stem.svg',
       description: '',
       activeAnglePreview: 'front',
+      uploadingAngle: '',
       saving: false,
       errorMsg: '',
       successMsg: ''
@@ -182,6 +309,7 @@
       image_stem: f.image_stem || '/assets/flowers/pink-rose-stem.svg',
       description: f.description || '',
       activeAnglePreview: 'front',
+      uploadingAngle: '',
       saving: false,
       errorMsg: '',
       successMsg: ''
@@ -1415,16 +1543,24 @@
             </div>
           </div>
 
-          <!-- قسم صور الزوايا المتعددة -->
+          <!-- قسم صور الزوايا المتعددة ورفع الصور -->
           <div class="angles-config-section">
             <div class="angles-header-flex">
               <div>
-                <h4 class="angles-section-title">📷 صور الزهرة من كافة الزوايا (Front / Side / Top / Stem)</h4>
-                <p class="angles-section-desc">وثق مظهر الوردة ليتسنى للمنسقين والزبائن استعراضها بزوايا 360°</p>
+                <h4 class="angles-section-title">📷 صور الزهرة من كافة الزوايا الأربعة (Front / Side / Top / Stem)</h4>
+                <p class="angles-section-desc">يمكنك رفع صور حقيقية من جهازك أو التقاطها بالكاميرا لكل زاوية، أو اختيار توليفة جاهزة أدناه</p>
+              </div>
+
+              <!-- زر الرفع الجماعي للأربع زوايا معاً -->
+              <div class="bulk-upload-wrapper">
+                <label class="btn-bulk-upload">
+                  <span>⚡ رفع الـ 4 زوايا دفعة واحدة</span>
+                  <input type="file" accept="image/*" multiple on:change={handleBulkAngleUpload} hidden />
+                </label>
               </div>
             </div>
 
-            <!-- محاكي معاينة الزاوية الحية -->
+            <!-- محاكي معاينة الزاوية الحية مع شريط أدوات سريع -->
             <div class="angle-preview-container">
               <div class="angle-nav-tabs">
                 <button 
@@ -1433,7 +1569,7 @@
                   class:active={flowerModal.activeAnglePreview === 'front'} 
                   on:click={() => flowerModal.activeAnglePreview = 'front'}
                 >
-                  📷 1. زاوية أمامية
+                  📷 1. أمامية
                 </button>
                 <button 
                   type="button" 
@@ -1441,7 +1577,7 @@
                   class:active={flowerModal.activeAnglePreview === 'side'} 
                   on:click={() => flowerModal.activeAnglePreview = 'side'}
                 >
-                  📐 2. زاوية جانبية
+                  📐 2. جانبية
                 </button>
                 <button 
                   type="button" 
@@ -1449,7 +1585,7 @@
                   class:active={flowerModal.activeAnglePreview === 'top'} 
                   on:click={() => flowerModal.activeAnglePreview = 'top'}
                 >
-                  🔍 3. زاوية علوية (ماكرو)
+                  🔍 3. علوية (ماكرو)
                 </button>
                 <button 
                   type="button" 
@@ -1457,55 +1593,205 @@
                   class:active={flowerModal.activeAnglePreview === 'stem'} 
                   on:click={() => flowerModal.activeAnglePreview = 'stem'}
                 >
-                  🌿 4. تفاصيل الساق
+                  🌿 4. الساق
                 </button>
               </div>
 
               <div class="angle-live-display">
-                {#if flowerModal.activeAnglePreview === 'front'}
-                  <div class="preview-stage">
-                    <img src={flowerModal.image_front || '/assets/flowers/pink-rose-front.svg'} alt="معاينة أمامية" class="preview-img" />
-                    <span class="preview-tag">الزاوية الأمامية (Front View)</span>
+                <div class="preview-stage">
+                  {#if flowerModal.uploadingAngle === flowerModal.activeAnglePreview || flowerModal.uploadingAngle === 'bulk'}
+                    <div class="upload-spinner-box">
+                      <div class="spinner-mini"></div>
+                      <span>جاري معالجة ورفع الصورة...</span>
+                    </div>
+                  {:else}
+                    <img 
+                      src={flowerModal['image_' + flowerModal.activeAnglePreview] || '/assets/flowers/pink-rose-front.svg'} 
+                      alt="معاينة الزاوية" 
+                      class="preview-img" 
+                    />
+                  {/if}
+                  
+                  <span class="preview-tag">{getAngleLabel(flowerModal.activeAnglePreview)}</span>
+
+                  <!-- أزرار العمليات السريعة فوق المعاينة المباشرة -->
+                  <div class="stage-actions-bar">
+                    <label class="btn-stage-action" title="تحميل صورة من جهازك">
+                      📁 رفع من الجهاز
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        on:change={(e) => handleAngleFileUpload(e, flowerModal.activeAnglePreview)} 
+                        hidden 
+                      />
+                    </label>
+
+                    <label class="btn-stage-action" title="التقاط صورة بالكاميرا">
+                      📷 كاميرا
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment" 
+                        on:change={(e) => handleAngleFileUpload(e, flowerModal.activeAnglePreview)} 
+                        hidden 
+                      />
+                    </label>
+
+                    {#if flowerModal['image_' + flowerModal.activeAnglePreview]}
+                      <button 
+                        type="button" 
+                        class="btn-stage-action btn-stage-dl" 
+                        title="تنزيل وحفظ هذه الصورة"
+                        on:click={() => downloadImageFile(flowerModal['image_' + flowerModal.activeAnglePreview], `${flowerModal.name_ar || 'flower'}_${flowerModal.activeAnglePreview}.png`)}
+                      >
+                        ⬇ تنزيل
+                      </button>
+                    {/if}
                   </div>
-                {:else if flowerModal.activeAnglePreview === 'side'}
-                  <div class="preview-stage">
-                    <img src={flowerModal.image_side || '/assets/flowers/pink-rose-side.svg'} alt="معاينة جانبية" class="preview-img" />
-                    <span class="preview-tag">الزاوية الجانبية (Side View)</span>
-                  </div>
-                {:else if flowerModal.activeAnglePreview === 'top'}
-                  <div class="preview-stage">
-                    <img src={flowerModal.image_top || '/assets/flowers/pink-rose-top.svg'} alt="معاينة علوية" class="preview-img" />
-                    <span class="preview-tag">الزاوية العلوية والبتلات (Top View)</span>
-                  </div>
-                {:else if flowerModal.activeAnglePreview === 'stem'}
-                  <div class="preview-stage">
-                    <img src={flowerModal.image_stem || '/assets/flowers/pink-rose-stem.svg'} alt="معاينة الساق" class="preview-img" />
-                    <span class="preview-tag">تفاصيل الساق والورق (Stem View)</span>
-                  </div>
-                {/if}
+                </div>
               </div>
             </div>
 
-            <!-- روابط مسارات صور الزوايا الأربعة -->
+            <!-- بطاقات رفع وإدخال صور الزوايا الأربعة بالتفصيل -->
             <div class="angle-inputs-grid">
-              <div class="angle-input-card">
-                <label>1. مسار أو رابط الزاوية الأمامية:</label>
-                <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_front} placeholder="/assets/flowers/pink-rose-front.svg" />
+              <!-- 1. الزاوية الأمامية -->
+              <div class="angle-input-card" class:active-card={flowerModal.activeAnglePreview === 'front'}>
+                <div class="card-angle-top">
+                  <div class="card-angle-title">
+                    <span class="angle-badge-num">1</span>
+                    <b>الزاوية الأمامية (Front)</b>
+                  </div>
+                  {#if flowerModal.image_front && (flowerModal.image_front.startsWith('data:') || flowerModal.image_front.includes('/uploads/'))}
+                    <span class="badge-uploaded">✓ صورة مرفوعة</span>
+                  {/if}
+                </div>
+                
+                <div class="card-angle-body">
+                  <img src={flowerModal.image_front || '/assets/flowers/pink-rose-front.svg'} alt="أمامي" class="angle-card-thumb" />
+                  <div class="card-angle-controls">
+                    <div class="angle-btn-row">
+                      <label class="btn-angle-upload" title="تحميل صورة من الملفات">
+                        📁 اختر صورة
+                        <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'front')} hidden />
+                      </label>
+                      <label class="btn-angle-cam" title="التقاط بالكاميرا">
+                        📷
+                        <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'front')} hidden />
+                      </label>
+                      {#if flowerModal.image_front}
+                        <button type="button" class="btn-angle-dl" title="تنزيل الصورة" on:click={() => downloadImageFile(flowerModal.image_front, `${flowerModal.name_ar || 'flower'}_front.png`)}>
+                          ⬇
+                        </button>
+                      {/if}
+                    </div>
+                    <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_front} placeholder="رابط أو مسار الصورة" />
+                  </div>
+                </div>
               </div>
 
-              <div class="angle-input-card">
-                <label>2. مسار أو رابط الزاوية الجانبية:</label>
-                <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_side} placeholder="/assets/flowers/pink-rose-side.svg" />
+              <!-- 2. الزاوية الجانبية -->
+              <div class="angle-input-card" class:active-card={flowerModal.activeAnglePreview === 'side'}>
+                <div class="card-angle-top">
+                  <div class="card-angle-title">
+                    <span class="angle-badge-num">2</span>
+                    <b>الزاوية الجانبية (Side)</b>
+                  </div>
+                  {#if flowerModal.image_side && (flowerModal.image_side.startsWith('data:') || flowerModal.image_side.includes('/uploads/'))}
+                    <span class="badge-uploaded">✓ صورة مرفوعة</span>
+                  {/if}
+                </div>
+                
+                <div class="card-angle-body">
+                  <img src={flowerModal.image_side || '/assets/flowers/pink-rose-side.svg'} alt="جانبي" class="angle-card-thumb" />
+                  <div class="card-angle-controls">
+                    <div class="angle-btn-row">
+                      <label class="btn-angle-upload" title="تحميل صورة من الملفات">
+                        📁 اختر صورة
+                        <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'side')} hidden />
+                      </label>
+                      <label class="btn-angle-cam" title="التقاط بالكاميرا">
+                        📷
+                        <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'side')} hidden />
+                      </label>
+                      {#if flowerModal.image_side}
+                        <button type="button" class="btn-angle-dl" title="تنزيل الصورة" on:click={() => downloadImageFile(flowerModal.image_side, `${flowerModal.name_ar || 'flower'}_side.png`)}>
+                          ⬇
+                        </button>
+                      {/if}
+                    </div>
+                    <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_side} placeholder="رابط أو مسار الصورة" />
+                  </div>
+                </div>
               </div>
 
-              <div class="angle-input-card">
-                <label>3. مسار أو رابط الزاوية العلوية (بتلات ماكرو):</label>
-                <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_top} placeholder="/assets/flowers/pink-rose-top.svg" />
+              <!-- 3. الزاوية العلوية -->
+              <div class="angle-input-card" class:active-card={flowerModal.activeAnglePreview === 'top'}>
+                <div class="card-angle-top">
+                  <div class="card-angle-title">
+                    <span class="angle-badge-num">3</span>
+                    <b>الزاوية العلوية (Top Macro)</b>
+                  </div>
+                  {#if flowerModal.image_top && (flowerModal.image_top.startsWith('data:') || flowerModal.image_top.includes('/uploads/'))}
+                    <span class="badge-uploaded">✓ صورة مرفوعة</span>
+                  {/if}
+                </div>
+                
+                <div class="card-angle-body">
+                  <img src={flowerModal.image_top || '/assets/flowers/pink-rose-top.svg'} alt="علوي" class="angle-card-thumb" />
+                  <div class="card-angle-controls">
+                    <div class="angle-btn-row">
+                      <label class="btn-angle-upload" title="تحميل صورة من الملفات">
+                        📁 اختر صورة
+                        <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'top')} hidden />
+                      </label>
+                      <label class="btn-angle-cam" title="التقاط بالكاميرا">
+                        📷
+                        <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'top')} hidden />
+                      </label>
+                      {#if flowerModal.image_top}
+                        <button type="button" class="btn-angle-dl" title="تنزيل الصورة" on:click={() => downloadImageFile(flowerModal.image_top, `${flowerModal.name_ar || 'flower'}_top.png`)}>
+                          ⬇
+                        </button>
+                      {/if}
+                    </div>
+                    <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_top} placeholder="رابط أو مسار الصورة" />
+                  </div>
+                </div>
               </div>
 
-              <div class="angle-input-card">
-                <label>4. مسار أو رابط تفاصيل الساق والأوراق:</label>
-                <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_stem} placeholder="/assets/flowers/pink-rose-stem.svg" />
+              <!-- 4. تفاصيل الساق -->
+              <div class="angle-input-card" class:active-card={flowerModal.activeAnglePreview === 'stem'}>
+                <div class="card-angle-top">
+                  <div class="card-angle-title">
+                    <span class="angle-badge-num">4</span>
+                    <b>تفاصيل الساق والأوراق (Stem)</b>
+                  </div>
+                  {#if flowerModal.image_stem && (flowerModal.image_stem.startsWith('data:') || flowerModal.image_stem.includes('/uploads/'))}
+                    <span class="badge-uploaded">✓ صورة مرفوعة</span>
+                  {/if}
+                </div>
+                
+                <div class="card-angle-body">
+                  <img src={flowerModal.image_stem || '/assets/flowers/pink-rose-stem.svg'} alt="ساق" class="angle-card-thumb" />
+                  <div class="card-angle-controls">
+                    <div class="angle-btn-row">
+                      <label class="btn-angle-upload" title="تحميل صورة من الملفات">
+                        📁 اختر صورة
+                        <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'stem')} hidden />
+                      </label>
+                      <label class="btn-angle-cam" title="التقاط بالكاميرا">
+                        📷
+                        <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'stem')} hidden />
+                      </label>
+                      {#if flowerModal.image_stem}
+                        <button type="button" class="btn-angle-dl" title="تنزيل الصورة" on:click={() => downloadImageFile(flowerModal.image_stem, `${flowerModal.name_ar || 'flower'}_stem.png`)}>
+                          ⬇
+                        </button>
+                      {/if}
+                    </div>
+                    <input type="text" class="input-field input-field-sm" bind:value={flowerModal.image_stem} placeholder="رابط أو مسار الصورة" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1760,6 +2046,27 @@
             <img src={flowerAnglesViewer.flower.image_stem || '/assets/flowers/pink-rose-stem.svg'} alt="ساق" class="viewer-main-img" />
             <span class="viewer-angle-badge">تفاصيل الساق والأوراق الخضراء (Stem & Foliage)</span>
           {/if}
+        </div>
+
+        <!-- شريط تحميل وتنزيل صور الزوايا للجهاز -->
+        <div class="viewer-download-toolbar">
+          <button 
+            type="button" 
+            class="btn btn-outline btn-sm" 
+            title="تنزيل هذه الصورة لجهازك"
+            on:click={() => downloadImageFile(getCurrentViewerUrl(), `${flowerAnglesViewer.flower.name_ar}_${flowerAnglesViewer.activeAngle}.png`)}
+          >
+            ⬇ تنزيل هذه الزاوية ({getAngleLabel(flowerAnglesViewer.activeAngle)})
+          </button>
+          
+          <button 
+            type="button" 
+            class="btn btn-primary btn-sm" 
+            title="تنزيل جميع صور الزوايا الأربعة معاً"
+            on:click={() => downloadAllFlowerAngles(flowerAnglesViewer.flower)}
+          >
+            📦 تنزيل جميع الزوايا الـ 4 معاً
+          </button>
         </div>
 
         <div class="viewer-footer-info">
@@ -2733,17 +3040,243 @@
     padding: 2px 10px;
     border-radius: 999px;
   }
+
+  .angles-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .btn-bulk-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #5e6b2c, #4a5522);
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(94, 107, 44, 0.25);
+    transition: all 0.2s ease;
+  }
+  .btn-bulk-upload:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(94, 107, 44, 0.35);
+  }
+  .stage-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn-stage-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    color: #4b4840;
+    transition: all 0.15s ease;
+  }
+  .btn-stage-action:hover {
+    background: #f5eedf;
+    border-color: var(--olive);
+    color: var(--olive);
+  }
+  .btn-stage-action.btn-stage-dl {
+    background: #eef5d8;
+    border-color: #cddfa0;
+    color: var(--olive);
+  }
+  .upload-spinner-box {
+    width: 140px;
+    height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #fbf7ee;
+    border: 2px dashed var(--olive);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: var(--olive);
+    font-weight: 700;
+    text-align: center;
+    padding: 8px;
+  }
+  .spinner-mini {
+    width: 28px;
+    height: 28px;
+    border: 3px solid #e7ded0;
+    border-top-color: var(--olive);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* بطاقات إدخال ورفع الزوايا */
   .angle-inputs-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  .angle-input-card label {
-    font-size: 0.78rem;
+  .angle-input-card {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+  .angle-input-card.active-card {
+    border-color: var(--olive);
+    box-shadow: 0 0 0 2px rgba(94, 107, 44, 0.15);
+  }
+  .card-angle-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-angle-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #2b2b28;
+  }
+  .angle-badge-num {
+    background: var(--olive);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .badge-uploaded {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+    font-size: 0.68rem;
     font-weight: 700;
-    color: #4b4840;
-    display: block;
-    margin-bottom: 4px;
+    padding: 1px 6px;
+    border-radius: 6px;
+  }
+  .card-angle-body {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .angle-card-thumb {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #fbf7ee;
+    border: 1px solid var(--line);
+    padding: 3px;
+    flex-shrink: 0;
+  }
+  .card-angle-controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .angle-btn-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .btn-angle-upload {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    background: #fbf7ee;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    color: #3b3a36;
+    transition: all 0.15s ease;
+  }
+  .btn-angle-upload:hover {
+    background: #f1ebd8;
+    border-color: var(--olive);
+    color: var(--olive);
+  }
+  .btn-angle-cam {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    background: #fbf7ee;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s ease;
+  }
+  .btn-angle-cam:hover {
+    border-color: var(--olive);
+  }
+  .btn-angle-dl {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    background: #eef5d8;
+    border: 1px solid #cddfa0;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--olive);
+    font-size: 0.8rem;
+    font-weight: 700;
+    transition: all 0.15s ease;
+  }
+  .btn-angle-dl:hover {
+    background: #e2efbe;
+  }
+
+  /* شريط تحميل وتنزيل صور الزوايا في المستعرض */
+  .viewer-download-toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fcf9f2;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 600px) {
+    .angle-inputs-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   /* منشئ تركيبة الورود للباقة */

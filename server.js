@@ -31,9 +31,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// تحليل حزم البيانات القادمة بصيغة JSON و URL-Encoded
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+// تحليل حزم البيانات القادمة بصيغة JSON و URL-Encoded ودعم رفع الصور عالية الدقة
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // سجل خفيف للطلبات أثناء التطوير (Request Logger)
 app.use((req, res, next) => {
@@ -372,6 +372,64 @@ apiRouter.get('/inventory', async (req, res, next) => {
       success: true,
       count: stock.length,
       data: stock
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// رفع وتخزين صورة لزاوية الوردة وحفظها محلياً على القرص
+apiRouter.post('/upload/flower-angle', async (req, res, next) => {
+  try {
+    const { angle, fileName, base64Data } = req.body;
+    if (!base64Data) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات الصورة مفقودة'
+      });
+    }
+
+    const matches = String(base64Data).match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    let ext = 'jpg';
+    let dataBuffer;
+
+    if (matches && matches.length === 3) {
+      const mime = matches[1].toLowerCase();
+      if (mime.includes('png')) ext = 'png';
+      else if (mime.includes('webp')) ext = 'webp';
+      else if (mime.includes('svg')) ext = 'svg';
+      else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+      else ext = 'png';
+      dataBuffer = Buffer.from(matches[2], 'base64');
+    } else {
+      dataBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    const uploadDirPublic = path.join(__dirname, 'public', 'assets', 'flowers', 'uploads');
+    const uploadDirAssets = path.join(__dirname, 'assets', 'flowers', 'uploads');
+    const uploadDirDist = path.join(__dirname, 'dist', 'assets', 'flowers', 'uploads');
+
+    if (!fs.existsSync(uploadDirPublic)) fs.mkdirSync(uploadDirPublic, { recursive: true });
+    if (!fs.existsSync(uploadDirAssets)) fs.mkdirSync(uploadDirAssets, { recursive: true });
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      if (!fs.existsSync(uploadDirDist)) fs.mkdirSync(uploadDirDist, { recursive: true });
+    }
+
+    const safeAngle = (angle || 'angle').replace(/[^a-z0-9_-]/gi, '');
+    const cleanFileName = `flower-${safeAngle}-${Date.now()}-${Math.floor(Math.random() * 10000)}.${ext}`;
+
+    fs.writeFileSync(path.join(uploadDirPublic, cleanFileName), dataBuffer);
+    fs.writeFileSync(path.join(uploadDirAssets, cleanFileName), dataBuffer);
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      fs.writeFileSync(path.join(uploadDirDist, cleanFileName), dataBuffer);
+    }
+
+    const url = `/assets/flowers/uploads/${cleanFileName}`;
+
+    res.json({
+      success: true,
+      message: 'تم حفظ ورفع صورة الزاوية بنجاح 🌸',
+      url
     });
   } catch (err) {
     next(err);
