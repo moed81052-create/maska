@@ -361,6 +361,88 @@ apiRouter.post('/drivers/location', async (req, res, next) => {
 });
 
 // -----------------------------------------------------------------------------
+// هـ-2. النظام المالي للعهد النقدية وأرباح التوصيل والتسويات (Driver Custody & Settlements)
+// -----------------------------------------------------------------------------
+
+// استرجاع النظرة المالية الشاملة لكافة السائقين للإدارة
+apiRouter.get('/financials/drivers', async (req, res, next) => {
+  try {
+    const data = await db.getAllDriversFinancials();
+    res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// استرجاع الكشف المالي لسائق محدد (العهدة، الأرباح، وحركات الحساب)
+apiRouter.get('/financials/drivers/:id', async (req, res, next) => {
+  try {
+    const driverId = req.params.id;
+    const summary = await db.getDriverFinancialSummary(driverId);
+    if (!summary) {
+      return res.status(404).json({
+        success: false,
+        message: 'السائق غير موجود'
+      });
+    }
+    res.json({
+      success: true,
+      data: summary
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تسوية العهدة النقدية واستلام المبالغ من السائق بواسطة الإدارة
+apiRouter.post('/financials/settle', async (req, res, next) => {
+  try {
+    const { driverId, adminId, custodyCleared, driverEarningsDeducted, netCashReceived, notes } = req.body;
+    if (!driverId || custodyCleared === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف السائق ومبلغ العهدة المراد تسويته حقول مطلوبة'
+      });
+    }
+
+    const receipt = await db.settleDriverCustody({
+      driverId,
+      adminId: adminId || '0ec949d9-7704-43ea-b8ee-5f19e86d40d4',
+      custodyCleared,
+      driverEarningsDeducted: driverEarningsDeducted || 0,
+      netCashReceived,
+      notes
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `تمت تسوية العهدة بنجاح واستلام المبلغ برقم إيصال ${receipt.settlement_number} 💵`,
+      receipt
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// سجل تاريخ التسويات المالية الشامل للإدارة
+apiRouter.get('/financials/settlements', async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const history = await db.getSettlementsHistory(limit);
+    res.json({
+      success: true,
+      count: history.length,
+      data: history
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
 // هـ. مخزون زهور الاستوديو وصور الزوايا (Studio Flower Inventory & Angles)
 // -----------------------------------------------------------------------------
 

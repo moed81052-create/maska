@@ -262,6 +262,11 @@ module.exports = {
         dp.current_lng,
         dp.total_deliveries,
         dp.rating,
+        COALESCE(dp.current_custody_amount, 0) as current_custody_amount,
+        COALESCE(dp.pending_earnings, 0) as pending_earnings,
+        COALESCE(dp.total_collected_cash, 0) as total_collected_cash,
+        COALESCE(dp.total_earned_commission, 0) as total_earned_commission,
+        COALESCE(dp.settled_amount_total, 0) as settled_amount_total,
         (SELECT COUNT(*) FROM orders o WHERE o.assigned_driver_id = u.id AND o.status IN ('preparing', 'out_for_delivery')) as active_deliveries_count
       FROM driver_profiles dp
       JOIN users u ON dp.user_id = u.id
@@ -805,8 +810,58 @@ module.exports = {
 
       if (newStatus === 'delivered') {
         await mysqlPool.execute(`UPDATE payments SET status = 'paid', paid_at = NOW() WHERE order_id = ?`, [order.id]);
-        if (order.assigned_driver_id) {
-          await mysqlPool.execute(`UPDATE driver_profiles SET total_deliveries = total_deliveries + 1 WHERE user_id = ?`, [order.assigned_driver_id]);
+        
+        // حساب العهدة النقدية وأرباح التوصيل للسائق الميداني
+        const [ordRows] = await mysqlPool.execute(
+          `SELECT o.id, o.order_number, o.total_amount, o.delivery_fee, o.assigned_driver_id, p.method as payment_method 
+           FROM orders o 
+           LEFT JOIN payments p ON o.id = p.order_id 
+           WHERE o.id = ?`,
+          [order.id]
+        );
+        const fullOrder = ordRows[0];
+
+        if (fullOrder && fullOrder.assigned_driver_id) {
+          const driverId = fullOrder.assigned_driver_id;
+          const totalAmount = Number(fullOrder.total_amount) || 0;
+          const deliveryFee = Number(fullOrder.delivery_fee) || 10.00;
+          const isCash = fullOrder.payment_method === 'cash_on_delivery' || !fullOrder.payment_method;
+
+          // إذا كان الدفع نقداً: يُضاف إجمالي الطلب للعهدة النقدية المعلقة للسائق
+          const custodyToAdd = isCash ? totalAmount : 0;
+          const driverProfit = deliveryFee; // ربح السائق من التوصيل
+
+          await mysqlPool.execute(`
+            UPDATE driver_profiles 
+            SET current_custody_amount = current_custody_amount + ?,
+                total_collected_cash = total_collected_cash + ?,
+                total_earned_commission = total_earned_commission + ?,
+                pending_earnings = pending_earnings + ?,
+                total_deliveries = total_deliveries + 1
+            WHERE user_id = ?
+          `, [custodyToAdd, custodyToAdd, driverProfit, driverProfit, driverId]);
+
+          // الحصول على رصيد العهدة بعد التحديث
+          const [dpRows] = await mysqlPool.execute(`SELECT current_custody_amount FROM driver_profiles WHERE user_id = ?`, [driverId]);
+          const balanceAfter = dpRows[0] ? Number(dpRows[0].current_custody_amount) : 0;
+
+          // تسجيل حركة مالية تفصيلية في سجل العهدة
+          await mysqlPool.execute(`
+            INSERT INTO driver_custody_transactions 
+              (driver_id, order_id, type, amount, delivery_fee, driver_profit, balance_after, description)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            driverId,
+            fullOrder.id,
+            isCash ? 'order_collection' : 'delivery_earning',
+            custodyToAdd,
+            deliveryFee,
+            driverProfit,
+            balanceAfter,
+            isCash 
+              ? `تحصيل كاش عند التسليم للطلب #${fullOrder.order_number} (+${custodyToAdd} د.ل عهدة | +${driverProfit} د.ل ربح توصيل)`
+              : `ربح توصيل للطلب الإلكتروني #${fullOrder.order_number} (+${driverProfit} د.ل)`
+          ]);
         }
       }
 
@@ -1682,6 +1737,248 @@ module.exports = {
       return { success: true, message: 'تم حذف الباقة بنجاح' };
     } else {
       return { success: true, message: 'تم حذف الباقة' };
+    }
+  },
+
+  // ===========================================================================
+  // النظام المالي للعهد النقدية وأرباح التوصيل والتسويات (Financial System)
+  // ===========================================================================
+
+  // 36. استرجاع الملخص المالي لسائق معين (العهدة، أرباح التوصيل، الحركات، والتسويات)
+  async getDriverFinancialSummary(driverId) {
+    if (isMySQL) {
+      const [drivers] = await mysqlPool.execute(`
+        SELECT 
+          u.id,
+          u.full_name,
+          u.phone,
+          u.avatar_url,
+          dp.vehicle_type,
+          dp.plate_number,
+          dp.current_status,
+          COALESCE(dp.current_custody_amount, 0) as current_custody_amount,
+          COALESCE(dp.total_collected_cash, 0) as total_collected_cash,
+          COALESCE(dp.total_earned_commission, 0) as total_earned_commission,
+          COALESCE(dp.pending_earnings, 0) as pending_earnings,
+          COALESCE(dp.settled_amount_total, 0) as settled_amount_total,
+          dp.total_deliveries,
+          dp.rating
+        FROM users u
+        JOIN driver_profiles dp ON u.id = dp.user_id
+        WHERE u.id = ?
+      `, [driverId]);
+
+      const driver = drivers[0];
+      if (!driver) return null;
+
+      // حركات العهدة الأخيرة
+      const [txs] = await mysqlPool.execute(`
+        SELECT dct.*, o.order_number
+        FROM driver_custody_transactions dct
+        LEFT JOIN orders o ON dct.order_id = o.id
+        WHERE dct.driver_id = ?
+        ORDER BY dct.created_at DESC
+        LIMIT 40
+      `, [driverId]);
+
+      // سجل التسويات مع الإدارة
+      const [settlements] = await mysqlPool.execute(`
+        SELECT ds.*, a.full_name as admin_name
+        FROM driver_settlements ds
+        JOIN users a ON ds.admin_id = a.id
+        WHERE ds.driver_id = ?
+        ORDER BY ds.created_at DESC
+        LIMIT 20
+      `, [driverId]);
+
+      const custody = Number(driver.current_custody_amount) || 0;
+      const earnings = Number(driver.pending_earnings) || 0;
+      const netDue = Math.max(0, custody - earnings);
+
+      return {
+        driver: {
+          ...driver,
+          current_custody_amount: custody,
+          pending_earnings: earnings,
+          net_cash_due_to_admin: netDue,
+          net_due: netDue
+        },
+        profile: {
+          ...driver,
+          current_custody_amount: custody,
+          pending_earnings: earnings,
+          net_cash_due_to_admin: netDue,
+          net_due: netDue,
+          delivered_count: driver.total_deliveries || 0
+        },
+        transactions: txs,
+        recent_transactions: txs,
+        settlements,
+        recent_settlements: settlements,
+        net_cash_due_to_admin: netDue,
+        net_due: netDue
+      };
+    } else {
+      const driver = sqliteDb.prepare(`
+        SELECT u.id, u.full_name, u.phone, dp.*
+        FROM users u JOIN driver_profiles dp ON u.id = dp.user_id
+        WHERE u.id = ?
+      `).get(driverId);
+      return { driver, transactions: [], settlements: [], net_cash_due_to_admin: 0 };
+    }
+  },
+
+  // 37. استرجاع نظرة شاملة على العهد المالية لكافة السائقين للإدارة
+  async getAllDriversFinancials() {
+    if (isMySQL) {
+      const [drivers] = await mysqlPool.query(`
+        SELECT 
+          u.id,
+          u.full_name,
+          u.phone,
+          dp.vehicle_type,
+          dp.plate_number,
+          dp.current_status,
+          COALESCE(dp.current_custody_amount, 0) as current_custody_amount,
+          COALESCE(dp.total_collected_cash, 0) as total_collected_cash,
+          COALESCE(dp.total_earned_commission, 0) as total_earned_commission,
+          COALESCE(dp.pending_earnings, 0) as pending_earnings,
+          COALESCE(dp.settled_amount_total, 0) as settled_amount_total,
+          dp.total_deliveries,
+          (SELECT COUNT(*) FROM orders o WHERE o.assigned_driver_id = u.id AND o.status = 'delivered') as delivered_orders_count,
+          (SELECT COUNT(*) FROM orders o WHERE o.assigned_driver_id = u.id AND o.status IN ('preparing', 'out_for_delivery')) as active_orders_count
+        FROM users u
+        JOIN driver_profiles dp ON u.id = dp.user_id
+        WHERE u.status = 'active'
+        ORDER BY dp.current_custody_amount DESC
+      `);
+
+      let totalCustody = 0;
+      let totalPendingEarnings = 0;
+      let totalSettled = 0;
+      let totalCollected = 0;
+
+      const formattedDrivers = drivers.map(d => {
+        const custody = Number(d.current_custody_amount) || 0;
+        const earnings = Number(d.pending_earnings) || 0;
+        const netDue = Math.max(0, custody - earnings);
+
+        totalCustody += custody;
+        totalPendingEarnings += earnings;
+        totalSettled += (Number(d.settled_amount_total) || 0);
+        totalCollected += (Number(d.total_collected_cash) || 0);
+
+        return {
+          ...d,
+          current_custody_amount: custody,
+          pending_earnings: earnings,
+          net_due_to_admin: netDue,
+          net_due: netDue,
+          vehicle_plate: d.plate_number,
+          delivered_count: d.delivered_orders_count || d.total_deliveries || 0
+        };
+      });
+
+      return {
+        drivers: formattedDrivers,
+        totals: {
+          total_custody_in_street: totalCustody,
+          totalCustody,
+          total_pending_earnings: totalPendingEarnings,
+          totalDriverEarnings: totalPendingEarnings,
+          total_net_due_to_admin: Math.max(0, totalCustody - totalPendingEarnings),
+          totalNetDue: Math.max(0, totalCustody - totalPendingEarnings),
+          total_settled_historically: totalSettled,
+          totalSettled,
+          total_collected_historically: totalCollected,
+          totalCollected
+        }
+      };
+    } else {
+      return { drivers: [], totals: {} };
+    }
+  },
+
+  // 38. تسوية العهدة النقدية واستلام المبالغ من السائق بواسطة الإدارة
+  async settleDriverCustody({ driverId, adminId, custodyCleared, driverEarningsDeducted = 0, netCashReceived, notes = '' }) {
+    if (isMySQL) {
+      const settlementNumber = `SETTLE-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
+      const cleared = Number(custodyCleared) || 0;
+      const earningsDeducted = Number(driverEarningsDeducted) || 0;
+      const cashReceived = netCashReceived !== undefined && netCashReceived !== null 
+        ? Number(netCashReceived) 
+        : Math.max(0, cleared - earningsDeducted);
+
+      // تسجيل إيصال التسوية
+      const [res] = await mysqlPool.execute(`
+        INSERT INTO driver_settlements 
+          (settlement_number, driver_id, admin_id, custody_cleared, driver_earnings_deducted, net_cash_received, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [settlementNumber, driverId, adminId, cleared, earningsDeducted, cashReceived, notes || 'تسوية نقدية وتوريد العهدة للإدارة']);
+
+      const settlementId = res.insertId;
+
+      // تحديث ملف السائق وتخصيم العهدة المسواة وتصفية الأرباح المعلقة المسلمة
+      await mysqlPool.execute(`
+        UPDATE driver_profiles 
+        SET current_custody_amount = GREATEST(0, current_custody_amount - ?),
+            pending_earnings = GREATEST(0, pending_earnings - ?),
+            settled_amount_total = settled_amount_total + ?
+        WHERE user_id = ?
+      `, [cleared, earningsDeducted, cashReceived, driverId]);
+
+      // استعلام الرصيد المتبقي
+      const [dpRows] = await mysqlPool.execute(`SELECT current_custody_amount FROM driver_profiles WHERE user_id = ?`, [driverId]);
+      const balanceAfter = dpRows[0] ? Number(dpRows[0].current_custody_amount) : 0;
+
+      // تسجيل حركة الحساب في السجل المالي
+      await mysqlPool.execute(`
+        INSERT INTO driver_custody_transactions
+          (driver_id, settlement_id, type, amount, driver_profit, balance_after, description)
+        VALUES (?, ?, 'admin_settlement', ?, ?, ?, ?)
+      `, [
+        driverId,
+        settlementId,
+        -cleared,
+        -earningsDeducted,
+        balanceAfter,
+        `تسوية عهدة واستلام نقدي برقم #${settlementNumber} (توريد ${cashReceived} د.ل للإدارة)`
+      ]);
+
+      return {
+        id: settlementId,
+        settlement_number: settlementNumber,
+        driver_id: driverId,
+        admin_id: adminId,
+        custody_cleared: cleared,
+        driver_earnings_deducted: earningsDeducted,
+        net_cash_received: cashReceived,
+        balance_after: balanceAfter,
+        created_at: new Date()
+      };
+    } else {
+      return null;
+    }
+  },
+
+  // 39. استرجاع سجل تاريخ التسويات المالية الشامل للإدارة
+  async getSettlementsHistory(limit = 50) {
+    if (isMySQL) {
+      const [rows] = await mysqlPool.query(`
+        SELECT 
+          ds.*,
+          d.full_name as driver_name,
+          d.phone as driver_phone,
+          a.full_name as admin_name
+        FROM driver_settlements ds
+        JOIN users d ON ds.driver_id = d.id
+        JOIN users a ON ds.admin_id = a.id
+        ORDER BY ds.created_at DESC
+        LIMIT ${Number(limit) || 50}
+      `);
+      return rows;
+    } else {
+      return [];
     }
   }
 };

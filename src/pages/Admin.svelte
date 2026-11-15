@@ -16,6 +16,102 @@
   let drivers = [];
   let florists = [];
 
+  // النظام المالي للعهد والتسويات للسائقين
+  let driversFinancials = { drivers: [], totals: {} };
+  let settlementsHistory = [];
+  let settleModal = {
+    open: false,
+    driver: null,
+    custodyCleared: 0,
+    driverEarningsDeducted: 0,
+    netCashReceived: 0,
+    notes: '',
+    saving: false,
+    errorMsg: '',
+    successMsg: ''
+  };
+  let driverStatementModal = {
+    open: false,
+    loading: false,
+    data: null
+  };
+
+  function openSettleModal(driver) {
+    const custody = Number(driver.current_custody_amount) || 0;
+    const earnings = Number(driver.pending_earnings) || 0;
+    const net = Math.max(0, custody - earnings);
+
+    settleModal = {
+      open: true,
+      driver,
+      custodyCleared: custody,
+      driverEarningsDeducted: earnings,
+      netCashReceived: net,
+      notes: `تسوية عهدة وتوريد كاش لحساب الكابتن ${driver.full_name}`,
+      saving: false,
+      errorMsg: '',
+      successMsg: ''
+    };
+  }
+
+  async function handleConfirmSettlement() {
+    if (!settleModal.driver) return;
+    settleModal.saving = true;
+    settleModal.errorMsg = '';
+    settleModal.successMsg = '';
+
+    try {
+      const res = await api.settleDriverCustody({
+        driverId: settleModal.driver.id,
+        adminId: $auth?.id,
+        custodyCleared: Number(settleModal.custodyCleared) || 0,
+        driverEarningsDeducted: Number(settleModal.driverEarningsDeducted) || 0,
+        netCashReceived: Number(settleModal.netCashReceived) || 0,
+        notes: settleModal.notes
+      });
+
+      settleModal.successMsg = `تمت التسوية بنجاح واستلام المبلغ برقم إيصال ${res.receipt?.settlement_number || ''} 🌸`;
+      await reloadFinancials();
+      const dRes = await api.getDrivers();
+      if (dRes && dRes.data) drivers = dRes.data;
+
+      setTimeout(() => {
+        settleModal.open = false;
+      }, 1200);
+    } catch (err) {
+      settleModal.errorMsg = err.message || 'حدث خطأ أثناء إجراء التسوية';
+    } finally {
+      settleModal.saving = false;
+    }
+  }
+
+  async function openDriverStatement(driverId) {
+    driverStatementModal = { open: true, loading: true, data: null };
+    try {
+      const res = await api.getDriverFinancialSummary(driverId);
+      if (res && res.data) {
+        driverStatementModal.data = res.data;
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      driverStatementModal.loading = false;
+    }
+  }
+
+  async function reloadFinancials() {
+    try {
+      const [fRes, hRes] = await Promise.allSettled([
+        api.getDriversFinancials(),
+        api.getSettlementsHistory(50)
+      ]);
+      if (fRes.status === 'fulfilled' && fRes.value.data) driversFinancials = fRes.value.data;
+      if (hRes.status === 'fulfilled' && hRes.value.data) settlementsHistory = hRes.value.data;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   // مودال توجيه وإسناد الطلب للمنسقة والسائق
   let assignModal = {
     open: false,
@@ -586,7 +682,7 @@
   async function loadAllAdminData() {
     loading = true;
     try {
-      const [sRes, oRes, dRes, flRes, invRes, bRes, cRes, rRes, fbRes, zRes, hRes] = await Promise.allSettled([
+      const [sRes, oRes, dRes, flRes, invRes, bRes, cRes, rRes, fbRes, zRes, hRes, finRes, setRes] = await Promise.allSettled([
         api.getStats(),
         api.getOrders(100),
         api.getDrivers(),
@@ -597,7 +693,9 @@
         api.getReviews(false),
         api.getFeedback(),
         api.getPricingZones(),
-        api.getPriceHistory(20)
+        api.getPriceHistory(20),
+        api.getDriversFinancials(),
+        api.getSettlementsHistory(50)
       ]);
 
       if (sRes.status === 'fulfilled' && sRes.value.data) stats = sRes.value.data;
@@ -611,6 +709,8 @@
       if (fbRes.status === 'fulfilled' && fbRes.value.data) feedback = fbRes.value.data;
       if (zRes.status === 'fulfilled' && zRes.value.data) zones = zRes.value.data;
       if (hRes.status === 'fulfilled' && hRes.value.data) priceHistory = hRes.value.data;
+      if (finRes.status === 'fulfilled' && finRes.value.data) driversFinancials = finRes.value.data;
+      if (setRes.status === 'fulfilled' && setRes.value.data) settlementsHistory = setRes.value.data;
     } catch (e) {
       console.error('Error loading admin data:', e);
     } finally {
@@ -789,6 +889,15 @@
         on:click={() => currentTab = 'drivers'}
       >
         السائقون والتتبع ({drivers.length})
+      </button>
+
+      <button 
+        type="button" 
+        class="admin-tab fin-tab-highlight" 
+        class:active={currentTab === 'financials'}
+        on:click={() => { currentTab = 'financials'; reloadFinancials(); }}
+      >
+        💰 العهد والمالية ({driversFinancials.drivers?.length || 0})
       </button>
 
       <button 
@@ -1271,6 +1380,230 @@
                 <small>{h.reason || 'تعديل إداري'} — {h.admin_name || 'مدير النظام'}</small>
               </div>
             {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- ================= 9. تبويب العهد والمالية ================= -->
+      {#if currentTab === 'financials'}
+        <div class="financials-management-container fade-in">
+          <div class="section-top-header">
+            <div>
+              <h3>💰 الإدارة المالية للعهد النقدية وأرباح التوصيل</h3>
+              <p class="subtitle">متابعة المبالغ النقدية المحصلة في عهدة الكباتن، أرباح التوصيل المستحقة، وتوريد واستلام صافي المبالغ إلى خزينة الإدارة.</p>
+            </div>
+            <button type="button" class="btn btn-outline btn-refresh-fin" on:click={reloadFinancials}>
+              🔄 تحديث البيانات المالية
+            </button>
+          </div>
+
+          <!-- بطاقات المؤشرات المالية العامة -->
+          <div class="fin-kpi-grid">
+            <div class="fin-kpi-card fin-card-custody">
+              <div class="fin-kpi-icon">💼</div>
+              <div class="fin-kpi-info">
+                <span class="fin-kpi-label">إجمالي العهد في الميدان (كاش بحوزة الكباتن)</span>
+                <strong class="fin-kpi-value custody-val">{(driversFinancials.totals?.totalCustody || 0).toLocaleString()} د.ل</strong>
+                <span class="fin-kpi-hint">مبالغ الطلبات المسلمة نقداً وبانتظار التوريد</span>
+              </div>
+            </div>
+
+            <div class="fin-kpi-card fin-card-earnings">
+              <div class="fin-kpi-icon">🚗</div>
+              <div class="fin-kpi-info">
+                <span class="fin-kpi-label">أرباح التوصيل المستحقة للكباتن</span>
+                <strong class="fin-kpi-value profit-val">{(driversFinancials.totals?.totalDriverEarnings || 0).toLocaleString()} د.ل</strong>
+                <span class="fin-kpi-hint">أجور التوصيل المكتسبة وغير المصفاة بعد</span>
+              </div>
+            </div>
+
+            <div class="fin-kpi-card fin-card-net">
+              <div class="fin-kpi-icon">🏦</div>
+              <div class="fin-kpi-info">
+                <span class="fin-kpi-label">صافي المبالغ المستحقة لخزينة الإدارة</span>
+                <strong class="fin-kpi-value net-val">{(driversFinancials.totals?.totalNetDue || 0).toLocaleString()} د.ل</strong>
+                <span class="fin-kpi-hint">العهدة الإجمالية مطروحاً منها أرباح التوصيل</span>
+              </div>
+            </div>
+
+            <div class="fin-kpi-card fin-card-settled">
+              <div class="fin-kpi-icon">📜</div>
+              <div class="fin-kpi-info">
+                <span class="fin-kpi-label">إجمالي ما تم استلامه وتوريده سابقاً</span>
+                <strong class="fin-kpi-value settled-val">{(driversFinancials.totals?.totalSettled || 0).toLocaleString()} د.ل</strong>
+                <span class="fin-kpi-hint">المبالغ النقدية المودعة في الخزينة رسمياً</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- جدول عهد وأرباح السائقين -->
+          <div class="table-card" style="margin-top: 30px;">
+            <div class="table-card-header">
+              <div class="card-header-title">
+                <span class="header-icon">👥</span>
+                <h4>كشف عهد الكباتن وأرباحهم الحالية</h4>
+              </div>
+              <span class="badge-count">{driversFinancials.drivers?.length || 0} كابتن مسجل</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>الكابتن</th>
+                    <th>حالة العمل</th>
+                    <th>الطلبات المسلمة</th>
+                    <th>العهدة الحالية (كاش)</th>
+                    <th>أرباح التوصيل المستحقة</th>
+                    <th>صافي المطلوب توريده للإدارة</th>
+                    <th>إجمالي المورّد سابقاً</th>
+                    <th>إجراءات مالية</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each driversFinancials.drivers || [] as d (d.id)}
+                    <tr class:has-pending-custody={Number(d.current_custody_amount) > 0}>
+                      <td>
+                        <div class="driver-cell-box">
+                          <span class="driver-avatar-icon">🚗</span>
+                          <div>
+                            <strong>{d.full_name}</strong>
+                            <div class="driver-sub-meta">
+                              <span>📞 {d.phone || 'بدون هاتف'}</span>
+                              <span>🚘 {d.vehicle_type || 'سيارة'} {d.vehicle_plate ? `(${d.vehicle_plate})` : ''}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        {#if d.current_status === 'available'}
+                          <span class="badge badge-success">🟢 متاح للطلبات</span>
+                        {:else if d.current_status === 'busy'}
+                          <span class="badge badge-warning">🟡 في مهمة توصيل</span>
+                        {:else}
+                          <span class="badge badge-secondary">⚪ غير متصل</span>
+                        {/if}
+                      </td>
+                      <td>
+                        <span class="orders-count-badge">📦 {d.delivered_count || 0} طلب</span>
+                      </td>
+                      <td>
+                        <span class="financial-val-badge custody-badge">
+                          {Number(d.current_custody_amount || 0).toLocaleString()} د.ل
+                        </span>
+                      </td>
+                      <td>
+                        <span class="financial-val-badge profit-badge">
+                          +{Number(d.pending_earnings || 0).toLocaleString()} د.ل
+                        </span>
+                      </td>
+                      <td>
+                        <span class="financial-val-badge net-badge" class:has-debt={Number(d.net_due) > 0}>
+                          {Number(d.net_due || 0).toLocaleString()} د.ل
+                        </span>
+                      </td>
+                      <td>
+                        <span class="settled-sub-text">{Number(d.settled_amount_total || 0).toLocaleString()} د.ل</span>
+                      </td>
+                      <td>
+                        <div class="action-buttons-group">
+                          <button 
+                            type="button" 
+                            class="btn-fin-action btn-settle-trigger"
+                            title="استلام النقدية وتصفية العهدة"
+                            on:click={() => openSettleModal(d)}
+                          >
+                            💵 استلام وتسوية
+                          </button>
+                          <button 
+                            type="button" 
+                            class="btn-fin-action btn-statement-trigger"
+                            title="عرض كشف الحساب والحركات"
+                            on:click={() => openDriverStatement(d.id)}
+                          >
+                            📜 كشف الحساب
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  {:else}
+                    <tr>
+                      <td colspan="8" class="empty-table-cell">
+                        لا يوجد سائقون مسجلون حالياً
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- جدول سجل إيصالات التوريد والتسويات المعتمدة -->
+          <div class="table-card" style="margin-top: 36px;">
+            <div class="table-card-header">
+              <div class="card-header-title">
+                <span class="header-icon">📑</span>
+                <h4>سجل إيصالات استلام العهد والتسويات المعتمدة</h4>
+              </div>
+              <span class="badge-count">{settlementsHistory.length} تسوية مسجلة</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>رقم الإيصال</th>
+                    <th>التاريخ والوقت</th>
+                    <th>الكابتن</th>
+                    <th>مستلم المبلغ (الإدارة)</th>
+                    <th>العهدة المصفاة</th>
+                    <th>أرباح التوصيل المستوفاة</th>
+                    <th>صافي المبلغ المودع بالخزينة</th>
+                    <th>البيان والملاحظات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each settlementsHistory as s (s.id)}
+                    <tr>
+                      <td>
+                        <span class="receipt-tag">#{s.settlement_number}</span>
+                      </td>
+                      <td>
+                        <div class="date-time-box">
+                          <strong>{new Date(s.created_at).toLocaleDateString('ar-LY')}</strong>
+                          <small>{new Date(s.created_at).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</small>
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{s.driver_name || 'سائق'}</strong>
+                        {#if s.driver_phone}<div class="driver-sub-meta">{s.driver_phone}</div>{/if}
+                      </td>
+                      <td>
+                        <span class="admin-badge">👤 {s.admin_name || 'مدير النظام'}</span>
+                      </td>
+                      <td>
+                        <span class="text-custody-cleared">{Number(s.custody_cleared || 0).toLocaleString()} د.ل</span>
+                      </td>
+                      <td>
+                        <span class="text-profit-deducted">-{Number(s.driver_earnings_deducted || 0).toLocaleString()} د.ل</span>
+                      </td>
+                      <td>
+                        <span class="text-net-received">{Number(s.net_cash_received || 0).toLocaleString()} د.ل</span>
+                      </td>
+                      <td>
+                        <span class="settle-notes-text">{s.notes || 'تسوية نقدية معتمدة'}</span>
+                      </td>
+                    </tr>
+                  {:else}
+                    <tr>
+                      <td colspan="8" class="empty-table-cell">
+                        لا توجد تسويات نقدية مسجلة حتى الآن. عندما تقوم الإدارة باستلام عهدة أي كابتن ستظهر الإيصالات هنا فوراً.
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       {/if}
@@ -2079,6 +2412,293 @@
           <div>
             <b>الرصيد المتاح:</b> <b>{flowerAnglesViewer.flower.stock_quantity} ساق</b>
           </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- مودال استلام وتسوية العهدة النقدية من الكابتن -->
+  {#if settleModal.open && settleModal.driver}
+    <div class="modal-backdrop fade-in" on:click|self={() => settleModal.open = false}>
+      <div class="modal-card settle-modal-card">
+        <div class="modal-header-styled">
+          <div class="modal-title-box">
+            <span class="modal-icon-badge">💵</span>
+            <div>
+              <h3>استلام وتوريد العهدة النقدية</h3>
+              <p class="modal-subtitle">توريد النقدية المحصلة من الكابتن: {settleModal.driver.full_name} وتصفية مستحقاته</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" on:click={() => settleModal.open = false}>✕</button>
+        </div>
+
+        {#if settleModal.errorMsg}
+          <div class="alert-error">{settleModal.errorMsg}</div>
+        {/if}
+        {#if settleModal.successMsg}
+          <div class="alert-success">{settleModal.successMsg}</div>
+        {/if}
+
+        <div class="modal-body-scroll">
+          <!-- ملخص الموقف المالي الحالي للكابتن -->
+          <div class="settle-summary-cards">
+            <div class="settle-sum-box box-custody">
+              <span class="sum-box-label">العهدة النقدية الحالية بحوزته:</span>
+              <strong class="sum-box-val">{Number(settleModal.driver.current_custody_amount || 0).toLocaleString()} د.ل</strong>
+              <small>كاش الطلبات المسلمة</small>
+            </div>
+
+            <div class="settle-sum-box box-earnings">
+              <span class="sum-box-label">أرباح التوصيل المستحقة له:</span>
+              <strong class="sum-box-val">{Number(settleModal.driver.pending_earnings || 0).toLocaleString()} د.ل</strong>
+              <small>أجور التوصيل غير المصفاة</small>
+            </div>
+
+            <div class="settle-sum-box box-net">
+              <span class="sum-box-label">صافي المبلغ لتسليمه للإدارة:</span>
+              <strong class="sum-box-val">{Math.max(0, Number(settleModal.driver.current_custody_amount || 0) - Number(settleModal.driver.pending_earnings || 0)).toLocaleString()} د.ل</strong>
+              <small>(العهدة - الأرباح)</small>
+            </div>
+          </div>
+
+          <!-- تفاصيل التسوية الفعلية -->
+          <div class="settle-form-fields">
+            <div class="form-group">
+              <label>قيمة العهدة النقدية المراد تصفيتها (د.ل): *</label>
+              <input 
+                type="number" 
+                step="0.5" 
+                class="input-field" 
+                bind:value={settleModal.custodyCleared} 
+                on:input={() => {
+                  settleModal.netCashReceived = Math.max(0, (Number(settleModal.custodyCleared) || 0) - (Number(settleModal.driverEarningsDeducted) || 0));
+                }}
+              />
+              <span class="field-hint">المبلغ الذي سيتم خصمه من عهدة السائق الحالية</span>
+            </div>
+
+            <div class="form-group">
+              <label>أرباح التوصيل المخصومة / المستوفاة للكابتن (د.ل): *</label>
+              <input 
+                type="number" 
+                step="0.5" 
+                class="input-field" 
+                bind:value={settleModal.driverEarningsDeducted} 
+                on:input={() => {
+                  settleModal.netCashReceived = Math.max(0, (Number(settleModal.custodyCleared) || 0) - (Number(settleModal.driverEarningsDeducted) || 0));
+                }}
+              />
+              <span class="field-hint">سيتم تسوية هذا المبلغ واحتسابه مستلماً من قِبل الكابتن</span>
+            </div>
+
+            <div class="form-group full-width">
+              <label>صافي المبلغ النقدي المستلم فعلياً والمودع بالخزينة (د.ل): *</label>
+              <input 
+                type="number" 
+                step="0.5" 
+                class="input-field net-cash-input" 
+                bind:value={settleModal.netCashReceived} 
+              />
+              <span class="field-hint">المبلغ المالي الذي يستلمه أمين الصندوق / المدير نقداً</span>
+            </div>
+
+            <div class="form-group full-width">
+              <label>ملاحظات وسند التوريد:</label>
+              <textarea 
+                class="input-field" 
+                rows="2" 
+                bind:value={settleModal.notes} 
+                placeholder="أدخل أي ملاحظات إضافية حول التوريد أو الفروقات..."
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions-styled">
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            disabled={settleModal.saving} 
+            on:click={handleConfirmSettlement}
+          >
+            {settleModal.saving ? 'جاري توثيق التسوية...' : 'تأكيد استلام المبلغ وتصفية العهدة 🌸'}
+          </button>
+          <button type="button" class="btn btn-outline" on:click={() => settleModal.open = false}>
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- مودال كشف الحساب والحركات المالية للكابتن -->
+  {#if driverStatementModal.open}
+    <div class="modal-backdrop fade-in" on:click|self={() => driverStatementModal.open = false}>
+      <div class="modal-card statement-modal-card">
+        <div class="modal-header-styled">
+          <div class="modal-title-box">
+            <span class="modal-icon-badge">📜</span>
+            <div>
+              <h3>كشف الحساب والعهدة المالية للكابتن</h3>
+              <p class="modal-subtitle">
+                {driverStatementModal.data?.profile?.full_name 
+                  ? `تفاصيل الحركات والمستحقات للكابتن: ${driverStatementModal.data.profile.full_name} (${driverStatementModal.data.profile.phone || ''})` 
+                  : 'جاري تحميل كشف الحساب...'}
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" on:click={() => driverStatementModal.open = false}>✕</button>
+        </div>
+
+        <div class="modal-body-scroll">
+          {#if driverStatementModal.loading}
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>جاري تحميل سجل الحركات المالية للكابتن...</p>
+            </div>
+          {:else if driverStatementModal.data}
+            <!-- بطاقة الموقف المالي -->
+            <div class="statement-profile-banner">
+              <div class="stmt-col">
+                <span class="stmt-lbl">العهدة الحالية (كاش في حوزته):</span>
+                <strong class="stmt-val text-custody">{Number(driverStatementModal.data.profile.current_custody_amount || 0).toLocaleString()} د.ل</strong>
+              </div>
+              <div class="stmt-col">
+                <span class="stmt-lbl">أرباح التوصيل المستحقة:</span>
+                <strong class="stmt-val text-profit">{Number(driverStatementModal.data.profile.pending_earnings || 0).toLocaleString()} د.ل</strong>
+              </div>
+              <div class="stmt-col">
+                <span class="stmt-lbl">صافي المستحق للإدارة:</span>
+                <strong class="stmt-val text-net">{Number(driverStatementModal.data.profile.net_due || 0).toLocaleString()} د.ل</strong>
+              </div>
+              <div class="stmt-col">
+                <span class="stmt-lbl">إجمالي ما ورّده سابقاً:</span>
+                <strong class="stmt-val">{Number(driverStatementModal.data.profile.settled_amount_total || 0).toLocaleString()} د.ل</strong>
+              </div>
+              <div class="stmt-col">
+                <span class="stmt-lbl">الطلبات المسلمة:</span>
+                <strong class="stmt-val">{driverStatementModal.data.profile.delivered_count || 0} طلب</strong>
+              </div>
+            </div>
+
+            <!-- جدول الحركات المالية الأخيرة -->
+            <h4 style="margin: 24px 0 12px; color: var(--olive); font-size: 1.05rem;">📋 سجل حركات العهدة والأرباح الأخيرة:</h4>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>التاريخ والوقت</th>
+                    <th>نوع الحركة</th>
+                    <th>البيان والتفاصيل</th>
+                    <th>مبلغ الحركة</th>
+                    <th>ربح السائق</th>
+                    <th>رصيد العهدة بعدها</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each driverStatementModal.data.recent_transactions || [] as tx (tx.id)}
+                    <tr>
+                      <td>
+                        <span style="font-size: 0.85rem; color: #666;">
+                          {new Date(tx.created_at).toLocaleDateString('ar-LY')} {new Date(tx.created_at).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </td>
+                      <td>
+                        {#if tx.type === 'order_collection'}
+                          <span class="tx-badge tx-in">📥 تحصيل كاش طلب</span>
+                        {:else if tx.type === 'delivery_earning'}
+                          <span class="tx-badge tx-in">🚗 ربح توصيل</span>
+                        {:else if tx.type === 'admin_settlement'}
+                          <span class="tx-badge tx-out">📤 توريد وتسوية للإدارة</span>
+                        {:else}
+                          <span class="tx-badge tx-other">{tx.type}</span>
+                        {/if}
+                      </td>
+                      <td>
+                        <strong>{tx.description}</strong>
+                        {#if tx.order_id}
+                          <small style="display:block; color:#888;">طلب رقم: #{tx.order_id}</small>
+                        {/if}
+                      </td>
+                      <td>
+                        {#if tx.type === 'order_collection'}
+                          <strong style="color: #b45309;">+{Number(tx.amount || 0).toLocaleString()} د.ل</strong>
+                        {:else if tx.type === 'admin_settlement'}
+                          <strong style="color: #15803d;">{Number(tx.amount || 0).toLocaleString()} د.ل</strong>
+                        {:else}
+                          <strong>{Number(tx.amount || 0).toLocaleString()} د.ل</strong>
+                        {/if}
+                      </td>
+                      <td>
+                        {#if Number(tx.driver_profit) > 0}
+                          <span style="color: #047857; font-weight: 700;">+{Number(tx.driver_profit).toLocaleString()} د.ل</span>
+                        {:else}
+                          <span style="color: #999;">-</span>
+                        {/if}
+                      </td>
+                      <td>
+                        <strong style="color: var(--olive);">{Number(tx.balance_after || 0).toLocaleString()} د.ل</strong>
+                      </td>
+                    </tr>
+                  {:else}
+                    <tr>
+                      <td colspan="6" class="empty-table-cell">لا توجد حركات مسجلة لهذا الكابتن حتى الآن</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- جدول التسويات السابقة -->
+            {#if driverStatementModal.data.recent_settlements?.length > 0}
+              <h4 style="margin: 28px 0 12px; color: var(--olive); font-size: 1.05rem;">📑 إيصالات التوريد والتسوية السابقة للكابتن:</h4>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>رقم الإيصال</th>
+                      <th>تاريخ التوريد</th>
+                      <th>العهدة المصفاة</th>
+                      <th>أرباح التوصيل المستوفاة</th>
+                      <th>المبلغ المودع بالخزينة</th>
+                      <th>مسؤول الاستلام</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each driverStatementModal.data.recent_settlements as s (s.id)}
+                      <tr>
+                        <td><span class="receipt-tag">#{s.settlement_number}</span></td>
+                        <td>{new Date(s.created_at).toLocaleDateString('ar-LY')}</td>
+                        <td>{Number(s.custody_cleared).toLocaleString()} د.ل</td>
+                        <td>{Number(s.driver_earnings_deducted).toLocaleString()} د.ل</td>
+                        <td><strong style="color: #047857;">{Number(s.net_cash_received).toLocaleString()} د.ل</strong></td>
+                        <td>{s.admin_name || 'مدير النظام'}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          {/if}
+        </div>
+
+        <div class="modal-actions-styled">
+          {#if driverStatementModal.data?.profile && Number(driverStatementModal.data.profile.current_custody_amount) > 0}
+            <button 
+              type="button" 
+              class="btn btn-primary"
+              on:click={() => {
+                const p = driverStatementModal.data.profile;
+                driverStatementModal.open = false;
+                openSettleModal(p);
+              }}
+            >
+              💵 توريد واستلام عهدة الكابتن الآن
+            </button>
+          {/if}
+          <button type="button" class="btn btn-outline" on:click={() => driverStatementModal.open = false}>
+            إغلاق
+          </button>
         </div>
       </div>
     </div>
@@ -3526,6 +4146,409 @@
     border-radius: 12px;
     margin-top: 14px;
     font-size: 0.85rem;
+  }
+
+  /* ================= أنماط النظام المالي للعهد والتسويات ================= */
+  .fin-tab-highlight {
+    background: rgba(217, 119, 6, 0.08) !important;
+    border-color: rgba(217, 119, 6, 0.3) !important;
+    color: #92400e !important;
+  }
+  .fin-tab-highlight.active {
+    background: linear-gradient(135deg, #b45309, #d97706) !important;
+    color: #fff !important;
+    border-color: #b45309 !important;
+  }
+
+  .financials-management-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .btn-refresh-fin {
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-gold);
+    background: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-refresh-fin:hover {
+    background: #faf8f5;
+    transform: translateY(-1px);
+  }
+
+  .fin-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+  }
+
+  .fin-kpi-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    border: 1px solid #f0eae1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .fin-kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 6px;
+    height: 100%;
+  }
+
+  .fin-card-custody::before { background: #d97706; }
+  .fin-card-earnings::before { background: #059669; }
+  .fin-card-net::before { background: #2563eb; }
+  .fin-card-settled::before { background: #7c3aed; }
+
+  .fin-kpi-icon {
+    font-size: 2rem;
+    background: #fdfaf5;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    flex-shrink: 0;
+    border: 1px solid #f2ece4;
+  }
+
+  .fin-kpi-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .fin-kpi-label {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .fin-kpi-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    font-family: inherit;
+    line-height: 1.2;
+  }
+
+  .custody-val { color: #b45309; }
+  .profit-val { color: #047857; }
+  .net-val { color: #1d4ed8; }
+  .settled-val { color: #6d28d9; }
+
+  .fin-kpi-hint {
+    font-size: 0.78rem;
+    color: #94a3b8;
+  }
+
+  .driver-cell-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .driver-avatar-icon {
+    width: 38px;
+    height: 38px;
+    background: #fdfaf6;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    border: 1px solid #eee;
+  }
+
+  .driver-sub-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: #78716c;
+    margin-top: 2px;
+  }
+
+  .financial-val-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    direction: ltr;
+  }
+
+  .custody-badge {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+
+  .profit-badge {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
+
+  .net-badge {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+  }
+
+  .net-badge.has-debt {
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 800;
+  }
+
+  .settled-sub-text {
+    font-size: 0.9rem;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .orders-count-badge {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .has-pending-custody {
+    background-color: rgba(254, 243, 199, 0.15);
+  }
+
+  .action-buttons-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-fin-action {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+
+  .btn-settle-trigger {
+    background: #d97706;
+    color: #fff;
+  }
+  .btn-settle-trigger:hover {
+    background: #b45309;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+  }
+
+  .btn-statement-trigger {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+  .btn-statement-trigger:hover {
+    background: #e5e7eb;
+  }
+
+  .receipt-tag {
+    background: #f1f5f9;
+    color: #334155;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-weight: 700;
+    font-size: 0.88rem;
+  }
+
+  .date-time-box {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+  }
+  .date-time-box small {
+    color: #94a3b8;
+  }
+
+  .admin-badge {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: #475569;
+  }
+
+  .text-custody-cleared {
+    color: #b45309;
+    font-weight: 700;
+  }
+  .text-profit-deducted {
+    color: #047857;
+    font-weight: 700;
+  }
+  .text-net-received {
+    color: #1d4ed8;
+    font-weight: 800;
+    font-size: 1rem;
+  }
+
+  .settle-notes-text {
+    font-size: 0.82rem;
+    color: #64748b;
+  }
+
+  /* أنماط مودال التسوية */
+  .settle-modal-card {
+    max-width: 620px;
+    width: 95%;
+  }
+
+  .settle-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .settle-sum-box {
+    padding: 14px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .settle-sum-box .sum-box-label {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .settle-sum-box .sum-box-val {
+    font-size: 1.3rem;
+    font-weight: 800;
+  }
+
+  .settle-sum-box small {
+    font-size: 0.7rem;
+    color: #94a3b8;
+  }
+
+  .settle-sum-box.box-custody {
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    color: #b45309;
+  }
+
+  .settle-sum-box.box-earnings {
+    background: #ecfdf5;
+    border: 1px solid #d1fae5;
+    color: #047857;
+  }
+
+  .settle-sum-box.box-net {
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+    color: #1d4ed8;
+  }
+
+  .settle-form-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .net-cash-input {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+
+  /* أنماط كشف الحساب */
+  .statement-modal-card {
+    max-width: 850px;
+    width: 95%;
+  }
+
+  .statement-profile-banner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    background: #fdfaf6;
+    border: 1px solid #f0e6d8;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .stmt-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stmt-lbl {
+    font-size: 0.75rem;
+    color: #78716c;
+  }
+
+  .stmt-val {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #1c1917;
+  }
+
+  .tx-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .tx-in {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .tx-out {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  .tx-other {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  @media (max-width: 768px) {
+    .settle-summary-cards {
+      grid-template-columns: 1fr;
+    }
+    .settle-form-fields {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
 

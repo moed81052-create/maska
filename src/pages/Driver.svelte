@@ -25,6 +25,13 @@
     if (gpsWatcher) clearInterval(gpsWatcher);
   });
 
+  let financialSummary = {
+    driver: null,
+    transactions: [],
+    settlements: [],
+    net_cash_due_to_admin: 0
+  };
+
   async function loadDriverData() {
     loading = true;
     try {
@@ -33,8 +40,15 @@
       if (res && res.data) {
         orders = res.data;
       }
+
+      if (driverId) {
+        const finRes = await api.getDriverFinancialSummary(driverId);
+        if (finRes && finRes.data) {
+          financialSummary = finRes.data;
+        }
+      }
     } catch (err) {
-      console.error('Failed to load driver orders:', err);
+      console.error('Failed to load driver orders/financials:', err);
     } finally {
       loading = false;
     }
@@ -66,6 +80,8 @@
         sendCurrentDriverGPS(orderNumber);
       } else if (newStatus === 'delivered') {
         driverStatus = 'available';
+        // تحديث كشف الحساب والعهدة النقدية فوراً بعد التسليم
+        await loadDriverData();
       }
     } catch (err) {
       alert('تعذر تحديث حالة الطلب: ' + err.message);
@@ -191,7 +207,54 @@
       </div>
     {/if}
 
-    <!-- 2. إحصائيات سريعة للسائق -->
+    <!-- 2. شريط محفظة العهدة النقدية وأرباح التوصيل اللحظية لكابتن التوصيل -->
+    <div class="driver-financial-banner card">
+      <div class="fin-banner-item">
+        <span class="fin-b-icon">💵</span>
+        <div>
+          <span class="fin-b-title">العهدة النقدية الحالية:</span>
+          <b class="fin-b-val">{financialSummary.driver?.current_custody_amount || 0} د.ل</b>
+          <span class="fin-b-sub">كاش في حوزتك للإدارة</span>
+        </div>
+      </div>
+
+      <div class="fin-banner-divider"></div>
+
+      <div class="fin-banner-item">
+        <span class="fin-b-icon">🌟</span>
+        <div>
+          <span class="fin-b-title">أرباح التوصيل المستحقة:</span>
+          <b class="fin-b-val text-green">{financialSummary.driver?.pending_earnings || 0} د.ل</b>
+          <span class="fin-b-sub">تخصم لصالحك</span>
+        </div>
+      </div>
+
+      <div class="fin-banner-divider"></div>
+
+      <div class="fin-banner-item">
+        <span class="fin-b-icon">⚖️</span>
+        <div>
+          <span class="fin-b-title">الصافي لتوريده للإدارة:</span>
+          <b class="fin-b-val text-blue">{financialSummary.net_cash_due_to_admin || 0} د.ل</b>
+          <span class="fin-b-sub">العهدة بعد خصم أرباحك</span>
+        </div>
+      </div>
+
+      <div class="fin-banner-divider"></div>
+
+      <div class="fin-banner-action">
+        <button 
+          type="button" 
+          class="btn-fin-view" 
+          class:active={activeTab === 'financials'}
+          on:click={() => activeTab = 'financials'}
+        >
+          📜 كشف الحساب والعهدة
+        </button>
+      </div>
+    </div>
+
+    <!-- 2b. إحصائيات سريعة للسائق -->
     <div class="driver-kpis">
       <div class="kpi-pill">
         <span class="kpi-num">{activeOrders.length}</span>
@@ -243,11 +306,169 @@
       >
         كافة الطلبات ({orders.length})
       </button>
+      <button 
+        type="button" 
+        class="d-tab fin-tab" 
+        class:active={activeTab === 'financials'}
+        on:click={() => activeTab = 'financials'}
+      >
+        💰 العهدة وكشف الحساب ({financialSummary.driver?.current_custody_amount || 0} د.ل)
+      </button>
     </div>
 
     <!-- 4. قائمة بطاقات الطلبات الموجهة للسائق -->
     {#if loading}
       <div class="loading-state">جاري تحميل مهام وطلبات التوصيل... 🌸</div>
+    {:else if activeTab === 'financials'}
+      <!-- كشف الحساب وسجل العهدة والتسويات لكابتن التوصيل -->
+      <div class="driver-financial-view fade-in">
+        <!-- كرت ملخص العهدة والأرباح التفصيلي -->
+        <div class="card fin-detail-card">
+          <div class="fin-card-top">
+            <div>
+              <h3>💰 كشف الحساب المالي والعهدة النقدية</h3>
+              <p class="fin-sub">توثيق المبالغ المحصلة، أرباح التوصيل المكتسبة، وإيصالات التوريد للإدارة</p>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" on:click={loadDriverData}>
+              🔄 تحديث الكشف
+            </button>
+          </div>
+
+          <div class="fin-grid-3">
+            <div class="fin-stat-box red">
+              <span class="stat-title">💵 العهدة النقدية المعلقة (كاش)</span>
+              <b class="stat-num">{financialSummary.driver?.current_custody_amount || 0} د.ل</b>
+              <small>المطلوب تسليمه للإدارة عند تصفية العهدة</small>
+            </div>
+            <div class="fin-stat-box green">
+              <span class="stat-title">🌟 أرباحك المستحقة من التوصيل</span>
+              <b class="stat-num">{financialSummary.driver?.pending_earnings || 0} د.ل</b>
+              <small>عمولات التوصيل المكتسبة التي تخصم لصالحك</small>
+            </div>
+            <div class="fin-stat-box blue">
+              <span class="stat-title">⚖️ صافي المبلغ المطلوب توريده</span>
+              <b class="stat-num">{financialSummary.net_cash_due_to_admin || 0} د.ل</b>
+              <small>صافي الكاش الذي تسلمه للإدارة</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- جدول الحركات المالية وحركات تحصيل الطلبات -->
+        <div class="card table-card">
+          <div class="table-head-flex">
+            <div>
+              <h3>سجل الحركات المالية الميدانية (Custody Ledger)</h3>
+              <p class="tab-subtext">توثيق لحظي لكل طلب تم تسليمه وإيداع مبلغه في العهدة النقدية</p>
+            </div>
+          </div>
+
+          {#if !financialSummary.transactions || financialSummary.transactions.length === 0}
+            <div class="empty-state-sm">لا توجد حركات مالية مسجلة بعد. عند تسليم أي طلب سيظهر في السجل تلقائياً.</div>
+          {:else}
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>التاريخ والتوقيت</th>
+                    <th>نوع الحركة</th>
+                    <th>الطلب</th>
+                    <th>المبلغ المحصل</th>
+                    <th>ربح التوصيل</th>
+                    <th>رصيد العهدة</th>
+                    <th>البيان</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each financialSummary.transactions as tx}
+                    <tr>
+                      <td>#{tx.id}</td>
+                      <td>{new Date(tx.created_at).toLocaleString('ar-LY', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                      <td>
+                        {#if tx.type === 'order_collection'}
+                          <span class="tx-badge collect">تحصيل كاش 💵</span>
+                        {:else if tx.type === 'delivery_earning'}
+                          <span class="tx-badge earn">ربح توصيل 🌟</span>
+                        {:else if tx.type === 'admin_settlement'}
+                          <span class="tx-badge settle">تسوية إدارة 🧾</span>
+                        {:else}
+                          <span class="tx-badge">حركة مالية</span>
+                        {/if}
+                      </td>
+                      <td>
+                        {#if tx.order_number}
+                          <b>#{tx.order_number}</b>
+                        {:else}
+                          -
+                        {/if}
+                      </td>
+                      <td>
+                        <b class:text-green={Number(tx.amount) > 0} class:text-red={Number(tx.amount) < 0}>
+                          {Number(tx.amount) > 0 ? `+${tx.amount}` : tx.amount} د.ل
+                        </b>
+                      </td>
+                      <td>
+                        <span class="driver-profit-tag">+{tx.driver_profit || 0} د.ل</span>
+                      </td>
+                      <td>
+                        <b class="balance-tag">{tx.balance_after} د.ل</b>
+                      </td>
+                      <td>
+                        <small class="tx-desc">{tx.description || '-'}</small>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
+
+        <!-- جدول إيصالات تسوية العهدة مع الإدارة -->
+        <div class="card table-card">
+          <div class="table-head-flex">
+            <div>
+              <h3>إيصالات تسوية العهدة وتوريد المبالغ للإدارة</h3>
+              <p class="tab-subtext">كافة المخالصات الرسمية واستلامات النقدية المعتمدة من الإدارة</p>
+            </div>
+          </div>
+
+          {#if !financialSummary.settlements || financialSummary.settlements.length === 0}
+            <div class="empty-state-sm">لا توجد تسويات سابقة حتى الآن. يتم تسجيل الإيصال فور تسليمك العهدة لمسؤول الإدارة.</div>
+          {:else}
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>رقم الإيصال</th>
+                    <th>تاريخ التسوية</th>
+                    <th>المستلم (الإدارة)</th>
+                    <th>العهدة المسواة</th>
+                    <th>أرباحك المخصومة</th>
+                    <th>الصافي المورّد للخزينة</th>
+                    <th>ملاحظات</th>
+                    <th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each financialSummary.settlements as set}
+                    <tr>
+                      <td><b>{set.settlement_number}</b></td>
+                      <td>{new Date(set.created_at).toLocaleDateString('ar-LY')}</td>
+                      <td>{set.admin_name || 'إدارة مسكة'}</td>
+                      <td><b>{set.custody_cleared} د.ل</b></td>
+                      <td><span class="text-green">-{set.driver_earnings_deducted} د.ل</span></td>
+                      <td><b class="text-primary">{set.net_cash_received} د.ل</b></td>
+                      <td><small>{set.notes || '-'}</small></td>
+                      <td><span class="badge-success">✓ تم الاستلام والإبراء</span></td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
+      </div>
     {:else if displayedOrders.length === 0}
       <div class="card empty-state">
         <span class="empty-icon">🎉</span>
@@ -940,6 +1161,271 @@
 
   @media (max-width: 1000px) {
     .dispatch-content-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* شريط العهدة النقدية والأرباح اللحظية */
+  .driver-financial-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #ffffff 0%, #fbf8f2 100%);
+    border: 1px solid #e7ded0;
+    border-radius: var(--radius-lg);
+    padding: 18px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(43, 43, 40, 0.05);
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .fin-banner-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .fin-b-icon {
+    font-size: 2rem;
+    background: #fbf7ee;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+  }
+  .fin-b-title {
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: block;
+    font-weight: 700;
+  }
+  .fin-b-val {
+    font-size: 1.35rem;
+    color: #2b2b28;
+    display: block;
+  }
+  .fin-b-sub {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .fin-banner-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--line);
+  }
+  .btn-fin-view {
+    background: var(--olive);
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-size: 0.88rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(94, 107, 44, 0.2);
+  }
+  .btn-fin-view:hover, .btn-fin-view.active {
+    background: var(--olive-dark);
+    transform: translateY(-1px);
+  }
+
+  /* تفاصيل كشف الحساب والعهدة */
+  .driver-financial-view {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .fin-detail-card {
+    padding: 24px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+  .fin-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .fin-card-top h3 {
+    margin: 0 0 4px;
+    font-size: 1.2rem;
+    color: var(--olive);
+  }
+  .fin-sub {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .fin-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .fin-stat-box {
+    background: #faf7f0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .fin-stat-box.red {
+    border-color: #ffcdd2;
+    background: #fff8f8;
+  }
+  .fin-stat-box.red .stat-num {
+    color: #c62828;
+  }
+  .fin-stat-box.green {
+    border-color: #c8e6c9;
+    background: #f4fbf5;
+  }
+  .fin-stat-box.green .stat-num {
+    color: #2e7d32;
+  }
+  .fin-stat-box.blue {
+    border-color: #bbdefb;
+    background: #f4f9ff;
+  }
+  .fin-stat-box.blue .stat-num {
+    color: #1565c0;
+  }
+  .stat-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #4b4840;
+  }
+  .stat-num {
+    font-size: 1.6rem;
+    font-weight: 800;
+  }
+  .fin-stat-box small {
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  /* جداول الحركات والتسويات */
+  .table-card {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .table-head-flex {
+    margin-bottom: 16px;
+  }
+  .table-head-flex h3 {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+    color: var(--olive);
+  }
+  .tab-subtext {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .table-responsive {
+    overflow-x: auto;
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    text-align: right;
+  }
+  .data-table th {
+    background: #faf6f0;
+    padding: 10px 14px;
+    color: #4b4840;
+    font-weight: 700;
+    border-bottom: 2px solid var(--line);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0eae0;
+    vertical-align: middle;
+  }
+  .tx-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .tx-badge.collect {
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffe0b2;
+  }
+  .tx-badge.earn {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+  }
+  .tx-badge.settle {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+  }
+  .driver-profit-tag {
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+  }
+  .balance-tag {
+    color: #2b2b28;
+    font-size: 0.9rem;
+  }
+  .text-green { color: #2e7d32 !important; }
+  .text-red { color: #c62828 !important; }
+  .text-blue { color: #1565c0 !important; }
+  .tx-desc {
+    color: #55534c;
+    line-height: 1.3;
+    display: block;
+  }
+  .empty-state-sm {
+    padding: 28px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.88rem;
+    background: #fbf9f5;
+    border-radius: 12px;
+  }
+  .badge-success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.76rem;
+  }
+
+  @media (max-width: 800px) {
+    .driver-financial-banner {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .fin-banner-divider {
+      display: none;
+    }
+    .fin-grid-3 {
       grid-template-columns: 1fr;
     }
   }

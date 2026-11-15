@@ -57,6 +57,11 @@ CREATE TABLE `driver_profiles` (
     `last_location_update` DATETIME,
     `total_deliveries` INT DEFAULT 0,
     `rating` DECIMAL(3, 2) DEFAULT 5.00,
+    `current_custody_amount` DECIMAL(10, 2) DEFAULT 0.00,
+    `total_collected_cash` DECIMAL(10, 2) DEFAULT 0.00,
+    `total_earned_commission` DECIMAL(10, 2) DEFAULT 0.00,
+    `pending_earnings` DECIMAL(10, 2) DEFAULT 0.00,
+    `settled_amount_total` DECIMAL(10, 2) DEFAULT 0.00,
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -340,6 +345,40 @@ CREATE TABLE `payments` (
     `paid_at` DATETIME,
     `notes` TEXT,
     FOREIGN KEY (`order_id`) REFERENCES `orders`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 21. جدول تسويات واستلام العهدة المالية من السائقين (Driver Custody Settlements)
+DROP TABLE IF EXISTS `driver_settlements`;
+CREATE TABLE `driver_settlements` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `settlement_number` VARCHAR(50) UNIQUE NOT NULL,
+    `driver_id` VARCHAR(36) NOT NULL,
+    `admin_id` VARCHAR(36) NOT NULL,
+    `custody_cleared` DECIMAL(10, 2) NOT NULL,
+    `driver_earnings_deducted` DECIMAL(10, 2) DEFAULT 0.00,
+    `net_cash_received` DECIMAL(10, 2) NOT NULL,
+    `orders_count` INT DEFAULT 0,
+    `notes` TEXT,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`driver_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`admin_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 22. سجل حركات العهدة النقدية والأرباح اللحظية (Driver Custody Ledger Transactions)
+DROP TABLE IF EXISTS `driver_custody_transactions`;
+CREATE TABLE `driver_custody_transactions` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `driver_id` VARCHAR(36) NOT NULL,
+    `order_id` VARCHAR(36) NULL,
+    `settlement_id` INT NULL,
+    `type` ENUM('order_collection', 'delivery_earning', 'admin_settlement', 'adjustment') NOT NULL,
+    `amount` DECIMAL(10, 2) NOT NULL,
+    `delivery_fee` DECIMAL(10, 2) DEFAULT 0.00,
+    `driver_profit` DECIMAL(10, 2) DEFAULT 0.00,
+    `balance_after` DECIMAL(10, 2) NOT NULL,
+    `description` VARCHAR(255),
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`driver_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

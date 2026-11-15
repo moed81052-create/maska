@@ -56,6 +56,12 @@ export const api = {
   updateDriverStatus: (driverId, status) => request('/driver/status', { method: 'PATCH', body: { driverId, status } }),
   updateDriverLocation: (data) => request('/drivers/location', { method: 'POST', body: data }),
 
+  // 4b. النظام المالي للعهد والتسويات وأرباح التوصيل
+  getDriversFinancials: () => request('/financials/drivers'),
+  getDriverFinancialSummary: (driverId) => request(`/financials/drivers/${driverId}`),
+  settleDriverCustody: (settleData) => request('/financials/settle', { method: 'POST', body: settleData }),
+  getSettlementsHistory: (limit = 50) => request(`/financials/settlements?limit=${limit}`),
+
   // 5. مخزون الزهور للاستوديو وصور الزوايا
   getInventory: () => request('/inventory'),
   addFlower: (flowerData) => request('/inventory', { method: 'POST', body: flowerData }),
