@@ -133,6 +133,105 @@ apiRouter.post('/auth/register', async (req, res, next) => {
 });
 
 // -----------------------------------------------------------------------------
+// أ-2. إدارة المستخدمين والطاقم (Users & Staff Management)
+// -----------------------------------------------------------------------------
+
+// جلب قائمة المستخدمين والطاقم (فلترة حسب الدور أو البحث)
+apiRouter.get('/users', async (req, res, next) => {
+  try {
+    const { role, search } = req.query;
+    const users = await db.getAllUsersList({ role, search });
+    res.json({
+      success: true,
+      count: users.length,
+      data: users
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إنشاء مستخدم أو عضو طاقم جديد (سائق، منسق، مدير، زبون)
+apiRouter.post('/users', async (req, res, next) => {
+  try {
+    const { fullName, phone, password, role } = req.body;
+    if (!fullName || !phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'الاسم الكامل، رقم الهاتف، وكلمة المرور حقول إجبارية'
+      });
+    }
+
+    const newUser = await db.createUserWithRole(req.body);
+    res.status(201).json({
+      success: true,
+      message: `تمت إضافة ${newUser.role_display || 'المستخدم'} بنجاح 🌸`,
+      data: newUser
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تحديث حالة المستخدم (نشط / معطل)
+apiRouter.patch('/users/:id/status', async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const result = await db.updateUserStatus(req.params.id, status);
+    res.json({
+      success: true,
+      message: 'تم تحديث حالة الحساب بنجاح',
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// حذف مستخدم
+apiRouter.delete('/users/:id', async (req, res, next) => {
+  try {
+    await db.deleteUser(req.params.id);
+    res.json({
+      success: true,
+      message: 'تم حذف المستخدم بنجاح'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إضافة سائق جديد كاختصار
+apiRouter.post('/drivers', async (req, res, next) => {
+  try {
+    const data = { ...req.body, role: 'driver' };
+    const newDriver = await db.createUserWithRole(data);
+    res.status(201).json({
+      success: true,
+      message: 'تم تسجيل الكابتن بنجاح 🚗',
+      data: newDriver
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إضافة منسق ورد جديد كاختصار
+apiRouter.post('/florists', async (req, res, next) => {
+  try {
+    const data = { ...req.body, role: 'florist' };
+    const newFlorist = await db.createUserWithRole(data);
+    res.status(201).json({
+      success: true,
+      message: 'تم تسجيل منسق الورد بنجاح 💐',
+      data: newFlorist
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
 // ب. إحصائيات الداشبورد ولوحة التحكم (Admin & Coordinator Dashboard)
 // -----------------------------------------------------------------------------
 

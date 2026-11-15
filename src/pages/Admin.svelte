@@ -112,6 +112,146 @@
     }
   }
 
+  // ================= إدارة الطاقم والمستخدمين =================
+  let allUsers = [];
+  let userFilterRole = 'all';
+  let userSearchQuery = '';
+  let userModal = {
+    open: false,
+    fullName: '',
+    phone: '',
+    email: '',
+    password: '',
+    role: 'driver',
+    vehicleType: 'سيارة هيونداي تبريد',
+    plateNumber: '',
+    nationalId: '',
+    saving: false,
+    errorMsg: '',
+    successMsg: ''
+  };
+
+  function openCreateUserModal(defaultRole = 'driver') {
+    userModal = {
+      open: true,
+      fullName: '',
+      phone: '',
+      email: '',
+      password: '',
+      role: defaultRole,
+      vehicleType: 'سيارة هيونداي تبريد',
+      plateNumber: '',
+      nationalId: '',
+      saving: false,
+      errorMsg: '',
+      successMsg: ''
+    };
+  }
+
+  function generateRandomPassword() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+    let pass = '';
+    for (let i = 0; i < 8; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    userModal.password = pass;
+  }
+
+  async function handleSaveUser() {
+    if (!userModal.fullName || !userModal.phone || !userModal.password) {
+      userModal.errorMsg = 'يرجى كتابة الاسم الكامل، رقم الهاتف، وكلمة المرور';
+      return;
+    }
+    userModal.saving = true;
+    userModal.errorMsg = '';
+    userModal.successMsg = '';
+
+    try {
+      await api.createUser({
+        fullName: userModal.fullName,
+        phone: userModal.phone,
+        email: userModal.email,
+        password: userModal.password,
+        role: userModal.role,
+        vehicleType: userModal.vehicleType,
+        plateNumber: userModal.plateNumber,
+        nationalId: userModal.nationalId
+      });
+
+      const roleLabels = {
+        driver: 'كابتن توصيل 🚗',
+        florist: 'منسق زهور 💐',
+        admin: 'مدير نظام 👑',
+        customer: 'زبون 👥'
+      };
+
+      userModal.successMsg = `تمت إضافة ${userModal.fullName} بنجاح كـ ${roleLabels[userModal.role] || 'مستخدم'} 🌸`;
+      
+      await reloadUsers();
+      const [dRes, flRes] = await Promise.allSettled([api.getDrivers(), api.getFlorists()]);
+      if (dRes.status === 'fulfilled' && dRes.value.data) drivers = dRes.value.data;
+      if (flRes.status === 'fulfilled' && flRes.value.data) florists = flRes.value.data;
+      if (userModal.role === 'driver') await reloadFinancials();
+
+      setTimeout(() => {
+        userModal.open = false;
+      }, 1200);
+    } catch (err) {
+      userModal.errorMsg = err.message || 'حدث خطأ أثناء حفظ المستخدم';
+    } finally {
+      userModal.saving = false;
+    }
+  }
+
+  async function handleToggleUserStatus(u) {
+    const newStatus = u.status === 'active' ? 'inactive' : 'active';
+    try {
+      await api.updateUserStatus(u.id, newStatus);
+      u.status = newStatus;
+      allUsers = [...allUsers];
+      const [dRes, flRes] = await Promise.allSettled([api.getDrivers(), api.getFlorists()]);
+      if (dRes.status === 'fulfilled' && dRes.value.data) drivers = dRes.value.data;
+      if (flRes.status === 'fulfilled' && flRes.value.data) florists = flRes.value.data;
+    } catch (err) {
+      alert(err.message || 'فشل تحديث حالة المستخدم');
+    }
+  }
+
+  async function handleDeleteUser(u) {
+    if (!confirm(`هل أنت متأكد من حذف الحساب (${u.full_name})؟`)) return;
+    try {
+      await api.deleteUser(u.id);
+      allUsers = allUsers.filter(x => x.id !== u.id);
+      const [dRes, flRes] = await Promise.allSettled([api.getDrivers(), api.getFlorists()]);
+      if (dRes.status === 'fulfilled' && dRes.value.data) drivers = dRes.value.data;
+      if (flRes.status === 'fulfilled' && flRes.value.data) florists = flRes.value.data;
+      await reloadFinancials();
+    } catch (err) {
+      alert(err.message || 'فشل حذف المستخدم');
+    }
+  }
+
+  async function reloadUsers() {
+    try {
+      const res = await api.getUsers();
+      if (res && res.data) allUsers = res.data;
+    } catch (e) {
+      console.error('Failed to load users:', e);
+    }
+  }
+
+  $: filteredUsers = allUsers.filter(u => {
+    const matchRole = userFilterRole === 'all' || u.role_name === userFilterRole;
+    if (!matchRole) return false;
+    if (!userSearchQuery) return true;
+    const q = userSearchQuery.toLowerCase();
+    return (
+      (u.full_name && u.full_name.toLowerCase().includes(q)) ||
+      (u.phone && u.phone.includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q))
+    );
+  });
+
   // مودال توجيه وإسناد الطلب للمنسقة والسائق
   let assignModal = {
     open: false,
@@ -682,7 +822,7 @@
   async function loadAllAdminData() {
     loading = true;
     try {
-      const [sRes, oRes, dRes, flRes, invRes, bRes, cRes, rRes, fbRes, zRes, hRes, finRes, setRes] = await Promise.allSettled([
+      const [sRes, oRes, dRes, flRes, invRes, bRes, cRes, rRes, fbRes, zRes, hRes, finRes, setRes, uRes] = await Promise.allSettled([
         api.getStats(),
         api.getOrders(100),
         api.getDrivers(),
@@ -695,7 +835,8 @@
         api.getPricingZones(),
         api.getPriceHistory(20),
         api.getDriversFinancials(),
-        api.getSettlementsHistory(50)
+        api.getSettlementsHistory(50),
+        api.getUsers()
       ]);
 
       if (sRes.status === 'fulfilled' && sRes.value.data) stats = sRes.value.data;
@@ -711,6 +852,7 @@
       if (hRes.status === 'fulfilled' && hRes.value.data) priceHistory = hRes.value.data;
       if (finRes.status === 'fulfilled' && finRes.value.data) driversFinancials = finRes.value.data;
       if (setRes.status === 'fulfilled' && setRes.value.data) settlementsHistory = setRes.value.data;
+      if (uRes.status === 'fulfilled' && uRes.value.data) allUsers = uRes.value.data;
     } catch (e) {
       console.error('Error loading admin data:', e);
     } finally {
@@ -910,6 +1052,15 @@
 
       <button 
         type="button" 
+        class="admin-tab users-tab-highlight" 
+        class:active={currentTab === 'users'}
+        on:click={() => { currentTab = 'users'; reloadUsers(); }}
+      >
+        👥 الطاقم والمستخدمون ({allUsers.length})
+      </button>
+
+      <button 
+        type="button" 
         class="admin-tab" 
         class:active={currentTab === 'inventory'}
         on:click={() => currentTab = 'inventory'}
@@ -1065,7 +1216,15 @@
       <!-- 2. تبويب السائقين -->
       {#if currentTab === 'drivers'}
         <div class="card table-card">
-          <h3>أسطول السائقين والتتبع اللحظي</h3>
+          <div class="table-head-flex">
+            <div>
+              <h3>أسطول السائقين والتتبع اللحظي</h3>
+              <p class="tab-subtext">متابعة موقع وحالة كباتن التوصيل مع إمكانية إضافة كابتن جديد للأسطول</p>
+            </div>
+            <button type="button" class="btn btn-primary" on:click={() => openCreateUserModal('driver')}>
+              + إضافة كابتن توصيل جديد 🚗
+            </button>
+          </div>
           <div class="drivers-cards-grid">
             {#each drivers as d (d.id || d.user_id)}
               <div class="driver-profile-card">
@@ -1654,6 +1813,195 @@
                     <tr>
                       <td colspan="8" class="empty-table-cell">
                         لا توجد تسويات نقدية مسجلة حتى الآن. عندما تقوم الإدارة باستلام عهدة أي كابتن ستظهر الإيصالات هنا فوراً.
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      <!-- ================= 10. تبويب إدارة الطاقم والمستخدمين ================= -->
+      {#if currentTab === 'users'}
+        <div class="users-management-container fade-in">
+          <div class="section-top-header">
+            <div>
+              <h3>👥 إدارة الطاقم والمستخدمين</h3>
+              <p class="subtitle">إضافة وإدارة حسابات كباتن التوصيل، منسقي الزهور، مدراء النظام، وزبائن المتجر.</p>
+            </div>
+            <div class="header-btns-row">
+              <button type="button" class="btn btn-outline" on:click={reloadUsers}>
+                🔄 تحديث القائمة
+              </button>
+              <button type="button" class="btn btn-primary" on:click={() => openCreateUserModal('driver')}>
+                + إضافة عضو طاقم / مستخدم جديد 🌸
+              </button>
+            </div>
+          </div>
+
+          <!-- شريط الفلاتر والبحث السريع -->
+          <div class="users-filter-bar card">
+            <div class="user-role-chips">
+              <button 
+                type="button" 
+                class="role-chip" 
+                class:active={userFilterRole === 'all'} 
+                on:click={() => userFilterRole = 'all'}
+              >
+                الكل ({allUsers.length})
+              </button>
+              <button 
+                type="button" 
+                class="role-chip chip-driver" 
+                class:active={userFilterRole === 'driver'} 
+                on:click={() => userFilterRole = 'driver'}
+              >
+                🚗 كباتن التوصيل ({allUsers.filter(u => u.role_name === 'driver').length})
+              </button>
+              <button 
+                type="button" 
+                class="role-chip chip-florist" 
+                class:active={userFilterRole === 'florist'} 
+                on:click={() => userFilterRole = 'florist'}
+              >
+                💐 منسقو الورد ({allUsers.filter(u => u.role_name === 'florist').length})
+              </button>
+              <button 
+                type="button" 
+                class="role-chip chip-admin" 
+                class:active={userFilterRole === 'admin'} 
+                on:click={() => userFilterRole = 'admin'}
+              >
+                👑 إدارة النظام ({allUsers.filter(u => u.role_name === 'admin').length})
+              </button>
+              <button 
+                type="button" 
+                class="role-chip chip-customer" 
+                class:active={userFilterRole === 'customer'} 
+                on:click={() => userFilterRole = 'customer'}
+              >
+                👥 الزبائن ({allUsers.filter(u => u.role_name === 'customer').length})
+              </button>
+            </div>
+
+            <div class="user-search-box">
+              <input 
+                type="text" 
+                class="input-field" 
+                placeholder="🔍 بحث بالاسم، رقم الهاتف، أو البريد..." 
+                bind:value={userSearchQuery} 
+              />
+              {#if userSearchQuery}
+                <button type="button" class="btn-clear-search" on:click={() => userSearchQuery = ''}>✕</button>
+              {/if}
+            </div>
+          </div>
+
+          <!-- جدول المستخدمين -->
+          <div class="table-card" style="margin-top: 20px;">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>المستخدم</th>
+                    <th>الدور والصلاحية</th>
+                    <th>بيانات العمل / الأسطول</th>
+                    <th>الحالة</th>
+                    <th>تاريخ التسجيل</th>
+                    <th>إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each filteredUsers as u (u.id)}
+                    <tr>
+                      <td>
+                        <div class="user-row-box">
+                          <span class="user-avatar-tag">
+                            {#if u.role_name === 'driver'}🚗
+                            {:else if u.role_name === 'florist'}💐
+                            {:else if u.role_name === 'admin'}👑
+                            {:else}👤{/if}
+                          </span>
+                          <div>
+                            <strong>{u.full_name}</strong>
+                            <div class="user-sub-info">
+                              <span>📞 {u.phone}</span>
+                              {#if u.email}<span>✉️ {u.email}</span>{/if}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        {#if u.role_name === 'driver'}
+                          <span class="user-role-badge role-badge-driver">🚗 كابتن توصيل</span>
+                        {:else if u.role_name === 'florist'}
+                          <span class="user-role-badge role-badge-florist">💐 منسق زهور</span>
+                        {:else if u.role_name === 'admin'}
+                          <span class="user-role-badge role-badge-admin">👑 مدير نظام</span>
+                        {:else}
+                          <span class="user-role-badge role-badge-customer">👥 زبون متجر</span>
+                        {/if}
+                      </td>
+                      <td>
+                        {#if u.role_name === 'driver'}
+                          <div class="work-meta-box">
+                            <span>🚘 {u.vehicle_type || 'سيارة'} {u.plate_number ? `(${u.plate_number})` : ''}</span>
+                            <small>📦 {u.driver_delivered_orders || 0} طلب مسلم | تقييم {u.driver_rating || 5}★</small>
+                          </div>
+                        {:else if u.role_name === 'florist'}
+                          <div class="work-meta-box">
+                            <span>🌸 الأتيليه واستوديو التنسيق</span>
+                            <small>💐 {u.florist_active_tasks || 0} مهام نشطة حالياً</small>
+                          </div>
+                        {:else if u.role_name === 'admin'}
+                          <span class="text-muted-meta">صلاحيات إدارة شاملة</span>
+                        {:else}
+                          <span class="text-muted-meta">📦 {u.customer_orders_count || 0} طلبات مؤكدة</span>
+                        {/if}
+                      </td>
+                      <td>
+                        <button 
+                          type="button" 
+                          class="status-toggle-pill" 
+                          class:active={u.status === 'active'}
+                          title="انقر لتغيير حالة الحساب (تفعيل / إيقاف)"
+                          on:click={() => handleToggleUserStatus(u)}
+                        >
+                          {u.status === 'active' ? '🟢 نشط' : '⚪ موقوف'}
+                        </button>
+                      </td>
+                      <td>
+                        <span class="date-text">{new Date(u.created_at).toLocaleDateString('ar-LY')}</span>
+                      </td>
+                      <td>
+                        <div class="action-buttons-group">
+                          {#if u.role_name === 'driver'}
+                            <button 
+                              type="button" 
+                              class="btn-sm-action btn-sm-fin" 
+                              title="عرض العهدة وكشف الحساب المالي"
+                              on:click={() => openDriverStatement(u.id)}
+                            >
+                              💰 العهدة
+                            </button>
+                          {/if}
+                          <button 
+                            type="button" 
+                            class="btn-sm-action btn-sm-del" 
+                            title="حذف الحساب"
+                            on:click={() => handleDeleteUser(u)}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  {:else}
+                    <tr>
+                      <td colspan="6" class="empty-table-cell">
+                        لا يوجد مستخدمون مطابقون لمعايير البحث
                       </td>
                     </tr>
                   {/each}
@@ -2758,6 +3106,176 @@
           {/if}
           <button type="button" class="btn btn-outline" on:click={() => driverStatementModal.open = false}>
             إغلاق
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- مودال إضافة مستخدم أو عضو طاقم جديد -->
+  {#if userModal.open}
+    <div class="modal-backdrop fade-in" on:click|self={() => userModal.open = false}>
+      <div class="modal-card user-modal-card">
+        <div class="modal-header-styled">
+          <div class="modal-title-box">
+            <span class="modal-icon-badge">👤</span>
+            <div>
+              <h3>إضافة مستخدم أو عضو طاقم جديد</h3>
+              <p class="modal-subtitle">تسجيل حساب كابتن توصيل، منسق زهور، مدير، أو زبون</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" on:click={() => userModal.open = false}>✕</button>
+        </div>
+
+        {#if userModal.errorMsg}
+          <div class="alert-error">{userModal.errorMsg}</div>
+        {/if}
+        {#if userModal.successMsg}
+          <div class="alert-success">{userModal.successMsg}</div>
+        {/if}
+
+        <div class="modal-body-scroll">
+          <!-- اختيار الدور / نوع الحساب -->
+          <div class="role-selector-section">
+            <label class="section-label"><b>اختر نوع الحساب / الدور: *</b></label>
+            <div class="role-cards-grid">
+              <label class="role-select-card" class:selected={userModal.role === 'driver'}>
+                <input type="radio" bind:group={userModal.role} value="driver" />
+                <span class="rc-icon">🚗</span>
+                <div class="rc-info">
+                  <strong>كابتن توصيل</strong>
+                  <small>استلام الطلبات، إدارة العهدة، والتتبع</small>
+                </div>
+              </label>
+
+              <label class="role-select-card" class:selected={userModal.role === 'florist'}>
+                <input type="radio" bind:group={userModal.role} value="florist" />
+                <span class="rc-icon">💐</span>
+                <div class="rc-info">
+                  <strong>منسّق زهور</strong>
+                  <small>استلام وتجهيز باقات الأتيليه</small>
+                </div>
+              </label>
+
+              <label class="role-select-card" class:selected={userModal.role === 'admin'}>
+                <input type="radio" bind:group={userModal.role} value="admin" />
+                <span class="rc-icon">👑</span>
+                <div class="rc-info">
+                  <strong>مدير نظام</strong>
+                  <small>إدارة كاملة للمتجر والأسعار والتقارير</small>
+                </div>
+              </label>
+
+              <label class="role-select-card" class:selected={userModal.role === 'customer'}>
+                <input type="radio" bind:group={userModal.role} value="customer" />
+                <span class="rc-icon">👥</span>
+                <div class="rc-info">
+                  <strong>زبون متجر</strong>
+                  <small>حساب عميل لطلب وتصميم الباقات</small>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- الحقول الأساسية -->
+          <div class="user-fields-grid">
+            <div class="form-group">
+              <label>الاسم الكامل الكريم: *</label>
+              <input 
+                type="text" 
+                class="input-field" 
+                placeholder="مثال: طارق الزوي" 
+                bind:value={userModal.fullName} 
+              />
+            </div>
+
+            <div class="form-group">
+              <label>رقم الهاتف الليبي: *</label>
+              <input 
+                type="tel" 
+                class="input-field" 
+                placeholder="مثال: 0912345678" 
+                bind:value={userModal.phone} 
+              />
+            </div>
+
+            <div class="form-group">
+              <label>البريد الإلكتروني (اختياري):</label>
+              <input 
+                type="email" 
+                class="input-field" 
+                placeholder="staff@maska.ly" 
+                bind:value={userModal.email} 
+              />
+            </div>
+
+            <div class="form-group">
+              <div class="label-with-action">
+                <label>كلمة المرور الأولية: *</label>
+                <button type="button" class="btn-text-sm" on:click={generateRandomPassword}>⚡ توليد تلقائي</button>
+              </div>
+              <input 
+                type="text" 
+                class="input-field" 
+                placeholder="أدخل كلمة مرور قوية" 
+                bind:value={userModal.password} 
+              />
+            </div>
+
+            <!-- حقول إضافية لكابتن التوصيل -->
+            {#if userModal.role === 'driver'}
+              <div class="form-group">
+                <label>نوع مركبة التوصيل:</label>
+                <input 
+                  type="text" 
+                  class="input-field" 
+                  placeholder="مثال: سيارة هيونداي تبريد / تويوتا" 
+                  bind:value={userModal.vehicleType} 
+                />
+              </div>
+
+              <div class="form-group">
+                <label>رقم لوحة السيارة:</label>
+                <input 
+                  type="text" 
+                  class="input-field" 
+                  placeholder="مثال: طرابلس 5-14820" 
+                  bind:value={userModal.plateNumber} 
+                />
+              </div>
+
+              <div class="form-group full-width">
+                <label>الرقم الوطني أو بطاقة الهوية (اختياري):</label>
+                <input 
+                  type="text" 
+                  class="input-field" 
+                  placeholder="الرقم الوطني للتوثيق الميداني" 
+                  bind:value={userModal.nationalId} 
+                />
+              </div>
+            {/if}
+
+            {#if userModal.role === 'florist'}
+              <div class="form-group full-width">
+                <div class="florist-notice-box">
+                  🌸 <b>ملاحظة منسق الورد:</b> سيتمكن المنسق من تسجيل الدخول إلى بوابته الخاصة واستلام باقات الزهور وتجهيز كروت الإهداء والختم الشمعي.
+                </div>
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <div class="modal-actions-styled">
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            disabled={userModal.saving} 
+            on:click={handleSaveUser}
+          >
+            {userModal.saving ? 'جاري الحفظ...' : 'إضافة وتفعيل الحساب 🌸'}
+          </button>
+          <button type="button" class="btn btn-outline" on:click={() => userModal.open = false}>
+            إلغاء
           </button>
         </div>
       </div>
@@ -4780,6 +5298,306 @@
     border: 1px dashed #fde68a;
     border-radius: 10px;
     padding: 8px 12px;
+  }
+
+  /* ================= أنماط إدارة الطاقم والمستخدمين ================= */
+  .users-tab-highlight {
+    background: rgba(99, 102, 241, 0.08) !important;
+    border-color: rgba(99, 102, 241, 0.3) !important;
+    color: #4338ca !important;
+  }
+  .users-tab-highlight.active {
+    background: linear-gradient(135deg, #4338ca, #6366f1) !important;
+    color: #fff !important;
+    border-color: #4338ca !important;
+  }
+
+  .users-management-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .header-btns-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .users-filter-bar {
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .user-role-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .role-chip {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .role-chip:hover {
+    background: #f1f5f9;
+  }
+
+  .role-chip.active {
+    background: var(--olive);
+    color: #fff;
+    border-color: var(--olive);
+  }
+
+  .chip-driver.active { background: #b45309; border-color: #b45309; }
+  .chip-florist.active { background: #be185d; border-color: #be185d; }
+  .chip-admin.active { background: #4338ca; border-color: #4338ca; }
+  .chip-customer.active { background: #047857; border-color: #047857; }
+
+  .user-search-box {
+    position: relative;
+    min-width: 260px;
+  }
+
+  .btn-clear-search {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 0.85rem;
+  }
+
+  .user-row-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .user-avatar-tag {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #fdfaf6;
+    border: 1px solid #f0e6d8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+
+  .user-sub-info {
+    display: flex;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 3px;
+    flex-wrap: wrap;
+  }
+
+  .user-role-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .role-badge-driver { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .role-badge-florist { background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; }
+  .role-badge-admin { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+  .role-badge-customer { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+
+  .work-meta-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.84rem;
+  }
+
+  .work-meta-box small {
+    color: #64748b;
+    font-size: 0.76rem;
+  }
+
+  .text-muted-meta {
+    font-size: 0.82rem;
+    color: #94a3b8;
+  }
+
+  .status-toggle-pill {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #64748b;
+    transition: all 0.2s;
+  }
+
+  .status-toggle-pill.active {
+    background: #ecfdf5;
+    color: #065f46;
+    border-color: #a7f3d0;
+  }
+
+  .btn-sm-action {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .btn-sm-fin {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+  }
+  .btn-sm-fin:hover {
+    background: #fde68a;
+  }
+
+  .btn-sm-del {
+    background: #fff1f2;
+    color: #be123c;
+    border-color: #fecdd3;
+  }
+  .btn-sm-del:hover {
+    background: #ffe4e6;
+  }
+
+  /* مودال المستخدم */
+  .user-modal-card {
+    max-width: 650px;
+    width: 95%;
+  }
+
+  .role-selector-section {
+    margin-bottom: 22px;
+  }
+
+  .section-label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    color: var(--olive);
+  }
+
+  .role-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .role-select-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    background: #fafaf9;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .role-select-card input[type="radio"] {
+    display: none;
+  }
+
+  .role-select-card:hover {
+    border-color: #cbd5e1;
+    background: #f5f5f4;
+  }
+
+  .role-select-card.selected {
+    border-color: var(--olive);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(93, 107, 72, 0.15);
+  }
+
+  .rc-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+  }
+
+  .rc-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .rc-info strong {
+    font-size: 0.92rem;
+    color: #1e293b;
+  }
+
+  .rc-info small {
+    font-size: 0.72rem;
+    color: #64748b;
+  }
+
+  .user-fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .label-with-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .btn-text-sm {
+    background: none;
+    border: none;
+    color: #b45309;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .florist-notice-box {
+    background: #fdf2f8;
+    border: 1px dashed #fbcfe8;
+    color: #9d174d;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 640px) {
+    .role-cards-grid {
+      grid-template-columns: 1fr;
+    }
+    .user-fields-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
 

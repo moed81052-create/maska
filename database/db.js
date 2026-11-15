@@ -601,6 +601,173 @@ module.exports = {
     }
   },
 
+  // 9-ب. إنشاء مستخدم أو عضو طاقم جديد (سائق، منسق زهور، مدير، أو زبون) بواسطة الإدارة
+  async createUserWithRole({ fullName, phone, email, password, role = 'driver', status = 'active', vehicleType = 'سيارة هيونداي تبريد', plateNumber = '', nationalId = '' }) {
+    if (!fullName || !phone || !password) {
+      throw new Error('يرجى إدخال الاسم، رقم الهاتف، وكلمة المرور');
+    }
+    const cleanPhone = phone.trim();
+    const cleanEmail = email ? email.trim() : null;
+    const cleanRole = ['driver', 'florist', 'admin', 'customer'].includes(role) ? role : 'driver';
+
+    if (isMySQL) {
+      const [existing] = await mysqlPool.execute(
+        `SELECT id FROM users WHERE phone = ? OR (email IS NOT NULL AND email != '' AND email = ?)`,
+        [cleanPhone, cleanEmail || '']
+      );
+      if (existing.length > 0) {
+        throw new Error('رقم الهاتف أو البريد الإلكتروني مسجل مسبقاً لمستخدم آخر');
+      }
+
+      const userId = crypto.randomUUID ? crypto.randomUUID() : ('msk-' + Math.random().toString(36).substring(2, 9));
+      const hash = hashPassword(password);
+
+      await mysqlPool.execute(`
+        INSERT INTO users (id, full_name, phone, email, password_hash, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [userId, fullName.trim(), cleanPhone, cleanEmail, hash, status || 'active']);
+
+      const [roleRows] = await mysqlPool.query(`SELECT id, name, display_name FROM roles WHERE name = ?`, [cleanRole]);
+      if (roleRows.length > 0) {
+        await mysqlPool.execute(`INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)`, [userId, roleRows[0].id]);
+      }
+
+      if (cleanRole === 'driver') {
+        await mysqlPool.execute(`
+          INSERT INTO driver_profiles 
+            (user_id, vehicle_type, plate_number, national_id, current_status, rating, current_custody_amount, pending_earnings)
+          VALUES (?, ?, ?, ?, 'available', 5.00, 0.00, 0.00)
+        `, [userId, vehicleType || 'سيارة هيونداي تبريد', plateNumber || null, nationalId || null]);
+      } else if (cleanRole === 'customer') {
+        await mysqlPool.execute(`INSERT INTO customer_profiles (user_id) VALUES (?)`, [userId]);
+      }
+
+      return {
+        id: userId,
+        full_name: fullName.trim(),
+        phone: cleanPhone,
+        email: cleanEmail,
+        role: cleanRole,
+        role_display: roleRows[0]?.display_name || cleanRole,
+        status: status || 'active'
+      };
+    } else {
+      const existing = sqliteDb.prepare(`SELECT id FROM users WHERE phone = ? OR (email IS NOT NULL AND email = ?)`).get(cleanPhone, cleanEmail || '');
+      if (existing) {
+        throw new Error('رقم الهاتف أو البريد الإلكتروني مسجل مسبقاً لمستخدم آخر');
+      }
+
+      const userId = crypto.randomUUID ? crypto.randomUUID() : ('msk-' + Math.random().toString(36).substring(2, 9));
+      const hash = hashPassword(password);
+
+      sqliteDb.prepare(`
+        INSERT INTO users (id, full_name, phone, email, password_hash, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(userId, fullName.trim(), cleanPhone, cleanEmail, hash, status || 'active');
+
+      const roleRow = sqliteDb.prepare(`SELECT id, name, display_name FROM roles WHERE name = ?`).get(cleanRole);
+      if (roleRow) {
+        sqliteDb.prepare(`INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)`).run(userId, roleRow.id);
+      }
+
+      if (cleanRole === 'driver') {
+        sqliteDb.prepare(`
+          INSERT INTO driver_profiles 
+            (user_id, vehicle_type, plate_number, national_id, current_status, rating, current_custody_amount, pending_earnings)
+          VALUES (?, ?, ?, ?, 'available', 5.0, 0.0, 0.0)
+        `).run(userId, vehicleType || 'سيارة هيونداي تبريد', plateNumber || null, nationalId || null);
+      } else if (cleanRole === 'customer') {
+        sqliteDb.prepare(`INSERT INTO customer_profiles (user_id) VALUES (?)`).run(userId);
+      }
+
+      return {
+        id: userId,
+        full_name: fullName.trim(),
+        phone: cleanPhone,
+        email: cleanEmail,
+        role: cleanRole,
+        role_display: roleRow?.display_name || cleanRole,
+        status: status || 'active'
+      };
+    }
+  },
+
+  // 9-ج. جلب قائمة المستخدمين والطاقم (Drivers, Florists, Admins, Customers)
+  async getAllUsersList({ role, search } = {}) {
+    const whereClauses = [];
+    const params = [];
+
+    if (role && role !== 'all') {
+      whereClauses.push(`r.name = ?`);
+      params.push(role);
+    }
+
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      whereClauses.push(`(u.full_name LIKE ? OR u.phone LIKE ? OR u.email LIKE ?)`);
+      params.push(q, q, q);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    const sql = `
+      SELECT 
+        u.id,
+        u.full_name,
+        u.phone,
+        u.email,
+        u.status,
+        u.created_at,
+        r.name as role_name,
+        r.display_name as role_display,
+        dp.vehicle_type,
+        dp.plate_number,
+        dp.current_status as driver_status,
+        dp.rating as driver_rating,
+        COALESCE(dp.current_custody_amount, 0) as current_custody_amount,
+        COALESCE(dp.pending_earnings, 0) as pending_earnings,
+        (SELECT COUNT(*) FROM orders o WHERE o.assigned_driver_id = u.id AND o.status = 'delivered') as driver_delivered_orders,
+        (SELECT COUNT(*) FROM orders o WHERE o.assigned_florist_id = u.id AND o.status IN ('confirmed', 'preparing')) as florist_active_tasks,
+        (SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id) as customer_orders_count
+      FROM users u
+      LEFT JOIN user_roles ur ON u.id = ur.user_id
+      LEFT JOIN roles r ON ur.role_id = r.id
+      LEFT JOIN driver_profiles dp ON u.id = dp.user_id
+      ${whereSql}
+      ORDER BY u.created_at DESC
+    `;
+
+    if (isMySQL) {
+      const [rows] = await mysqlPool.query(sql, params);
+      return rows;
+    } else {
+      return sqliteDb.prepare(sql).all(...params);
+    }
+  },
+
+  // 9-د. تحديث حالة المستخدم (تنشيط / إيقاف)
+  async updateUserStatus(userId, status) {
+    const validStatus = ['active', 'inactive', 'banned'].includes(status) ? status : 'active';
+    if (isMySQL) {
+      await mysqlPool.execute(`UPDATE users SET status = ? WHERE id = ?`, [validStatus, userId]);
+      return { success: true, id: userId, status: validStatus };
+    } else {
+      sqliteDb.prepare(`UPDATE users SET status = ? WHERE id = ?`).run(validStatus, userId);
+      return { success: true, id: userId, status: validStatus };
+    }
+  },
+
+  // 9-هـ. حذف مستخدم
+  async deleteUser(userId) {
+    if (isMySQL) {
+      await mysqlPool.execute(`DELETE FROM users WHERE id = ?`, [userId]);
+      return { success: true, id: userId };
+    } else {
+      sqliteDb.prepare(`DELETE FROM users WHERE id = ?`).run(userId);
+      return { success: true, id: userId };
+    }
+  },
+
   // 10. التحقق من صلاحية كود الخصم (Coupon Validation)
   async validateCoupon(code, subtotal = 0) {
     let coupon = null;

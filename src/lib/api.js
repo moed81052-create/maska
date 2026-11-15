@@ -36,6 +36,18 @@ export const api = {
   // 1. المصادقة والمستخدمين
   login: (phone, password) => request('/auth/login', { method: 'POST', body: { phone, password } }),
   register: (userData) => request('/auth/register', { method: 'POST', body: userData }),
+  getUsers: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.role) q.append('role', params.role);
+    if (params.search) q.append('search', params.search);
+    const qs = q.toString();
+    return request(`/users${qs ? `?${qs}` : ''}`);
+  },
+  createUser: (userData) => request('/users', { method: 'POST', body: userData }),
+  updateUserStatus: (id, status) => request(`/users/${id}/status`, { method: 'PATCH', body: { status } }),
+  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  createDriver: (driverData) => request('/drivers', { method: 'POST', body: driverData }),
+  createFlorist: (floristData) => request('/florists', { method: 'POST', body: floristData }),
 
   // 2. إحصائيات الداشبورد
   getStats: () => request('/dashboard/stats'),
