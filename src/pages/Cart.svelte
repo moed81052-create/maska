@@ -69,7 +69,6 @@
         ];
         selectedZone = deliveryZones[0];
       }
-      renderCustomerZoneCircles();
       updateCustomerZoneByCoords(customerLat, customerLng);
     } catch (e) {
       console.log('Using default delivery zones');
@@ -85,67 +84,7 @@
     }
   });
 
-  let customerZoneCircles = [];
-
-  // رسم الدوائر والمربعات والمضلعات الجغرافية لكافة مناطق التوصيل على خريطة الزبون
-  function renderCustomerZoneCircles() {
-    if (!mapInstance || !deliveryZones || deliveryZones.length === 0) return;
-
-    customerZoneCircles.forEach(c => mapInstance.removeLayer(c));
-    customerZoneCircles = [];
-
-    deliveryZones.forEach(z => {
-      const points = extractZonePoints(z);
-      const color = z.zone_color || '#5e6b2c';
-      const lat = Number(z.center_lat);
-      const lng = Number(z.center_lng);
-      const radius = Number(z.radius_meters) || 3000;
-
-      let layer = null;
-
-      // 1. إذا كان للنطاق نقاط مضلع هندسي حر أو دائرة غير متناسقة
-      if (points && points.length >= 3) {
-        layer = L.polygon(points, {
-          color: color,
-          weight: 2.2,
-          fillColor: color,
-          fillOpacity: 0.16
-        });
-      } else if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        // 2. إذا كان مربعاً عادياً أو دائرة تقليدية
-        if (z.shape_type === 'box') {
-          const latDelta = radius / 111000;
-          const lngDelta = radius / (111000 * Math.cos(lat * Math.PI / 180));
-          layer = L.rectangle([[lat - latDelta, lng - lngDelta], [lat + latDelta, lng + lngDelta]], {
-            color: color,
-            weight: 2,
-            fillColor: color,
-            fillOpacity: 0.14,
-            dashArray: '4, 4'
-          });
-        } else {
-          layer = L.circle([lat, lng], {
-            radius: radius,
-            color: color,
-            weight: 2,
-            fillColor: color,
-            fillOpacity: 0.14
-          });
-        }
-      }
-
-      if (layer) {
-        layer.addTo(mapInstance);
-        layer.bindTooltip(`🌸 نطاق: <b>${z.zone_name}</b> (${z.delivery_fee} د.ل)`, {
-          permanent: false,
-          direction: 'center'
-        });
-        customerZoneCircles.push(layer);
-      }
-    });
-  }
-
-  // مطابقة إحداثيات موقع الزبون مع النطاقات الجغرافية واحتساب سعر التوصيل تلقائياً
+  // مطابقة إحداثيات موقع الزبون مع النطاقات الجغرافية واحتساب سعر التوصيل تلقائياً في الخلفية
   function updateCustomerZoneByCoords(lat, lng) {
     if (!deliveryZones || deliveryZones.length === 0) return;
 
@@ -245,8 +184,7 @@
       updateCustomerZoneByCoords(customerLat, customerLng);
     });
 
-    // رسم الدوائر الجغرافية ومطابقة الموقع
-    renderCustomerZoneCircles();
+    // مطابقة الموقع الجغرافي للزبون مع النطاقات تلقائياً في الخلفية
     updateCustomerZoneByCoords(customerLat, customerLng);
 
     // تحديد الموقع الحالي للزبون تلقائياً كأول خطوة
