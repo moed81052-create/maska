@@ -1066,6 +1066,7 @@
 
   let editingZoneModal = {
     open: false,
+    dockedToMap: false, // وضع التعديل والتشكيل المباشر على الخريطة
     isEdit: false,
     id: null,
     city: 'طرابلس',
@@ -1081,6 +1082,8 @@
     zone_color: '#5e6b2c',
     estimated_minutes: 60,
     interaction_mode: 'handles', // 'handles' | 'add_point'
+    coordsConfirmed: false,
+    coordsConfirmedMsg: '',
     saving: false,
     errorMsg: ''
   };
@@ -1099,6 +1102,27 @@
       adminGeoMapInstance = null;
     }
   });
+
+  // الانتقال إلى وضع التشكيل والتأكيد المباشر على الخريطة
+  function switchToMapEditing() {
+    editingZoneModal.dockedToMap = true;
+    tick().then(() => {
+      const mapEl = document.getElementById('admin-geo-map');
+      if (mapEl) {
+        mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      if (adminGeoMapInstance && editingZoneModal.center_lat && editingZoneModal.center_lng) {
+        adminGeoMapInstance.setView([editingZoneModal.center_lat, editingZoneModal.center_lng], 13);
+        adminGeoMapInstance.invalidateSize();
+      }
+      updateModalPreviewLayer(true);
+    });
+  }
+
+  // العودة إلى المودال الكامل
+  function switchToFullModal() {
+    editingZoneModal.dockedToMap = false;
+  }
 
   // أيقونة مقابض التحكم الفاخرة القابلة للسحب
   function createHandleIcon(label, color = '#5e6b2c', size = 26) {
@@ -1144,7 +1168,7 @@
       attribution: '© OpenStreetMap - أتيليه مسكة'
     }).addTo(adminGeoMapInstance);
 
-    // النقر على الخريطة أثناء التعديل
+    // النقر على الخريطة أثناء التعديل اليدوي
     adminGeoMapInstance.on('click', (e) => {
       if (!editingZoneModal.open) return;
 
@@ -1157,11 +1181,27 @@
         if (editingZoneModal.shape_type !== 'polygon') {
           editingZoneModal.shape_type = 'polygon';
         }
+        editingZoneModal.coordsConfirmed = true;
+        editingZoneModal.coordsConfirmedMsg = `✓ تم إضافة زاوية جديدة عند (${clickLat.toFixed(4)}, ${clickLng.toFixed(4)})`;
         updateModalPreviewLayer(true);
-      } else if (editingZoneModal.interaction_mode === 'handles' && (!editingZoneModal.points || editingZoneModal.points.length === 0)) {
-        // إذا كانت دائرة عادية، النقر يغير المركز
+      } else {
+        // تأكيد واعتماد الإحداثيات والمركز يدوياً بالنقر على الخريطة
+        const dLat = clickLat - editingZoneModal.center_lat;
+        const dLng = clickLng - editingZoneModal.center_lng;
+
         editingZoneModal.center_lat = clickLat;
         editingZoneModal.center_lng = clickLng;
+
+        // إذا كان الشكل مضلعاً أو مربعاً، نقل كامل الشكل ليتمركز حول الإحداثيات الجديدة
+        if (Array.isArray(editingZoneModal.points) && editingZoneModal.points.length > 0 && editingZoneModal.shape_type !== 'ellipse') {
+          editingZoneModal.points = editingZoneModal.points.map(p => [
+            Number((p[0] + dLat).toFixed(6)),
+            Number((p[1] + dLng).toFixed(6))
+          ]);
+        }
+
+        editingZoneModal.coordsConfirmed = true;
+        editingZoneModal.coordsConfirmedMsg = `✓ تم تأكيد واعتماد الإحداثيات يدوياً: (${clickLat.toFixed(4)}°, ${clickLng.toFixed(4)}°) 📍`;
         updateModalPreviewLayer(true);
       }
     });
@@ -1169,7 +1209,10 @@
     // تسجيل دالة التعديل العامة لـ Popup الخريطة
     window.editZoneFromMap = (zoneId) => {
       const target = zones.find(z => z.id === zoneId);
-      if (target) openEditZoneModal(target);
+      if (target) {
+        openEditZoneModal(target);
+        switchToMapEditing();
+      }
     };
 
     renderAdminZoneLayers();
@@ -1293,6 +1336,7 @@
 
     editingZoneModal = {
       open: true,
+      dockedToMap: false,
       isEdit: false,
       id: null,
       city: selectedCityFilter !== 'all' ? selectedCityFilter : 'طرابلس',
@@ -1308,6 +1352,8 @@
       zone_color: '#5e6b2c',
       estimated_minutes: 60,
       interaction_mode: 'handles',
+      coordsConfirmed: false,
+      coordsConfirmedMsg: '',
       saving: false,
       errorMsg: ''
     };
@@ -1330,6 +1376,7 @@
 
     editingZoneModal = {
       open: true,
+      dockedToMap: false,
       isEdit: true,
       id: z.id,
       city: z.city || z.city_name || 'طرابلس',
@@ -1345,6 +1392,8 @@
       zone_color: z.zone_color || '#5e6b2c',
       estimated_minutes: Number(z.estimated_minutes) || 60,
       interaction_mode: 'handles',
+      coordsConfirmed: false,
+      coordsConfirmedMsg: '',
       saving: false,
       errorMsg: ''
     };
@@ -1650,6 +1699,9 @@
       modalHandleMarkers = [];
 
       editingZoneModal.open = false;
+      editingZoneModal.dockedToMap = false;
+      editingZoneModal.coordsConfirmed = false;
+      editingZoneModal.coordsConfirmedMsg = '';
       renderAdminZoneLayers();
       alert(`تم بنجاح حفظ وتحديث نطاق "${payload.zone_name}" وتشكيل حدوده الجغرافية 📍`);
     } catch (err) {
@@ -1667,6 +1719,9 @@
     modalHandleMarkers.forEach(m => adminGeoMapInstance.removeLayer(m));
     modalHandleMarkers = [];
     editingZoneModal.open = false;
+    editingZoneModal.dockedToMap = false;
+    editingZoneModal.coordsConfirmed = false;
+    editingZoneModal.coordsConfirmedMsg = '';
   }
 
   async function handleDeleteZone(zoneId) {
@@ -1698,7 +1753,7 @@
     : orders.filter(o => o.status === filterStatus);
 </script>
 
-<div class="admin-dashboard-page fade-in">
+<div class="admin-dashboard-page">
   <div class="admin-shell-container">
     <div class="admin-dashboard-layout">
 
@@ -2400,6 +2455,63 @@
 
           <!-- خريطة النطاقات والدوائر الجغرافية التفاعلية -->
           <div class="geo-map-container-box">
+            {#if editingZoneModal.open && editingZoneModal.dockedToMap}
+              <div class="geo-map-floating-dock fade-in">
+                <div class="dock-header-row">
+                  <div class="dock-title-flex">
+                    <span class="dock-badge-icon">📍</span>
+                    <div>
+                      <b class="dock-title">
+                        {editingZoneModal.isEdit ? `تعديل نطاق: ${editingZoneModal.zone_name || 'بدون اسم'}` : 'تشكيل نطاق توصيل جديد'}
+                      </b>
+                      <span class="dock-subtext">المدينة: <b>{editingZoneModal.city}</b> | رسوم التوصيل: <b>{editingZoneModal.delivery_fee} د.ل</b></span>
+                    </div>
+                  </div>
+                  <div class="dock-actions-flex">
+                    <button type="button" class="btn btn-sm btn-primary" on:click={handleSaveZone} disabled={editingZoneModal.saving}>
+                      {editingZoneModal.saving ? 'جاري الحفظ...' : '💾 حفظ وتثبيت النطاق'}
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" on:click={switchToFullModal}>
+                      ⚙️ تفاصيل المنطقة (النافذة الكاملة)
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline danger" on:click={closeEditingZoneModal}>
+                      ✕ إلغاء
+                    </button>
+                  </div>
+                </div>
+
+                <!-- شريط الإحداثيات والتأكيد اليدوي -->
+                <div class="dock-coords-bar">
+                  <div class="dock-coords-text">
+                    <span>📍 المركز المعتمد:</span>
+                    <b class="dock-coord-val">{Number(editingZoneModal.center_lat).toFixed(4)}°, {Number(editingZoneModal.center_lng).toFixed(4)}°</b>
+                    <span class="dock-shape-val">الشكل: {editingZoneModal.shape_type === 'box' ? '🔲 مربع حر' : (editingZoneModal.shape_type === 'ellipse' ? '🥚 بيضاوية' : (editingZoneModal.shape_type === 'polygon' ? '🔷 مضلع حر' : '⭕ دائرة'))}</span>
+                  </div>
+                  {#if editingZoneModal.coordsConfirmed}
+                    <span class="dock-confirmed-pill">{editingZoneModal.coordsConfirmedMsg}</span>
+                  {:else}
+                    <span class="dock-click-hint">🎯 بعد ضبط أو سحب الدائرة / المربع، انقر في أي مكان على الخريطة لتأكيد واعتماد الإحداثيات يدوياً!</span>
+                  {/if}
+                </div>
+
+                <!-- أزرار تبديل الشكل السريعة أثناء المشاهدة على الخريطة -->
+                <div class="dock-quick-tools">
+                  <div class="dock-shape-pills">
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'circle'} on:click={() => { editingZoneModal.shape_type = 'circle'; handleShapeTypeChange(); }}>⭕ دائرة</button>
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'ellipse'} on:click={() => { editingZoneModal.shape_type = 'ellipse'; handleShapeTypeChange(); }}>🥚 بيضاوية</button>
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'box'} on:click={() => { editingZoneModal.shape_type = 'box'; handleShapeTypeChange(); }}>🔲 مربع حر</button>
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'polygon'} on:click={() => { editingZoneModal.shape_type = 'polygon'; handleShapeTypeChange(); }}>🔷 مضلع حر</button>
+                  </div>
+                  {#if editingZoneModal.shape_type === 'box' || editingZoneModal.shape_type === 'polygon'}
+                    <div class="dock-poly-tools">
+                      <button type="button" class="dock-btn-xs" on:click={removeLastVertex}>↩️ حذف آخر زاوية</button>
+                      <button type="button" class="dock-btn-xs" on:click={resetShapeVertices}>🔄 إعادة ضبط الأركان</button>
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            {/if}
+
             <div id="admin-geo-map" class="admin-geo-map-canvas"></div>
             <div class="geo-map-legend-bar">
               <span class="legend-bar-title">🌸 النطاقات المعروضة على الخريطة:</span>
@@ -2475,7 +2587,10 @@
                     <td>
                       <div class="actions-cell-flex">
                         <button type="button" class="btn-sm-action" on:click={() => openEditZoneModal(z)}>
-                          تعديل الاسم والنطاق ✏️
+                          تعديل البيانات ✏️
+                        </button>
+                        <button type="button" class="btn-sm-action map-btn-highlight" on:click={() => { openEditZoneModal(z); switchToMapEditing(); }}>
+                          تشكيل عالخريطة 🗺️
                         </button>
                         <button type="button" class="btn-sm-action danger" on:click={() => handleDeleteZone(z.id)}>
                           حذف 🗑️
@@ -2967,7 +3082,7 @@
   </div>
 
   <!-- مودال إضافة / تعديل نطاق توصيل وتشكيل الخريطة بحرية -->
-  {#if editingZoneModal.open}
+  {#if editingZoneModal.open && !editingZoneModal.dockedToMap}
     <div class="modal-backdrop fade-in" on:click|self={closeEditingZoneModal}>
       <div class="modal-card geo-zone-modal-card">
         <div class="modal-header-styled">
@@ -2986,6 +3101,20 @@
         {/if}
 
         <div class="modal-body-scroll">
+          <!-- بنر الانتقال السريع للتشكيل والتأكيد المباشر على الخريطة -->
+          <div class="map-direct-switch-banner">
+            <div class="banner-text-box">
+              <span class="banner-pin-icon">🗺️</span>
+              <div>
+                <b>التشكيل اليدوي المباشر على الخريطة:</b>
+                <p>يمكنك التشكيل بالماوس على الخريطة وسحب الأركان والدوائر، ثم النقر على أي مكان في الخريطة لتأكيد واعتماد الإحداثيات يدوياً.</p>
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" on:click={switchToMapEditing}>
+              انتقل للخريطة لتأكيد الإحداثيات 🎯
+            </button>
+          </div>
+
           <div class="flower-fields-grid">
             <div class="form-group">
               <label>المدينة: *</label>
@@ -7643,6 +7772,187 @@
   .btn-sub-tool:hover {
     background: #ede6d4;
     border-color: #b7a988;
+  }
+
+  /* لوحة التشكيل المباشر العائمة فوق الخريطة */
+  .geo-map-floating-dock {
+    background: #fdfbf7;
+    border: 2px solid #5e6b2c;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .dock-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 1px solid #e7decb;
+    padding-bottom: 10px;
+  }
+  .dock-title-flex {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dock-badge-icon {
+    font-size: 1.4rem;
+    background: #f1ebd8;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+  .dock-title {
+    font-size: 1.05rem;
+    color: var(--olive);
+    display: block;
+  }
+  .dock-subtext {
+    font-size: 0.8rem;
+    color: #666;
+  }
+  .dock-actions-flex {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .dock-coords-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: #f5f0e3;
+    padding: 8px 12px;
+    border-radius: 8px;
+  }
+  .dock-coords-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.84rem;
+    flex-wrap: wrap;
+  }
+  .dock-coord-val {
+    font-family: monospace;
+    background: #ffffff;
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 1px solid #d4cbb3;
+    color: #2b2b28;
+  }
+  .dock-shape-val {
+    font-size: 0.78rem;
+    background: #ede6d4;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    color: #4a4843;
+  }
+  .dock-confirmed-pill {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 0.82rem;
+  }
+  .dock-click-hint {
+    color: #854d0e;
+    background: #fef9c3;
+    border: 1px dashed #fde047;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .dock-quick-tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .dock-shape-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .dock-pill {
+    background: #ffffff;
+    border: 1px solid #dcd3be;
+    color: #444;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dock-pill.active {
+    background: #5e6b2c;
+    color: #ffffff;
+    border-color: #5e6b2c;
+  }
+  .dock-poly-tools {
+    display: flex;
+    gap: 6px;
+  }
+  .dock-btn-xs {
+    background: #ffffff;
+    border: 1px solid #dcd3be;
+    color: #444;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .dock-btn-xs:hover {
+    background: #ede6d4;
+  }
+
+  /* بنر الانتقال للخريطة داخل المودال */
+  .map-direct-switch-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fdfaf3;
+    border: 1.5px solid #d4cbb3;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .banner-text-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 220px;
+  }
+  .banner-pin-icon {
+    font-size: 1.5rem;
+  }
+  .banner-text-box p {
+    margin: 2px 0 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .map-btn-highlight {
+    background: #f0fdf4 !important;
+    color: #166534 !important;
+    border: 1px solid #86efac !important;
+    font-weight: 700 !important;
+  }
+  .map-btn-highlight:hover {
+    background: #dcfce7 !important;
   }
 </style>
 
