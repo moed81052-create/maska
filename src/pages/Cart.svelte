@@ -4,6 +4,7 @@
   import { cart, cartSubtotal } from '../stores/cart.js';
   import { auth } from '../stores/auth.js';
   import { api } from '../lib/api.js';
+  import { calculateDistanceMeters, isCoordinateInsideZone, extractZonePoints, calculateApproxArea } from '../lib/geoUtils.js';
   import 'leaflet/dist/leaflet.css';
   import L from 'leaflet';
 
@@ -86,23 +87,7 @@
 
   let customerZoneCircles = [];
 
-  // معادلة هافيرسين لحساب المسافة الدقيقة بين نقطتين جغرافيتين بالأمتار
-  function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // نصف قطر الأرض بالأمتار
-    const phi1 = (lat1 * Math.PI) / 180;
-    const phi2 = (lat2 * Math.PI) / 180;
-    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-              Math.cos(phi1) * Math.cos(phi2) *
-              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
-  }
-
-  // رسم الدوائر والمربعات الجغرافية لكافة مناطق التوصيل على خريطة الزبون
+  // رسم الدوائر والمربعات والمضلعات الجغرافية لكافة مناطق التوصيل على خريطة الزبون
   function renderCustomerZoneCircles() {
     if (!mapInstance || !deliveryZones || deliveryZones.length === 0) return;
 
@@ -110,13 +95,24 @@
     customerZoneCircles = [];
 
     deliveryZones.forEach(z => {
+      const points = extractZonePoints(z);
+      const color = z.zone_color || '#5e6b2c';
       const lat = Number(z.center_lat);
       const lng = Number(z.center_lng);
       const radius = Number(z.radius_meters) || 3000;
-      const color = z.zone_color || '#5e6b2c';
 
-      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        let layer;
+      let layer = null;
+
+      // 1. إذا كان للنطاق نقاط مضلع هندسي حر أو دائرة غير متناسقة
+      if (points && points.length >= 3) {
+        layer = L.polygon(points, {
+          color: color,
+          weight: 2.2,
+          fillColor: color,
+          fillOpacity: 0.16
+        });
+      } else if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        // 2. إذا كان مربعاً عادياً أو دائرة تقليدية
         if (z.shape_type === 'box') {
           const latDelta = radius / 111000;
           const lngDelta = radius / (111000 * Math.cos(lat * Math.PI / 180));
@@ -136,19 +132,20 @@
             fillOpacity: 0.14
           });
         }
+      }
 
+      if (layer) {
         layer.addTo(mapInstance);
         layer.bindTooltip(`🌸 نطاق: <b>${z.zone_name}</b> (${z.delivery_fee} د.ل)`, {
           permanent: false,
           direction: 'center'
         });
-
         customerZoneCircles.push(layer);
       }
     });
   }
 
-  // مطابقة إحداثيات موقع الزبون مع الدوائر الجغرافية واحتساب سعر التوصيل تلقائياً
+  // مطابقة إحداثيات موقع الزبون مع النطاقات الجغرافية واحتساب سعر التوصيل تلقائياً
   function updateCustomerZoneByCoords(lat, lng) {
     if (!deliveryZones || deliveryZones.length === 0) return;
 
@@ -160,40 +157,35 @@
       const zLat = Number(z.center_lat);
       const zLng = Number(z.center_lng);
       const radius = Number(z.radius_meters) || 3000;
+      const points = extractZonePoints(z);
 
-      if (!isNaN(zLat) && !isNaN(zLng) && zLat !== 0 && zLng !== 0) {
-        const dist = calculateDistanceMeters(lat, lng, zLat, zLng);
-        if (dist < minDistance) {
-          minDistance = dist;
-          nearestZone = z;
-        }
+      const dist = (!isNaN(zLat) && !isNaN(zLng) && zLat !== 0 && zLng !== 0)
+        ? calculateDistanceMeters(lat, lng, zLat, zLng)
+        : Infinity;
 
-        let isInside = false;
-        if (z.shape_type === 'box') {
-          const latDelta = radius / 111000;
-          const lngDelta = radius / (111000 * Math.cos(zLat * Math.PI / 180));
-          if (lat >= zLat - latDelta && lat <= zLat + latDelta && lng >= zLng - lngDelta && lng <= zLng + lngDelta) {
-            isInside = true;
-          }
-        } else {
-          if (dist <= radius) {
-            isInside = true;
-          }
-        }
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestZone = z;
+      }
 
-        if (isInside) {
-          matchedZones.push({ zone: z, distance: dist, radius: radius });
-        }
+      // فحص هل الزبون داخل النطاق (مضلع، مربع غير متناسق، دائرة بيضاوية أو منتظمة)
+      const isInside = isCoordinateInsideZone(lat, lng, z);
+
+      if (isInside) {
+        const area = points && points.length >= 3
+          ? calculateApproxArea(points)
+          : (Math.PI * radius * radius);
+        matchedZones.push({ zone: z, distance: dist, area: area });
       }
     }
 
     if (matchedZones.length > 0) {
-      // اختيار الدائرة الأكثر دقة وتخصيصاً (الأصغر نصف قطر)
-      matchedZones.sort((a, b) => a.radius - b.radius);
+      // اختيار النطاق الأكثر دقة وتخصيصاً (الأصغر مساحة)
+      matchedZones.sort((a, b) => a.area - b.area);
       const chosen = matchedZones[0].zone;
       selectedZone = chosen;
       orderForm.city = chosen.city || chosen.city_name || orderForm.city;
-      locationStatus = `✅ تم التعرف على موقعك في دائرة: (${chosen.zone_name}) — رسوم التوصيل المعتمدة: ${chosen.delivery_fee} د.ل 🌸`;
+      locationStatus = `✅ تم التعرف على موقعك في نطاق: (${chosen.zone_name}) — رسوم التوصيل المعتمدة: ${chosen.delivery_fee} د.ل 🌸`;
     } else if (nearestZone) {
       selectedZone = nearestZone;
       locationStatus = `📍 الإحداثيات (${lat.toFixed(4)}, ${lng.toFixed(4)}) — تقع قرب نطاق (${nearestZone.zone_name}) بسعر: ${nearestZone.delivery_fee} د.ل`;

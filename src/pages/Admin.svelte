@@ -5,6 +5,14 @@
   import { auth, isStaff, isAdmin } from '../stores/auth.js';
   import { router } from '../stores/router.js';
   import { api } from '../lib/api.js';
+  import {
+    calculateDistanceMeters,
+    generateEllipsePoints,
+    generateInitialBoxPoints,
+    extractZonePoints,
+    calculatePolygonCenter,
+    calculateApproxArea
+  } from '../lib/geoUtils.js';
 
   let currentTab = 'orders'; // 'orders' | 'drivers' | 'financials' | 'users' | 'inventory' | 'bouquets' | 'coupons' | 'reviews' | 'pricing'
   let mobileSidebarOpen = false;
@@ -1049,11 +1057,12 @@
     }
   }
 
-  // 6. إدارة أسعار التوصيل والدوائر والمربعات الجغرافية
+  // 6. إدارة أسعار التوصيل والدوائر والمربعات والمضلعات الجغرافية
   let selectedCityFilter = 'طرابلس';
   let adminGeoMapInstance = null;
   let adminMapLayers = [];
   let modalPreviewCircle = null;
+  let modalHandleMarkers = [];
 
   let editingZoneModal = {
     open: false,
@@ -1064,10 +1073,14 @@
     delivery_fee: 10,
     center_lat: 32.8872,
     center_lng: 13.1913,
-    radius_meters: 3500,
-    shape_type: 'circle',
+    radius_meters: 3500, // نصف القطر العرضي (شرق-غرب)
+    radius_meters_y: 2500, // نصف القطر الطولي (شمال-جنوب)
+    rotation_deg: 0, // زاوية الميلان / الدوران
+    shape_type: 'circle', // 'circle' | 'ellipse' | 'box' | 'polygon'
+    points: [], // نقاط المضلع أو الأركان الأربعة الحرة [[lat, lng], ...]
     zone_color: '#5e6b2c',
     estimated_minutes: 60,
+    interaction_mode: 'handles', // 'handles' | 'add_point'
     saving: false,
     errorMsg: ''
   };
@@ -1086,6 +1099,21 @@
       adminGeoMapInstance = null;
     }
   });
+
+  // أيقونة مقابض التحكم الفاخرة القابلة للسحب
+  function createHandleIcon(label, color = '#5e6b2c', size = 26) {
+    return L.divIcon({
+      className: 'geo-vertex-handle-icon',
+      html: `<div class="geo-vertex-handle-inner" style="
+        border-color: ${color};
+        color: ${color};
+        width: ${size}px;
+        height: ${size}px;
+      ">${label}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2]
+    });
+  }
 
   // تهيئة خريطة نطاقات التوصيل للإدارة
   async function initAdminGeoMap() {
@@ -1116,12 +1144,25 @@
       attribution: '© OpenStreetMap - أتيليه مسكة'
     }).addTo(adminGeoMapInstance);
 
-    // النقر على الخريطة لتحديد مركز النطاق أثناء فتح نافذة التعديل
+    // النقر على الخريطة أثناء التعديل
     adminGeoMapInstance.on('click', (e) => {
-      if (editingZoneModal.open) {
-        editingZoneModal.center_lat = Number(e.latlng.lat.toFixed(6));
-        editingZoneModal.center_lng = Number(e.latlng.lng.toFixed(6));
-        updateModalPreviewLayer();
+      if (!editingZoneModal.open) return;
+
+      const clickLat = Number(e.latlng.lat.toFixed(6));
+      const clickLng = Number(e.latlng.lng.toFixed(6));
+
+      if (editingZoneModal.interaction_mode === 'add_point') {
+        // إضافة زاوية جديدة للمضلع
+        editingZoneModal.points = [...(editingZoneModal.points || []), [clickLat, clickLng]];
+        if (editingZoneModal.shape_type !== 'polygon') {
+          editingZoneModal.shape_type = 'polygon';
+        }
+        updateModalPreviewLayer(true);
+      } else if (editingZoneModal.interaction_mode === 'handles' && (!editingZoneModal.points || editingZoneModal.points.length === 0)) {
+        // إذا كانت دائرة عادية، النقر يغير المركز
+        editingZoneModal.center_lat = clickLat;
+        editingZoneModal.center_lng = clickLng;
+        updateModalPreviewLayer(true);
       }
     });
 
@@ -1134,7 +1175,7 @@
     renderAdminZoneLayers();
   }
 
-  // رسم الدوائر والمربعات الجغرافية على خريطة الإدارة
+  // رسم كافة الدوائر والمربعات والمضلعات الجغرافية على خريطة الإدارة
   function renderAdminZoneLayers() {
     if (!adminGeoMapInstance) return;
 
@@ -1142,15 +1183,24 @@
     adminMapLayers = [];
 
     filteredZonesForCity.forEach(z => {
+      const points = extractZonePoints(z);
       const lat = Number(z.center_lat);
       const lng = Number(z.center_lng);
       const radius = Number(z.radius_meters) || 3000;
       const color = z.zone_color || '#5e6b2c';
       const shape = z.shape_type || 'circle';
 
-      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        let shapeLayer;
+      let shapeLayer = null;
 
+      if (points && points.length >= 3) {
+        shapeLayer = L.polygon(points, {
+          color: color,
+          weight: 2.5,
+          fillColor: color,
+          fillOpacity: 0.22,
+          dashArray: shape === 'box' ? '5, 5' : null
+        });
+      } else if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
         if (shape === 'box') {
           const latDelta = radius / 111000;
           const lngDelta = radius / (111000 * Math.cos(lat * Math.PI / 180));
@@ -1174,13 +1224,19 @@
             fillOpacity: 0.22
           });
         }
+      }
 
+      if (shapeLayer) {
         shapeLayer.addTo(adminGeoMapInstance);
+
+        const shapeText = (points && shape === 'polygon')
+          ? `مضلع حر (${points.length} زاوية)`
+          : (shape === 'ellipse' ? 'دائرة بيضاوية غير متناسقة' : (shape === 'box' ? 'مربع/مستطيل حر' : 'دائرة جغرافية'));
 
         shapeLayer.bindTooltip(`
           <div style="direction: rtl; text-align: right; font-family: Cairo, sans-serif;">
             <b>${z.zone_name}</b><br>
-            <span style="color:${color}; font-weight:800;">سعر التوصيل: ${z.delivery_fee} د.ل</span> (${(radius / 1000).toFixed(1)} كم)
+            <span style="color:${color}; font-weight:800;">سعر التوصيل: ${z.delivery_fee} د.ل</span> (${shapeText})
           </div>
         `, {
           permanent: false,
@@ -1192,7 +1248,10 @@
           openEditZoneModal(z);
         });
 
-        const centerPin = L.circleMarker([lat, lng], {
+        const centerLatVal = (!isNaN(lat) && lat !== 0) ? lat : (points ? calculatePolygonCenter(points)[0] : 32.8872);
+        const centerLngVal = (!isNaN(lng) && lng !== 0) ? lng : (points ? calculatePolygonCenter(points)[1] : 13.1913);
+
+        const centerPin = L.circleMarker([centerLatVal, centerLngVal], {
           radius: 7,
           color: '#ffffff',
           weight: 2.5,
@@ -1201,13 +1260,13 @@
         }).addTo(adminGeoMapInstance);
 
         centerPin.bindPopup(`
-          <div style="direction: rtl; text-align: right; font-family: Cairo, sans-serif; min-width: 170px;">
+          <div style="direction: rtl; text-align: right; font-family: Cairo, sans-serif; min-width: 175px;">
             <b style="font-size: 14px; color: ${color};">${z.zone_name}</b><br>
             <span>المدينة: <b>${z.city || z.city_name}</b></span><br>
+            <span>الشكل: <b>${shapeText}</b></span><br>
             <span>رسوم التوصيل: <b style="color: #5e6b2c;">${z.delivery_fee} د.ل</b></span><br>
-            <span>نطاق التغطية: <b>${(radius / 1000).toFixed(1)} كم</b></span><br>
-            <small style="color: #888;">(Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)})</small><br>
-            <button style="margin-top: 8px; width: 100%; padding: 5px 10px; background: #5e6b2c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 700;" onclick="window.editZoneFromMap(${z.id})">تعديل الاسم والنطاق ✏️</button>
+            <small style="color: #888;">(Lat: ${centerLatVal.toFixed(4)}, Lng: ${centerLngVal.toFixed(4)})</small><br>
+            <button style="margin-top: 8px; width: 100%; padding: 5px 10px; background: #5e6b2c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 700;" onclick="window.editZoneFromMap(${z.id})">تعديل وتشكيل النطاق ✏️</button>
           </div>
         `);
 
@@ -1242,16 +1301,33 @@
       center_lat: defaultCenter[0],
       center_lng: defaultCenter[1],
       radius_meters: 3500,
+      radius_meters_y: 2500,
+      rotation_deg: 0,
       shape_type: 'circle',
+      points: [],
       zone_color: '#5e6b2c',
       estimated_minutes: 60,
+      interaction_mode: 'handles',
       saving: false,
       errorMsg: ''
     };
-    updateModalPreviewLayer();
+    updateModalPreviewLayer(true);
   }
 
   function openEditZoneModal(z) {
+    const points = extractZonePoints(z);
+    let shape = z.shape_type || 'circle';
+
+    if (points && points.length > 4 && shape !== 'ellipse') {
+      shape = 'polygon';
+    } else if (points && points.length === 4 && shape === 'box') {
+      shape = 'box';
+    }
+
+    const cLat = Number(z.center_lat) || (points ? calculatePolygonCenter(points)[0] : 32.8872);
+    const cLng = Number(z.center_lng) || (points ? calculatePolygonCenter(points)[1] : 13.1913);
+    const rX = Number(z.radius_meters) || 3500;
+
     editingZoneModal = {
       open: true,
       isEdit: true,
@@ -1259,12 +1335,16 @@
       city: z.city || z.city_name || 'طرابلس',
       zone_name: z.zone_name || '',
       delivery_fee: Number(z.delivery_fee) || 10,
-      center_lat: Number(z.center_lat) || 32.8872,
-      center_lng: Number(z.center_lng) || 13.1913,
-      radius_meters: Number(z.radius_meters) || 3500,
-      shape_type: z.shape_type || 'circle',
+      center_lat: cLat,
+      center_lng: cLng,
+      radius_meters: rX,
+      radius_meters_y: Math.round(rX * 0.7),
+      rotation_deg: 0,
+      shape_type: shape,
+      points: points || [],
       zone_color: z.zone_color || '#5e6b2c',
       estimated_minutes: Number(z.estimated_minutes) || 60,
+      interaction_mode: 'handles',
       saving: false,
       errorMsg: ''
     };
@@ -1272,47 +1352,248 @@
     if (adminGeoMapInstance && editingZoneModal.center_lat && editingZoneModal.center_lng) {
       adminGeoMapInstance.setView([editingZoneModal.center_lat, editingZoneModal.center_lng], 13);
     }
-    updateModalPreviewLayer();
+    updateModalPreviewLayer(true);
   }
 
-  function updateModalPreviewLayer() {
-    if (!adminGeoMapInstance) return;
+  // تحديث طبقة المعاينة ونقاط التحكم القابلة للسحب على الخريطة
+  function updateModalPreviewLayer(rebuildHandles = true) {
+    if (!adminGeoMapInstance || !editingZoneModal.open) return;
+
     if (modalPreviewCircle) {
       adminGeoMapInstance.removeLayer(modalPreviewCircle);
       modalPreviewCircle = null;
     }
 
-    if (editingZoneModal.open && editingZoneModal.center_lat && editingZoneModal.center_lng) {
-      const radius = Number(editingZoneModal.radius_meters) || 3000;
-      const color = editingZoneModal.zone_color || '#5e6b2c';
+    if (rebuildHandles) {
+      modalHandleMarkers.forEach(m => adminGeoMapInstance.removeLayer(m));
+      modalHandleMarkers = [];
+    }
 
-      if (editingZoneModal.shape_type === 'box') {
-        const latDelta = radius / 111000;
-        const lngDelta = radius / (111000 * Math.cos(editingZoneModal.center_lat * Math.PI / 180));
-        modalPreviewCircle = L.rectangle([
-          [editingZoneModal.center_lat - latDelta, editingZoneModal.center_lng - lngDelta],
-          [editingZoneModal.center_lat + latDelta, editingZoneModal.center_lng + lngDelta]
-        ], {
-          color: color,
-          weight: 3,
-          fillColor: color,
-          fillOpacity: 0.35,
-          dashArray: '6, 6'
+    const color = editingZoneModal.zone_color || '#5e6b2c';
+    const cLat = Number(editingZoneModal.center_lat) || 32.8872;
+    const cLng = Number(editingZoneModal.center_lng) || 13.1913;
+    const rx = Number(editingZoneModal.radius_meters) || 3500;
+    const ry = Number(editingZoneModal.radius_meters_y) || 2500;
+    const rot = Number(editingZoneModal.rotation_deg) || 0;
+
+    // 1. معالجة الشكل الهندسي ورسمه
+    if (editingZoneModal.shape_type === 'polygon') {
+      if (!Array.isArray(editingZoneModal.points) || editingZoneModal.points.length < 3) {
+        editingZoneModal.points = generateInitialBoxPoints(cLat, cLng, rx * 1.4, ry * 1.2);
+      }
+      modalPreviewCircle = L.polygon(editingZoneModal.points, {
+        color: color,
+        weight: 3,
+        fillColor: color,
+        fillOpacity: 0.32
+      }).addTo(adminGeoMapInstance);
+    } else if (editingZoneModal.shape_type === 'box') {
+      if (!Array.isArray(editingZoneModal.points) || editingZoneModal.points.length !== 4) {
+        editingZoneModal.points = generateInitialBoxPoints(cLat, cLng, rx * 1.5, ry * 1.2);
+      }
+      modalPreviewCircle = L.polygon(editingZoneModal.points, {
+        color: color,
+        weight: 3,
+        fillColor: color,
+        fillOpacity: 0.32,
+        dashArray: '6, 6'
+      }).addTo(adminGeoMapInstance);
+    } else if (editingZoneModal.shape_type === 'ellipse') {
+      const ellipsePts = generateEllipsePoints(cLat, cLng, rx, ry, rot, 36);
+      editingZoneModal.points = ellipsePts;
+      modalPreviewCircle = L.polygon(ellipsePts, {
+        color: color,
+        weight: 3,
+        fillColor: color,
+        fillOpacity: 0.32
+      }).addTo(adminGeoMapInstance);
+    } else {
+      // دائرة عادية
+      modalPreviewCircle = L.circle([cLat, cLng], {
+        radius: rx,
+        color: color,
+        weight: 3,
+        fillColor: color,
+        fillOpacity: 0.32
+      }).addTo(adminGeoMapInstance);
+    }
+
+    // 2. بناء مقابض السحب والتحكم التفاعلي إذا طُلب ذلك
+    if (rebuildHandles) {
+      // مقبض المركز الذهبي (سحب كامل الشكل)
+      const centerMarker = L.marker([cLat, cLng], {
+        draggable: true,
+        icon: createHandleIcon('🎯', '#b45309', 28)
+      }).addTo(adminGeoMapInstance);
+
+      centerMarker.bindTooltip('المركز: اسحب لنقل كامل النطاق الجغرافي', { permanent: false, direction: 'top' });
+
+      centerMarker.on('drag', (e) => {
+        const newLat = Number(e.latlng.lat.toFixed(6));
+        const newLng = Number(e.latlng.lng.toFixed(6));
+        const dLat = newLat - editingZoneModal.center_lat;
+        const dLng = newLng - editingZoneModal.center_lng;
+
+        editingZoneModal.center_lat = newLat;
+        editingZoneModal.center_lng = newLng;
+
+        if (Array.isArray(editingZoneModal.points) && editingZoneModal.points.length > 0 && editingZoneModal.shape_type !== 'ellipse') {
+          editingZoneModal.points = editingZoneModal.points.map(p => [
+            Number((p[0] + dLat).toFixed(6)),
+            Number((p[1] + dLng).toFixed(6))
+          ]);
+        }
+        updateModalPreviewLayer(false);
+      });
+
+      centerMarker.on('dragend', () => {
+        updateModalPreviewLayer(true);
+      });
+
+      modalHandleMarkers.push(centerMarker);
+
+      // مقابض زوايا المربع والمضلع الحر
+      if (editingZoneModal.shape_type === 'box' || editingZoneModal.shape_type === 'polygon') {
+        editingZoneModal.points.forEach((pt, idx) => {
+          const cornerMarker = L.marker([pt[0], pt[1]], {
+            draggable: true,
+            icon: createHandleIcon(String(idx + 1), color, 26)
+          }).addTo(adminGeoMapInstance);
+
+          cornerMarker.bindTooltip(`زاوية ${idx + 1}: اسحب لتغيير طرف الشكل بحرية`, { permanent: false, direction: 'top' });
+
+          cornerMarker.on('drag', (e) => {
+            editingZoneModal.points[idx] = [
+              Number(e.latlng.lat.toFixed(6)),
+              Number(e.latlng.lng.toFixed(6))
+            ];
+            updateModalPreviewLayer(false);
+          });
+
+          cornerMarker.on('dragend', () => {
+            const centroid = calculatePolygonCenter(editingZoneModal.points);
+            editingZoneModal.center_lat = centroid[0];
+            editingZoneModal.center_lng = centroid[1];
+            updateModalPreviewLayer(true);
+          });
+
+          modalHandleMarkers.push(cornerMarker);
+        });
+      } else if (editingZoneModal.shape_type === 'ellipse') {
+        // مقابض الدائرة البيضاوية غير المتناسقة (مقبض العرض ومقبض الارتفاع)
+        const latCos = Math.cos((cLat * Math.PI) / 180);
+        const eastLng = cLng + (rx / (111000 * latCos));
+        const eastHandle = L.marker([cLat, eastLng], {
+          draggable: true,
+          icon: createHandleIcon('↔️', '#2563eb', 26)
         }).addTo(adminGeoMapInstance);
+        eastHandle.bindTooltip('اسحب لتوسيع/تضييق العرض (شرق-غرب)', { permanent: false, direction: 'top' });
+        eastHandle.on('drag', (e) => {
+          const dist = calculateDistanceMeters(cLat, cLng, cLat, e.latlng.lng);
+          editingZoneModal.radius_meters = Math.max(500, Math.round(dist));
+          updateModalPreviewLayer(false);
+        });
+        eastHandle.on('dragend', () => updateModalPreviewLayer(true));
+        modalHandleMarkers.push(eastHandle);
+
+        const northLat = cLat + (ry / 111000);
+        const northHandle = L.marker([northLat, cLng], {
+          draggable: true,
+          icon: createHandleIcon('↕️', '#10b981', 26)
+        }).addTo(adminGeoMapInstance);
+        northHandle.bindTooltip('اسحب لتوسيع/تضييق الارتفاع (شمال-جنوب)', { permanent: false, direction: 'top' });
+        northHandle.on('drag', (e) => {
+          const dist = calculateDistanceMeters(cLat, cLng, e.latlng.lat, cLng);
+          editingZoneModal.radius_meters_y = Math.max(500, Math.round(dist));
+          updateModalPreviewLayer(false);
+        });
+        northHandle.on('dragend', () => updateModalPreviewLayer(true));
+        modalHandleMarkers.push(northHandle);
       } else {
-        modalPreviewCircle = L.circle([editingZoneModal.center_lat, editingZoneModal.center_lng], {
-          radius: radius,
-          color: color,
-          weight: 3,
-          fillColor: color,
-          fillOpacity: 0.35
+        // مقبض محيط الدائرة العادية
+        const latCos = Math.cos((cLat * Math.PI) / 180);
+        const edgeLng = cLng + (rx / (111000 * latCos));
+        const edgeHandle = L.marker([cLat, edgeLng], {
+          draggable: true,
+          icon: createHandleIcon('⭕', '#5e6b2c', 26)
         }).addTo(adminGeoMapInstance);
+        edgeHandle.bindTooltip('اسحب لتكبير/تصغير نصف القطر', { permanent: false, direction: 'top' });
+        edgeHandle.on('drag', (e) => {
+          const dist = calculateDistanceMeters(cLat, cLng, e.latlng.lat, e.latlng.lng);
+          editingZoneModal.radius_meters = Math.max(500, Math.round(dist));
+          updateModalPreviewLayer(false);
+        });
+        edgeHandle.on('dragend', () => updateModalPreviewLayer(true));
+        modalHandleMarkers.push(edgeHandle);
       }
     }
   }
 
-  $: if (editingZoneModal.open && (editingZoneModal.radius_meters || editingZoneModal.shape_type || editingZoneModal.zone_color)) {
-    updateModalPreviewLayer();
+  // تبديل نوع الشكل وإعادة توليد النقاط المناسبة
+  function handleShapeTypeChange() {
+    const cLat = Number(editingZoneModal.center_lat) || 32.8872;
+    const cLng = Number(editingZoneModal.center_lng) || 13.1913;
+    const rx = Number(editingZoneModal.radius_meters) || 3500;
+    const ry = Number(editingZoneModal.radius_meters_y) || 2500;
+
+    if (editingZoneModal.shape_type === 'box') {
+      editingZoneModal.points = generateInitialBoxPoints(cLat, cLng, rx * 1.5, ry * 1.2);
+    } else if (editingZoneModal.shape_type === 'polygon') {
+      if (!editingZoneModal.points || editingZoneModal.points.length < 3) {
+        editingZoneModal.points = generateInitialBoxPoints(cLat, cLng, rx * 1.4, ry * 1.2);
+      }
+    } else if (editingZoneModal.shape_type === 'ellipse') {
+      editingZoneModal.points = generateEllipsePoints(cLat, cLng, rx, ry, editingZoneModal.rotation_deg || 0);
+    } else {
+      editingZoneModal.points = [];
+    }
+    updateModalPreviewLayer(true);
+  }
+
+  // تحويل الشكل إلى مضلع حر لتعديل كافة أطرافه وزواياه بحرية
+  function convertShapeToFreeformPolygon() {
+    const cLat = Number(editingZoneModal.center_lat) || 32.8872;
+    const cLng = Number(editingZoneModal.center_lng) || 13.1913;
+    const rx = Number(editingZoneModal.radius_meters) || 3500;
+    const ry = Number(editingZoneModal.radius_meters_y) || 2500;
+
+    if (editingZoneModal.shape_type === 'ellipse' || editingZoneModal.shape_type === 'circle') {
+      // إنشاء مضلع دائري بـ 8 نقاط تحكم سهلة التعديل والسحب
+      editingZoneModal.points = generateEllipsePoints(cLat, cLng, rx, ry, editingZoneModal.rotation_deg || 0, 8);
+    } else if (editingZoneModal.shape_type === 'box' && (!editingZoneModal.points || editingZoneModal.points.length !== 4)) {
+      editingZoneModal.points = generateInitialBoxPoints(cLat, cLng, rx * 1.5, ry * 1.2);
+    }
+    editingZoneModal.shape_type = 'polygon';
+    editingZoneModal.interaction_mode = 'handles';
+    updateModalPreviewLayer(true);
+  }
+
+  // حذف آخر زاوية من المضلع
+  function removeLastVertex() {
+    if (editingZoneModal.points && editingZoneModal.points.length > 3) {
+      editingZoneModal.points.pop();
+      editingZoneModal.points = [...editingZoneModal.points];
+      updateModalPreviewLayer(true);
+    } else {
+      alert('الحد الأدنى للمضلع هو 3 زوايا على الأقل.');
+    }
+  }
+
+  // إعادة ضبط أركان الشكل حول المركز
+  function resetShapeVertices() {
+    const cLat = Number(editingZoneModal.center_lat) || 32.8872;
+    const cLng = Number(editingZoneModal.center_lng) || 13.1913;
+    const rx = Number(editingZoneModal.radius_meters) || 3500;
+    const ry = Number(editingZoneModal.radius_meters_y) || 2500;
+
+    if (editingZoneModal.shape_type === 'box') {
+      editingZoneModal.points = generateInitialBoxPoints(cLat, cLng, rx * 1.5, ry * 1.2);
+    } else if (editingZoneModal.shape_type === 'ellipse') {
+      editingZoneModal.points = generateEllipsePoints(cLat, cLng, rx, ry, editingZoneModal.rotation_deg || 0);
+    } else if (editingZoneModal.shape_type === 'polygon') {
+      editingZoneModal.points = generateInitialBoxPoints(cLat, cLng, rx * 1.4, ry * 1.2);
+    }
+    updateModalPreviewLayer(true);
   }
 
   async function handleSaveZone() {
@@ -1329,6 +1610,12 @@
     editingZoneModal.errorMsg = '';
 
     try {
+      // تجهيز بيانات النقاط والمضلع
+      let geojsonString = null;
+      if (Array.isArray(editingZoneModal.points) && editingZoneModal.points.length >= 3 && editingZoneModal.shape_type !== 'circle') {
+        geojsonString = JSON.stringify(editingZoneModal.points);
+      }
+
       const payload = {
         city: editingZoneModal.city,
         zone_name: editingZoneModal.zone_name.trim(),
@@ -1338,9 +1625,10 @@
         radius_meters: Number(editingZoneModal.radius_meters),
         shape_type: editingZoneModal.shape_type,
         zone_color: editingZoneModal.zone_color,
+        polygon_geojson: geojsonString,
         estimated_minutes: Number(editingZoneModal.estimated_minutes),
         adminId: $auth?.id,
-        reason: editingZoneModal.isEdit ? 'تعديل النطاق الجغرافي والاسم والسعر' : 'إضافة نطاق جغرافي جديد'
+        reason: editingZoneModal.isEdit ? 'تعديل النطاق الجغرافي والاسم والسعر والأبعاد الحرة' : 'إضافة نطاق جغرافي مخصص جديد'
       };
 
       if (editingZoneModal.isEdit) {
@@ -1358,15 +1646,27 @@
         adminGeoMapInstance.removeLayer(modalPreviewCircle);
         modalPreviewCircle = null;
       }
+      modalHandleMarkers.forEach(m => adminGeoMapInstance.removeLayer(m));
+      modalHandleMarkers = [];
 
       editingZoneModal.open = false;
       renderAdminZoneLayers();
-      alert(`تم بنجاح حفظ وتحديث نطاق "${payload.zone_name}" والخريطة والأسعار 📍`);
+      alert(`تم بنجاح حفظ وتحديث نطاق "${payload.zone_name}" وتشكيل حدوده الجغرافية 📍`);
     } catch (err) {
       editingZoneModal.errorMsg = err.message || 'فشل حفظ المنطقة';
     } finally {
       editingZoneModal.saving = false;
     }
+  }
+
+  function closeEditingZoneModal() {
+    if (modalPreviewCircle && adminGeoMapInstance) {
+      adminGeoMapInstance.removeLayer(modalPreviewCircle);
+      modalPreviewCircle = null;
+    }
+    modalHandleMarkers.forEach(m => adminGeoMapInstance.removeLayer(m));
+    modalHandleMarkers = [];
+    editingZoneModal.open = false;
   }
 
   async function handleDeleteZone(zoneId) {
@@ -2146,7 +2446,15 @@
                     </td>
                     <td>
                       <span class="badge-shape-type">
-                        {z.shape_type === 'box' ? '🔲 مربع جغرافي' : '⭕ دائرة جغرافية'}
+                        {#if z.shape_type === 'polygon' || (z.polygon_geojson && z.shape_type !== 'box' && z.shape_type !== 'ellipse')}
+                          🔷 مضلع حر مخصص
+                        {:else if z.shape_type === 'ellipse'}
+                          🥚 دائرة غير متناسقة (بيضاوية)
+                        {:else if z.shape_type === 'box'}
+                          🔲 مربع / مستطيل حر
+                        {:else}
+                          ⭕ دائرة جغرافية
+                        {/if}
                       </span>
                     </td>
                     <td>
@@ -2658,19 +2966,19 @@
     </div>
   </div>
 
-  <!-- مودال إضافة / تعديل نطاق توصيل ودائرة جغرافية -->
+  <!-- مودال إضافة / تعديل نطاق توصيل وتشكيل الخريطة بحرية -->
   {#if editingZoneModal.open}
-    <div class="modal-backdrop fade-in" on:click|self={() => editingZoneModal.open = false}>
+    <div class="modal-backdrop fade-in" on:click|self={closeEditingZoneModal}>
       <div class="modal-card geo-zone-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
             <span class="modal-icon-badge">📍</span>
             <div>
-              <h3>{editingZoneModal.isEdit ? 'تعديل النطاق الجغرافي والاسم والسعر' : 'إضافة دائرة / نطاق توصيل جغرافي جديد'}</h3>
-              <p class="modal-subtitle">تحديد اسم المنطقة، سعر التوصيل، الإحداثيات، ونصف القطر التغطية</p>
+              <h3>{editingZoneModal.isEdit ? 'تعديل وتشكيل النطاق الجغرافي والاسم والسعر' : 'إضافة وتشكيل نطاق توصيل جغرافي جديد'}</h3>
+              <p class="modal-subtitle">تشكيل أطراف المربع أو الدائرة أو المضلع بحرية تامة وبدون قيود تناسق</p>
             </div>
           </div>
-          <button type="button" class="btn-close-modal" on:click={() => editingZoneModal.open = false}>✕</button>
+          <button type="button" class="btn-close-modal" on:click={closeEditingZoneModal}>✕</button>
         </div>
 
         {#if editingZoneModal.errorMsg}
@@ -2703,42 +3011,150 @@
             </div>
 
             <div class="form-group">
-              <label>شكل النطاق على الخريطة:</label>
-              <select class="input-field styled-select" bind:value={editingZoneModal.shape_type}>
-                <option value="circle">⭕ دائرة جغرافية (Geographic Circle)</option>
-                <option value="box">🔲 مربع جغرافي (Bounding Box)</option>
+              <label>نوع وتشكيل الشكل على الخريطة: *</label>
+              <select class="input-field styled-select" bind:value={editingZoneModal.shape_type} on:change={handleShapeTypeChange}>
+                <option value="circle">⭕ دائرة جغرافية متناسقة (منتظمة)</option>
+                <option value="ellipse">🥚 دائرة غير متناسقة / بيضاوية (أبعاد حرة وميلان)</option>
+                <option value="box">🔲 مربع / مستطيل حر بأطراف وزوايا قابلة للسحب</option>
+                <option value="polygon">🔷 مضلع حر مخصص بأي عدد من الزوايا</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label>خط العرض (Latitude):</label>
-              <input type="number" step="0.0001" class="input-field" bind:value={editingZoneModal.center_lat} />
+              <label>خط العرض لمركز النطاق (Latitude):</label>
+              <input type="number" step="0.0001" class="input-field" bind:value={editingZoneModal.center_lat} on:change={() => updateModalPreviewLayer(true)} />
             </div>
 
             <div class="form-group">
-              <label>خط الطول (Longitude):</label>
-              <input type="number" step="0.0001" class="input-field" bind:value={editingZoneModal.center_lng} />
+              <label>خط الطول لمركز النطاق (Longitude):</label>
+              <input type="number" step="0.0001" class="input-field" bind:value={editingZoneModal.center_lng} on:change={() => updateModalPreviewLayer(true)} />
             </div>
 
-            <div class="form-group full-width">
-              <div class="range-header-row">
-                <label>نصف قطر التغطية الجغرافية: <b>{((editingZoneModal.radius_meters || 3000) / 1000).toFixed(1)} كم</b> ({editingZoneModal.radius_meters} متر)</label>
+            <!-- خيارات الدائرة العادية -->
+            {#if editingZoneModal.shape_type === 'circle'}
+              <div class="form-group full-width">
+                <div class="range-header-row">
+                  <label>نصف قطر الدائرة: <b>{((editingZoneModal.radius_meters || 3000) / 1000).toFixed(1)} كم</b> ({editingZoneModal.radius_meters} متر)</label>
+                </div>
+                <input 
+                  type="range" 
+                  min="500" 
+                  max="25000" 
+                  step="250" 
+                  class="radius-range-slider"
+                  bind:value={editingZoneModal.radius_meters}
+                  on:input={() => updateModalPreviewLayer(true)}
+                />
+                <div class="shape-actions-bar" style="margin-top: 8px;">
+                  <button type="button" class="btn-sub-tool" on:click={convertShapeToFreeformPolygon}>
+                    📐 تحويل الدائرة إلى مضلع حر لتعديل أطرافها نقطة بنقطة بالماوس
+                  </button>
+                </div>
               </div>
-              <input 
-                type="range" 
-                min="500" 
-                max="25000" 
-                step="250" 
-                class="radius-range-slider"
-                bind:value={editingZoneModal.radius_meters}
-              />
-              <small class="range-hint">اسحب الشريط لتكبير أو تصغير الدائرة الجغرافية حول المركز</small>
-            </div>
+            {/if}
+
+            <!-- خيارات الدائرة البيضاوية غير المتناسقة -->
+            {#if editingZoneModal.shape_type === 'ellipse'}
+              <div class="form-group full-width">
+                <div class="range-header-row">
+                  <label>↔️ العرض (نصف القطر الأفقي شرق-غرب): <b>{((editingZoneModal.radius_meters || 3500) / 1000).toFixed(1)} كم</b> ({editingZoneModal.radius_meters} متر)</label>
+                </div>
+                <input 
+                  type="range" 
+                  min="500" 
+                  max="25000" 
+                  step="250" 
+                  class="radius-range-slider"
+                  bind:value={editingZoneModal.radius_meters}
+                  on:input={() => updateModalPreviewLayer(true)}
+                />
+              </div>
+
+              <div class="form-group full-width">
+                <div class="range-header-row">
+                  <label>↕️ الارتفاع (نصف القطر الرأسي شمال-جنوب): <b>{((editingZoneModal.radius_meters_y || 2500) / 1000).toFixed(1)} كم</b> ({editingZoneModal.radius_meters_y} متر)</label>
+                </div>
+                <input 
+                  type="range" 
+                  min="500" 
+                  max="25000" 
+                  step="250" 
+                  class="radius-range-slider"
+                  bind:value={editingZoneModal.radius_meters_y}
+                  on:input={() => updateModalPreviewLayer(true)}
+                />
+              </div>
+
+              <div class="form-group full-width">
+                <div class="range-header-row">
+                  <label>🔄 زاوية الميلان / الدوران: <b>{editingZoneModal.rotation_deg || 0}°</b></label>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="180" 
+                  step="5" 
+                  class="radius-range-slider"
+                  bind:value={editingZoneModal.rotation_deg}
+                  on:input={() => updateModalPreviewLayer(true)}
+                />
+                <div class="shape-actions-bar" style="margin-top: 8px;">
+                  <button type="button" class="btn-sub-tool" on:click={convertShapeToFreeformPolygon}>
+                    📐 تحويل إلى مضلع حر لتعديل أطرافها نقطة بنقطة بالماوس
+                  </button>
+                </div>
+              </div>
+            {/if}
+
+            <!-- خيارات المربع الحر أو المضلع متعدد الزوايا -->
+            {#if editingZoneModal.shape_type === 'box' || editingZoneModal.shape_type === 'polygon'}
+              <div class="form-group full-width">
+                <div class="polygon-toolbar-box">
+                  <div class="polygon-toolbar-head">
+                    <span class="polygon-pts-badge">
+                      🔷 عدد الزوايا والأركان: <b>{editingZoneModal.points ? editingZoneModal.points.length : 0}</b>
+                    </span>
+                    <div class="polygon-mode-pills">
+                      <button 
+                        type="button" 
+                        class="pill-mode-btn" 
+                        class:active={editingZoneModal.interaction_mode === 'handles'}
+                        on:click={() => { editingZoneModal.interaction_mode = 'handles'; }}
+                      >
+                        🎯 سحب الزوايا بالماوس
+                      </button>
+                      <button 
+                        type="button" 
+                        class="pill-mode-btn" 
+                        class:active={editingZoneModal.interaction_mode === 'add_point'}
+                        on:click={() => { editingZoneModal.interaction_mode = 'add_point'; }}
+                      >
+                        ➕ إضافة زاوية بالنقر على الخريطة
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="polygon-actions-row">
+                    <button type="button" class="btn-sub-tool" on:click={removeLastVertex}>
+                      ↩️ تراجع عن آخر زاوية
+                    </button>
+                    <button type="button" class="btn-sub-tool" on:click={resetShapeVertices}>
+                      🔄 إعادة ضبط الأركان حول المركز
+                    </button>
+                    {#if editingZoneModal.shape_type === 'box'}
+                      <button type="button" class="btn-sub-tool" on:click={convertShapeToFreeformPolygon}>
+                        📐 تحويل إلى مضلع حر غير مقيد بـ 4 أركان
+                      </button>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            {/if}
 
             <div class="form-group">
-              <label>لون الدائرة على الخريطة:</label>
+              <label>لون النطاق على الخريطة:</label>
               <div class="color-picker-row">
-                <input type="color" class="native-color-picker" bind:value={editingZoneModal.zone_color} />
+                <input type="color" class="native-color-picker" bind:value={editingZoneModal.zone_color} on:change={() => updateModalPreviewLayer(true)} />
                 <span class="color-hex-tag">{editingZoneModal.zone_color}</span>
               </div>
             </div>
@@ -2750,7 +3166,7 @@
           </div>
 
           <div class="map-helper-banner">
-            <span>💡 نصيحة: يمكنك النقر مباشرة على الخريطة لتحديد المركز الجغرافي (Lat / Lng) تلقائياً!</span>
+            <span>✨ <b>حرية التشكيل:</b> اسحب أي مقبض أو زاوية مرقمة (1، 2، 3، 4...) على الخريطة بالماوس لتشكيل حدود المنطقة كما تشاء تماماً بدون أي قيود تناسق، واسحب مقبض المركز 🎯 لتحريك النطاق بالكامل!</span>
           </div>
         </div>
 
@@ -2763,7 +3179,7 @@
           >
             {editingZoneModal.saving ? 'جاري الحفظ...' : 'حفظ النطاق الجغرافي والأسعار 💾'}
           </button>
-          <button type="button" class="btn btn-outline" on:click={() => editingZoneModal.open = false}>
+          <button type="button" class="btn btn-outline" on:click={closeEditingZoneModal}>
             إلغاء
           </button>
         </div>
@@ -7138,6 +7554,95 @@
     border-radius: 10px;
     font-size: 0.8rem;
     margin-top: 14px;
+    line-height: 1.5;
+  }
+
+  /* مقابض التحكم التفاعلية على خريطة النطاقات */
+  :global(.geo-vertex-handle-icon) {
+    background: transparent !important;
+    border: none !important;
+  }
+  :global(.geo-vertex-handle-inner) {
+    background: #ffffff;
+    border: 3px solid #5e6b2c;
+    color: #5e6b2c;
+    font-weight: 800;
+    font-size: 11px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+    cursor: grab;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  :global(.geo-vertex-handle-inner:hover) {
+    transform: scale(1.25);
+    background: #fdfbf7;
+  }
+
+  .polygon-toolbar-box {
+    background: #fbf9f4;
+    border: 1.5px dashed #c9be9e;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .polygon-toolbar-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .polygon-pts-badge {
+    font-size: 0.85rem;
+    color: #5e6b2c;
+    font-weight: 700;
+  }
+  .polygon-mode-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .pill-mode-btn {
+    background: #ffffff;
+    border: 1px solid #d4cbb3;
+    color: #555;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .pill-mode-btn.active {
+    background: #5e6b2c;
+    color: #ffffff;
+    border-color: #5e6b2c;
+    box-shadow: 0 2px 6px rgba(94, 107, 44, 0.3);
+  }
+  .polygon-actions-row, .shape-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .btn-sub-tool {
+    background: #ffffff;
+    border: 1px solid #dcd3be;
+    color: #3b3a36;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-sub-tool:hover {
+    background: #ede6d4;
+    border-color: #b7a988;
   }
 </style>
 
