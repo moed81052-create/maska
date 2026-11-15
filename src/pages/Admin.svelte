@@ -1,5 +1,7 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
+  import 'leaflet/dist/leaflet.css';
+  import L from 'leaflet';
   import { auth, isStaff, isAdmin } from '../stores/auth.js';
   import { router } from '../stores/router.js';
   import { api } from '../lib/api.js';
@@ -1047,6 +1049,337 @@
     }
   }
 
+  // 6. إدارة أسعار التوصيل والدوائر والمربعات الجغرافية
+  let selectedCityFilter = 'طرابلس';
+  let adminGeoMapInstance = null;
+  let adminMapLayers = [];
+  let modalPreviewCircle = null;
+
+  let editingZoneModal = {
+    open: false,
+    isEdit: false,
+    id: null,
+    city: 'طرابلس',
+    zone_name: '',
+    delivery_fee: 10,
+    center_lat: 32.8872,
+    center_lng: 13.1913,
+    radius_meters: 3500,
+    shape_type: 'circle',
+    zone_color: '#5e6b2c',
+    estimated_minutes: 60,
+    saving: false,
+    errorMsg: ''
+  };
+
+  $: filteredZonesForCity = selectedCityFilter === 'all'
+    ? zones
+    : zones.filter(z => (z.city || z.city_name) === selectedCityFilter);
+
+  $: if (currentTab === 'pricing') {
+    initAdminGeoMap();
+  }
+
+  onDestroy(() => {
+    if (adminGeoMapInstance) {
+      adminGeoMapInstance.remove();
+      adminGeoMapInstance = null;
+    }
+  });
+
+  // تهيئة خريطة نطاقات التوصيل للإدارة
+  async function initAdminGeoMap() {
+    await tick();
+    const mapEl = document.getElementById('admin-geo-map');
+    if (!mapEl) return;
+
+    if (adminGeoMapInstance) {
+      adminGeoMapInstance.remove();
+      adminGeoMapInstance = null;
+    }
+
+    let defaultCenter = [32.8872, 13.1913];
+    let defaultZoom = 12;
+
+    if (selectedCityFilter === 'بنغازي') {
+      defaultCenter = [32.1167, 20.0667];
+      defaultZoom = 11;
+    } else if (selectedCityFilter === 'مصراتة') {
+      defaultCenter = [32.3754, 15.0925];
+      defaultZoom = 11;
+    }
+
+    adminGeoMapInstance = L.map('admin-geo-map').setView(defaultCenter, defaultZoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap - أتيليه مسكة'
+    }).addTo(adminGeoMapInstance);
+
+    // النقر على الخريطة لتحديد مركز النطاق أثناء فتح نافذة التعديل
+    adminGeoMapInstance.on('click', (e) => {
+      if (editingZoneModal.open) {
+        editingZoneModal.center_lat = Number(e.latlng.lat.toFixed(6));
+        editingZoneModal.center_lng = Number(e.latlng.lng.toFixed(6));
+        updateModalPreviewLayer();
+      }
+    });
+
+    // تسجيل دالة التعديل العامة لـ Popup الخريطة
+    window.editZoneFromMap = (zoneId) => {
+      const target = zones.find(z => z.id === zoneId);
+      if (target) openEditZoneModal(target);
+    };
+
+    renderAdminZoneLayers();
+  }
+
+  // رسم الدوائر والمربعات الجغرافية على خريطة الإدارة
+  function renderAdminZoneLayers() {
+    if (!adminGeoMapInstance) return;
+
+    adminMapLayers.forEach(l => adminGeoMapInstance.removeLayer(l));
+    adminMapLayers = [];
+
+    filteredZonesForCity.forEach(z => {
+      const lat = Number(z.center_lat);
+      const lng = Number(z.center_lng);
+      const radius = Number(z.radius_meters) || 3000;
+      const color = z.zone_color || '#5e6b2c';
+      const shape = z.shape_type || 'circle';
+
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        let shapeLayer;
+
+        if (shape === 'box') {
+          const latDelta = radius / 111000;
+          const lngDelta = radius / (111000 * Math.cos(lat * Math.PI / 180));
+          const bounds = [
+            [lat - latDelta, lng - lngDelta],
+            [lat + latDelta, lng + lngDelta]
+          ];
+          shapeLayer = L.rectangle(bounds, {
+            color: color,
+            weight: 2.5,
+            fillColor: color,
+            fillOpacity: 0.22,
+            dashArray: '5, 5'
+          });
+        } else {
+          shapeLayer = L.circle([lat, lng], {
+            radius: radius,
+            color: color,
+            weight: 2.5,
+            fillColor: color,
+            fillOpacity: 0.22
+          });
+        }
+
+        shapeLayer.addTo(adminGeoMapInstance);
+
+        shapeLayer.bindTooltip(`
+          <div style="direction: rtl; text-align: right; font-family: Cairo, sans-serif;">
+            <b>${z.zone_name}</b><br>
+            <span style="color:${color}; font-weight:800;">سعر التوصيل: ${z.delivery_fee} د.ل</span> (${(radius / 1000).toFixed(1)} كم)
+          </div>
+        `, {
+          permanent: false,
+          direction: 'center',
+          className: 'zone-tooltip-custom'
+        });
+
+        shapeLayer.on('click', () => {
+          openEditZoneModal(z);
+        });
+
+        const centerPin = L.circleMarker([lat, lng], {
+          radius: 7,
+          color: '#ffffff',
+          weight: 2.5,
+          fillColor: color,
+          fillOpacity: 1
+        }).addTo(adminGeoMapInstance);
+
+        centerPin.bindPopup(`
+          <div style="direction: rtl; text-align: right; font-family: Cairo, sans-serif; min-width: 170px;">
+            <b style="font-size: 14px; color: ${color};">${z.zone_name}</b><br>
+            <span>المدينة: <b>${z.city || z.city_name}</b></span><br>
+            <span>رسوم التوصيل: <b style="color: #5e6b2c;">${z.delivery_fee} د.ل</b></span><br>
+            <span>نطاق التغطية: <b>${(radius / 1000).toFixed(1)} كم</b></span><br>
+            <small style="color: #888;">(Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)})</small><br>
+            <button style="margin-top: 8px; width: 100%; padding: 5px 10px; background: #5e6b2c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 700;" onclick="window.editZoneFromMap(${z.id})">تعديل الاسم والنطاق ✏️</button>
+          </div>
+        `);
+
+        adminMapLayers.push(shapeLayer, centerPin);
+      }
+    });
+  }
+
+  function handleCityFilterChange(cityName) {
+    selectedCityFilter = cityName;
+    if (adminGeoMapInstance) {
+      if (cityName === 'طرابلس') adminGeoMapInstance.setView([32.8872, 13.1913], 12);
+      else if (cityName === 'بنغازي') adminGeoMapInstance.setView([32.1167, 20.0667], 11);
+      else if (cityName === 'مصراتة') adminGeoMapInstance.setView([32.3754, 15.0925], 11);
+      else if (cityName === 'all') adminGeoMapInstance.setView([31.5, 17.5], 7);
+      renderAdminZoneLayers();
+    }
+  }
+
+  function openCreateZoneModal() {
+    let defaultCenter = [32.8872, 13.1913];
+    if (selectedCityFilter === 'بنغازي') defaultCenter = [32.1167, 20.0667];
+    else if (selectedCityFilter === 'مصراتة') defaultCenter = [32.3754, 15.0925];
+
+    editingZoneModal = {
+      open: true,
+      isEdit: false,
+      id: null,
+      city: selectedCityFilter !== 'all' ? selectedCityFilter : 'طرابلس',
+      zone_name: '',
+      delivery_fee: 10,
+      center_lat: defaultCenter[0],
+      center_lng: defaultCenter[1],
+      radius_meters: 3500,
+      shape_type: 'circle',
+      zone_color: '#5e6b2c',
+      estimated_minutes: 60,
+      saving: false,
+      errorMsg: ''
+    };
+    updateModalPreviewLayer();
+  }
+
+  function openEditZoneModal(z) {
+    editingZoneModal = {
+      open: true,
+      isEdit: true,
+      id: z.id,
+      city: z.city || z.city_name || 'طرابلس',
+      zone_name: z.zone_name || '',
+      delivery_fee: Number(z.delivery_fee) || 10,
+      center_lat: Number(z.center_lat) || 32.8872,
+      center_lng: Number(z.center_lng) || 13.1913,
+      radius_meters: Number(z.radius_meters) || 3500,
+      shape_type: z.shape_type || 'circle',
+      zone_color: z.zone_color || '#5e6b2c',
+      estimated_minutes: Number(z.estimated_minutes) || 60,
+      saving: false,
+      errorMsg: ''
+    };
+
+    if (adminGeoMapInstance && editingZoneModal.center_lat && editingZoneModal.center_lng) {
+      adminGeoMapInstance.setView([editingZoneModal.center_lat, editingZoneModal.center_lng], 13);
+    }
+    updateModalPreviewLayer();
+  }
+
+  function updateModalPreviewLayer() {
+    if (!adminGeoMapInstance) return;
+    if (modalPreviewCircle) {
+      adminGeoMapInstance.removeLayer(modalPreviewCircle);
+      modalPreviewCircle = null;
+    }
+
+    if (editingZoneModal.open && editingZoneModal.center_lat && editingZoneModal.center_lng) {
+      const radius = Number(editingZoneModal.radius_meters) || 3000;
+      const color = editingZoneModal.zone_color || '#5e6b2c';
+
+      if (editingZoneModal.shape_type === 'box') {
+        const latDelta = radius / 111000;
+        const lngDelta = radius / (111000 * Math.cos(editingZoneModal.center_lat * Math.PI / 180));
+        modalPreviewCircle = L.rectangle([
+          [editingZoneModal.center_lat - latDelta, editingZoneModal.center_lng - lngDelta],
+          [editingZoneModal.center_lat + latDelta, editingZoneModal.center_lng + lngDelta]
+        ], {
+          color: color,
+          weight: 3,
+          fillColor: color,
+          fillOpacity: 0.35,
+          dashArray: '6, 6'
+        }).addTo(adminGeoMapInstance);
+      } else {
+        modalPreviewCircle = L.circle([editingZoneModal.center_lat, editingZoneModal.center_lng], {
+          radius: radius,
+          color: color,
+          weight: 3,
+          fillColor: color,
+          fillOpacity: 0.35
+        }).addTo(adminGeoMapInstance);
+      }
+    }
+  }
+
+  $: if (editingZoneModal.open && (editingZoneModal.radius_meters || editingZoneModal.shape_type || editingZoneModal.zone_color)) {
+    updateModalPreviewLayer();
+  }
+
+  async function handleSaveZone() {
+    if (!editingZoneModal.zone_name.trim()) {
+      editingZoneModal.errorMsg = 'يرجى كتابة اسم المنطقة والنطاق الجغرافي';
+      return;
+    }
+    if (editingZoneModal.delivery_fee === undefined || Number(editingZoneModal.delivery_fee) < 0) {
+      editingZoneModal.errorMsg = 'يرجى تحديد رسوم توصيل صحيحة';
+      return;
+    }
+
+    editingZoneModal.saving = true;
+    editingZoneModal.errorMsg = '';
+
+    try {
+      const payload = {
+        city: editingZoneModal.city,
+        zone_name: editingZoneModal.zone_name.trim(),
+        delivery_fee: Number(editingZoneModal.delivery_fee),
+        center_lat: Number(editingZoneModal.center_lat),
+        center_lng: Number(editingZoneModal.center_lng),
+        radius_meters: Number(editingZoneModal.radius_meters),
+        shape_type: editingZoneModal.shape_type,
+        zone_color: editingZoneModal.zone_color,
+        estimated_minutes: Number(editingZoneModal.estimated_minutes),
+        adminId: $auth?.id,
+        reason: editingZoneModal.isEdit ? 'تعديل النطاق الجغرافي والاسم والسعر' : 'إضافة نطاق جغرافي جديد'
+      };
+
+      if (editingZoneModal.isEdit) {
+        await api.updatePricingZone(editingZoneModal.id, payload);
+      } else {
+        await api.createPricingZone(payload);
+      }
+
+      const res = await api.getPricingZones();
+      if (res && res.data) zones = res.data;
+      const h = await api.getPriceHistory(20);
+      if (h && h.data) priceHistory = h.data;
+
+      if (modalPreviewCircle && adminGeoMapInstance) {
+        adminGeoMapInstance.removeLayer(modalPreviewCircle);
+        modalPreviewCircle = null;
+      }
+
+      editingZoneModal.open = false;
+      renderAdminZoneLayers();
+      alert(`تم بنجاح حفظ وتحديث نطاق "${payload.zone_name}" والخريطة والأسعار 📍`);
+    } catch (err) {
+      editingZoneModal.errorMsg = err.message || 'فشل حفظ المنطقة';
+    } finally {
+      editingZoneModal.saving = false;
+    }
+  }
+
+  async function handleDeleteZone(zoneId) {
+    if (!confirm('هل أنت متأكد من حذف هذا النطاق الجغرافي؟')) return;
+    try {
+      await api.deletePricingZone(zoneId);
+      zones = zones.filter(z => z.id !== zoneId);
+      renderAdminZoneLayers();
+    } catch (err) {
+      alert('فشل حذف النطاق: ' + (err.message || 'خطأ'));
+    }
+  }
+
   // تعديل سعر توصيل منطقة
   async function handleUpdateZoneFee(id, newFee) {
     try {
@@ -1054,6 +1387,7 @@
       zones = zones.map(z => z.id === id ? { ...z, delivery_fee: Number(newFee) } : z);
       const h = await api.getPriceHistory(20);
       if (h && h.data) priceHistory = h.data;
+      renderAdminZoneLayers();
     } catch (err) {
       alert('فشل تعديل السعر: ' + err.message);
     }
@@ -1711,34 +2045,133 @@
         </div>
       {/if}
 
-      <!-- 6. تبويب أسعار التوصيل -->
+      <!-- 6. تبويب أسعار التوصيل والخريطة والدوائر الجغرافية -->
       {#if currentTab === 'pricing'}
-        <div class="card table-card">
-          <h3>أسعار توصيل المدن والمناطق وسجل الرقابة</h3>
-          <div class="table-responsive">
+        <div class="card table-card geo-zones-management-card">
+          <!-- ترويسة إدارة النطاقات الجغرافية -->
+          <div class="table-head-flex">
+            <div>
+              <h3>🗺️ خريطة وتقسيم نطاقات التوصيل والدوائر الجغرافية</h3>
+              <p class="tab-subtext">تقسيم المدن والمناطق إلى دوائر ومربعات جغرافية (Lat / Lng) وتعديل الأسماء ورسوم التوصيل لكل نطاق</p>
+            </div>
+            <button type="button" class="btn btn-primary" on:click={openCreateZoneModal}>
+              ➕ إضافة نطاق / دائرة جغرافية جديدة 📍
+            </button>
+          </div>
+
+          <!-- شريط تصفية المدن وأزرار التنقل السريع للخريطة -->
+          <div class="geo-city-filter-bar">
+            <span class="geo-filter-label">اختر المدينة لتركيز الخريطة ونطاقاتها:</span>
+            <div class="city-chips-row">
+              <button 
+                type="button" 
+                class="city-chip" 
+                class:active={selectedCityFilter === 'طرابلس'}
+                on:click={() => handleCityFilterChange('طرابلس')}
+              >
+                📍 طرابلس ({zones.filter(z => (z.city || z.city_name) === 'طرابلس').length})
+              </button>
+              <button 
+                type="button" 
+                class="city-chip" 
+                class:active={selectedCityFilter === 'بنغازي'}
+                on:click={() => handleCityFilterChange('بنغازي')}
+              >
+                📍 بنغازي ({zones.filter(z => (z.city || z.city_name) === 'بنغازي').length})
+              </button>
+              <button 
+                type="button" 
+                class="city-chip" 
+                class:active={selectedCityFilter === 'مصراتة'}
+                on:click={() => handleCityFilterChange('مصراتة')}
+              >
+                📍 مصراتة ({zones.filter(z => (z.city || z.city_name) === 'مصراتة').length})
+              </button>
+              <button 
+                type="button" 
+                class="city-chip" 
+                class:active={selectedCityFilter === 'all'}
+                on:click={() => handleCityFilterChange('all')}
+              >
+                🌍 كافة المناطق ({zones.length})
+              </button>
+            </div>
+          </div>
+
+          <!-- خريطة النطاقات والدوائر الجغرافية التفاعلية -->
+          <div class="geo-map-container-box">
+            <div id="admin-geo-map" class="admin-geo-map-canvas"></div>
+            <div class="geo-map-legend-bar">
+              <span class="legend-bar-title">🌸 النطاقات المعروضة على الخريطة:</span>
+              <div class="legend-pills-wrap">
+                {#each filteredZonesForCity as z}
+                  <span class="legend-badge-item" style="border-right-color: {z.zone_color || '#5e6b2c'};">
+                    <span class="legend-swatch-dot" style="background: {z.zone_color || '#5e6b2c'};"></span>
+                    <b>{z.zone_name}</b>: {z.delivery_fee} د.ل
+                  </span>
+                {/each}
+              </div>
+            </div>
+          </div>
+
+          <!-- جدول إدارة النطاقات مع تعديل الاسم والسعر والإحداثيات -->
+          <div class="table-responsive" style="margin-top: 24px;">
             <table class="data-table">
               <thead>
                 <tr>
+                  <th>اللون</th>
                   <th>المدينة</th>
-                  <th>المنطقة والنطاق</th>
-                  <th>رسوم التوصيل الحالية</th>
-                  <th>تعديل السعر</th>
+                  <th>اسم المنطقة والنطاق</th>
+                  <th>الشكل الجغرافي</th>
+                  <th>مركز الإحداثيات (Lat, Lng)</th>
+                  <th>نطاق التغطية</th>
+                  <th>رسوم التوصيل</th>
+                  <th>الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
-                {#each zones as z (z.id)}
+                {#each filteredZonesForCity as z (z.id)}
                   <tr>
-                    <td><strong>{z.city_name}</strong></td>
-                    <td>{z.zone_name}</td>
-                    <td><b class="cell-price">{z.delivery_fee} د.ل</b></td>
                     <td>
-                      <div class="inline-edit">
-                        <input 
-                          type="number" 
-                          class="input-field-sm" 
-                          value={z.delivery_fee} 
-                          on:change={(e) => handleUpdateZoneFee(z.id, e.target.value)}
-                        />
+                      <span class="color-swatch-circle" style="background: {z.zone_color || '#5e6b2c'};"></span>
+                    </td>
+                    <td><strong>{z.city || z.city_name}</strong></td>
+                    <td>
+                      <div class="zone-name-cell">
+                        <b>{z.zone_name}</b>
+                        {#if z.estimated_minutes}
+                          <small class="zone-time-sub">⏱️ متوقع {z.estimated_minutes} دقيقة</small>
+                        {/if}
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge-shape-type">
+                        {z.shape_type === 'box' ? '🔲 مربع جغرافي' : '⭕ دائرة جغرافية'}
+                      </span>
+                    </td>
+                    <td>
+                      <small class="coords-tag">
+                        {#if z.center_lat && z.center_lng}
+                          {Number(z.center_lat).toFixed(4)}°, {Number(z.center_lng).toFixed(4)}°
+                        {:else}
+                          غير محدد
+                        {/if}
+                      </small>
+                    </td>
+                    <td>
+                      <b class="radius-tag">{((z.radius_meters || 3000) / 1000).toFixed(1)} كم</b>
+                    </td>
+                    <td>
+                      <b class="cell-price">{z.delivery_fee} د.ل</b>
+                    </td>
+                    <td>
+                      <div class="actions-cell-flex">
+                        <button type="button" class="btn-sm-action" on:click={() => openEditZoneModal(z)}>
+                          تعديل الاسم والنطاق ✏️
+                        </button>
+                        <button type="button" class="btn-sm-action danger" on:click={() => handleDeleteZone(z.id)}>
+                          حذف 🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1747,6 +2180,7 @@
             </table>
           </div>
 
+          <!-- سجل تدقيق وتغييرات الأسعار الأخيرة -->
           <h4 style="margin-top: 32px; color: var(--olive);">سجل تدقيق وتغييرات الأسعار الأخيرة:</h4>
           <div class="history-list">
             {#each priceHistory as h (h.id)}
@@ -2223,6 +2657,119 @@
       </main>
     </div>
   </div>
+
+  <!-- مودال إضافة / تعديل نطاق توصيل ودائرة جغرافية -->
+  {#if editingZoneModal.open}
+    <div class="modal-backdrop fade-in" on:click|self={() => editingZoneModal.open = false}>
+      <div class="modal-card geo-zone-modal-card">
+        <div class="modal-header-styled">
+          <div class="modal-title-box">
+            <span class="modal-icon-badge">📍</span>
+            <div>
+              <h3>{editingZoneModal.isEdit ? 'تعديل النطاق الجغرافي والاسم والسعر' : 'إضافة دائرة / نطاق توصيل جغرافي جديد'}</h3>
+              <p class="modal-subtitle">تحديد اسم المنطقة، سعر التوصيل، الإحداثيات، ونصف القطر التغطية</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" on:click={() => editingZoneModal.open = false}>✕</button>
+        </div>
+
+        {#if editingZoneModal.errorMsg}
+          <div class="alert-error">{editingZoneModal.errorMsg}</div>
+        {/if}
+
+        <div class="modal-body-scroll">
+          <div class="flower-fields-grid">
+            <div class="form-group">
+              <label>المدينة: *</label>
+              <select class="input-field styled-select" bind:value={editingZoneModal.city}>
+                <option value="طرابلس">طرابلس</option>
+                <option value="بنغازي">بنغازي</option>
+                <option value="مصراتة">مصراتة</option>
+                <option value="الزاوية">الزاوية</option>
+                <option value="الخمس">الخمس</option>
+                <option value="زليتن">زليتن</option>
+                <option value="أخرى">مدينة أخرى</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>اسم المنطقة / النطاق الجغرافي: *</label>
+              <input type="text" class="input-field" placeholder="مثال: النوفليين وبن عاشور، جنزور، طرابلس المركز..." bind:value={editingZoneModal.zone_name} />
+            </div>
+
+            <div class="form-group">
+              <label>سعر التوصيل لهذا النطاق (د.ل): *</label>
+              <input type="number" step="1" class="input-field" bind:value={editingZoneModal.delivery_fee} />
+            </div>
+
+            <div class="form-group">
+              <label>شكل النطاق على الخريطة:</label>
+              <select class="input-field styled-select" bind:value={editingZoneModal.shape_type}>
+                <option value="circle">⭕ دائرة جغرافية (Geographic Circle)</option>
+                <option value="box">🔲 مربع جغرافي (Bounding Box)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>خط العرض (Latitude):</label>
+              <input type="number" step="0.0001" class="input-field" bind:value={editingZoneModal.center_lat} />
+            </div>
+
+            <div class="form-group">
+              <label>خط الطول (Longitude):</label>
+              <input type="number" step="0.0001" class="input-field" bind:value={editingZoneModal.center_lng} />
+            </div>
+
+            <div class="form-group full-width">
+              <div class="range-header-row">
+                <label>نصف قطر التغطية الجغرافية: <b>{((editingZoneModal.radius_meters || 3000) / 1000).toFixed(1)} كم</b> ({editingZoneModal.radius_meters} متر)</label>
+              </div>
+              <input 
+                type="range" 
+                min="500" 
+                max="25000" 
+                step="250" 
+                class="radius-range-slider"
+                bind:value={editingZoneModal.radius_meters}
+              />
+              <small class="range-hint">اسحب الشريط لتكبير أو تصغير الدائرة الجغرافية حول المركز</small>
+            </div>
+
+            <div class="form-group">
+              <label>لون الدائرة على الخريطة:</label>
+              <div class="color-picker-row">
+                <input type="color" class="native-color-picker" bind:value={editingZoneModal.zone_color} />
+                <span class="color-hex-tag">{editingZoneModal.zone_color}</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>الوقت المتوقع للتوصيل (دقيقة):</label>
+              <input type="number" step="5" class="input-field" bind:value={editingZoneModal.estimated_minutes} />
+            </div>
+          </div>
+
+          <div class="map-helper-banner">
+            <span>💡 نصيحة: يمكنك النقر مباشرة على الخريطة لتحديد المركز الجغرافي (Lat / Lng) تلقائياً!</span>
+          </div>
+        </div>
+
+        <div class="modal-actions-styled">
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            disabled={editingZoneModal.saving}
+            on:click={handleSaveZone}
+          >
+            {editingZoneModal.saving ? 'جاري الحفظ...' : 'حفظ النطاق الجغرافي والأسعار 💾'}
+          </button>
+          <button type="button" class="btn btn-outline" on:click={() => editingZoneModal.open = false}>
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- مودال إنشاء كوبون جديد -->
   {#if showNewCouponModal}
@@ -6399,6 +6946,198 @@
     .user-fields-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* =========================================================================
+     نظام خريطة النطاقات والدوائر الجغرافية لأسعار التوصيل (Geo Delivery Zones)
+     ========================================================================= */
+  .geo-zones-management-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .geo-city-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #faf6f0;
+    border: 1px solid #efe8da;
+    border-radius: 14px;
+    padding: 10px 16px;
+    flex-wrap: wrap;
+  }
+  .geo-filter-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--olive);
+  }
+  .city-chips-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .city-chip {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #4a4843;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .city-chip:hover {
+    border-color: var(--olive);
+    background: #f7f3ea;
+  }
+  .city-chip.active {
+    background: var(--olive);
+    color: #ffffff;
+    border-color: var(--olive);
+    box-shadow: 0 2px 8px rgba(94, 107, 44, 0.25);
+  }
+
+  /* حاوية الخريطة وشريط الدليل */
+  .geo-map-container-box {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1.5px solid var(--line-strong);
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+  }
+  .admin-geo-map-canvas {
+    height: 420px;
+    width: 100%;
+    z-index: 10;
+  }
+  .geo-map-legend-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fcf9f2;
+    border-top: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .legend-bar-title {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--olive);
+    white-space: nowrap;
+  }
+  .legend-pills-wrap {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .legend-badge-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-right-width: 4px;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: #2b2b28;
+  }
+  .legend-swatch-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+
+  /* خلايا الجدول */
+  .color-swatch-circle {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px #d8e5b6;
+  }
+  .zone-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .zone-time-sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .badge-shape-type {
+    display: inline-block;
+    background: #f1ebd8;
+    color: #4a4843;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .coords-tag {
+    font-family: monospace;
+    font-size: 0.76rem;
+    background: #f5eedf;
+    padding: 2px 6px;
+    border-radius: 6px;
+    color: #555146;
+  }
+  .radius-tag {
+    color: var(--olive);
+    font-size: 0.85rem;
+  }
+
+  /* مودال تعديل النطاق */
+  .geo-zone-modal-card {
+    max-width: 660px;
+  }
+  .range-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .radius-range-slider {
+    width: 100%;
+    accent-color: var(--olive);
+    cursor: pointer;
+  }
+  .range-hint {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .native-color-picker {
+    width: 44px;
+    height: 38px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    background: transparent;
+    padding: 2px;
+  }
+  .color-hex-tag {
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #4a4843;
+  }
+  .map-helper-banner {
+    background: #f0fdf4;
+    border: 1px dashed #86efac;
+    color: #166534;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    margin-top: 14px;
   }
 </style>
 

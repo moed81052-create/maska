@@ -1565,19 +1565,50 @@ module.exports = {
     }
   },
 
-  // 25. تعديل سعر توصيل منطقة مع تسجيل السجل الرقابي
-  async updateDeliveryZoneFee(zoneId, newFee, adminId = null, reason = '') {
+  // 25. تعديل بيانات منطقة توصيل (الاسم، المدينة، السعر، الإحداثيات، الدائرة الجغرافية)
+  async updateDeliveryZone(zoneId, zoneData, adminId = null, reason = '') {
+    const {
+      city,
+      zone_name,
+      delivery_fee,
+      center_lat = null,
+      center_lng = null,
+      radius_meters = 3000,
+      shape_type = 'circle',
+      zone_color = '#5e6b2c',
+      polygon_geojson = null,
+      estimated_minutes = 60
+    } = zoneData;
+
     if (isMySQL) {
       const [zones] = await mysqlPool.execute(`SELECT * FROM delivery_zones_pricing WHERE id = ?`, [zoneId]);
       const zone = zones[0];
       if (!zone) throw new Error('المنطقة غير موجودة');
 
-      await mysqlPool.execute(`UPDATE delivery_zones_pricing SET delivery_fee = ? WHERE id = ?`, [newFee, zoneId]);
+      const newCity = city || zone.city;
+      const newName = zone_name || zone.zone_name;
+      const newFee = delivery_fee !== undefined ? Number(delivery_fee) : Number(zone.delivery_fee);
+      const newLat = center_lat !== undefined ? center_lat : zone.center_lat;
+      const newLng = center_lng !== undefined ? center_lng : zone.center_lng;
+      const newRadius = radius_meters !== undefined ? Number(radius_meters) : (zone.radius_meters || 3000);
+      const newShape = shape_type || zone.shape_type || 'circle';
+      const newColor = zone_color || zone.zone_color || '#5e6b2c';
+      const newGeojson = polygon_geojson !== undefined ? polygon_geojson : zone.polygon_geojson;
+      const newMinutes = estimated_minutes !== undefined ? Number(estimated_minutes) : (zone.estimated_minutes || 60);
 
       await mysqlPool.execute(`
-        INSERT INTO price_change_logs (item_type, item_id, item_name, old_price, new_price, changed_by_user_id, reason)
-        VALUES ('delivery_zone', ?, ?, ?, ?, ?, ?)
-      `, [String(zoneId), `${zone.city} — ${zone.zone_name}`, zone.delivery_fee, newFee, adminId, reason || 'تعديل سعر التوصيل للمنطقة']);
+        UPDATE delivery_zones_pricing
+        SET city = ?, zone_name = ?, delivery_fee = ?, center_lat = ?, center_lng = ?,
+            radius_meters = ?, shape_type = ?, zone_color = ?, polygon_geojson = ?, estimated_minutes = ?
+        WHERE id = ?
+      `, [newCity, newName, newFee, newLat, newLng, newRadius, newShape, newColor, newGeojson, newMinutes, zoneId]);
+
+      if (Number(zone.delivery_fee) !== newFee || zone.zone_name !== newName) {
+        await mysqlPool.execute(`
+          INSERT INTO price_change_logs (item_type, item_id, item_name, old_price, new_price, changed_by_user_id, reason)
+          VALUES ('delivery_zone', ?, ?, ?, ?, ?, ?)
+        `, [String(zoneId), `${newCity} — ${newName}`, zone.delivery_fee, newFee, adminId, reason || 'تعديل بيانات ورسوم منطقة التوصيل']);
+      }
 
       const [updated] = await mysqlPool.execute(`SELECT * FROM delivery_zones_pricing WHERE id = ?`, [zoneId]);
       return updated[0];
@@ -1585,15 +1616,68 @@ module.exports = {
       const zone = sqliteDb.prepare(`SELECT * FROM delivery_zones_pricing WHERE id = ?`).get(zoneId);
       if (!zone) throw new Error('المنطقة غير موجودة');
 
-      sqliteDb.prepare(`UPDATE delivery_zones_pricing SET delivery_fee = ? WHERE id = ?`).run(newFee, zoneId);
+      const newCity = city || zone.city;
+      const newName = zone_name || zone.zone_name;
+      const newFee = delivery_fee !== undefined ? Number(delivery_fee) : Number(zone.delivery_fee);
 
       sqliteDb.prepare(`
-        INSERT INTO price_change_logs (item_type, item_id, item_name, old_price, new_price, changed_by_user_id, reason)
-        VALUES ('delivery_zone', ?, ?, ?, ?, ?, ?)
-      `).run(zoneId, `${zone.city} — ${zone.zone_name}`, zone.delivery_fee, newFee, adminId, reason || 'تعديل سعر التوصيل للمنطقة');
+        UPDATE delivery_zones_pricing
+        SET city = ?, zone_name = ?, delivery_fee = ?
+        WHERE id = ?
+      `).run(newCity, newName, newFee, zoneId);
 
       return sqliteDb.prepare(`SELECT * FROM delivery_zones_pricing WHERE id = ?`).get(zoneId);
     }
+  },
+
+  // 25b. إضافة منطقة توصيل جغرافية جديدة (دائرة أو مضلع أو مربع)
+  async createDeliveryZone(zoneData, adminId = null) {
+    const {
+      city = 'طرابلس',
+      zone_name,
+      delivery_fee = 10,
+      center_lat = 32.8872,
+      center_lng = 13.1913,
+      radius_meters = 3500,
+      shape_type = 'circle',
+      zone_color = '#5e6b2c',
+      polygon_geojson = null,
+      estimated_minutes = 60
+    } = zoneData;
+
+    if (!zone_name) throw new Error('اسم المنطقة الجغرافية مطلوب');
+
+    if (isMySQL) {
+      const [res] = await mysqlPool.execute(`
+        INSERT INTO delivery_zones_pricing (city, zone_name, delivery_fee, center_lat, center_lng, radius_meters, shape_type, zone_color, polygon_geojson, estimated_minutes, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `, [city, zone_name, Number(delivery_fee), center_lat, center_lng, Number(radius_meters), shape_type, zone_color, polygon_geojson, Number(estimated_minutes)]);
+
+      const [rows] = await mysqlPool.execute(`SELECT * FROM delivery_zones_pricing WHERE id = ?`, [res.insertId]);
+      return rows[0];
+    } else {
+      const res = sqliteDb.prepare(`
+        INSERT INTO delivery_zones_pricing (city, zone_name, delivery_fee, is_active)
+        VALUES (?, ?, ?, 1)
+      `).run(city, zone_name, Number(delivery_fee));
+      return sqliteDb.prepare(`SELECT * FROM delivery_zones_pricing WHERE id = ?`).get(res.lastInsertRowid);
+    }
+  },
+
+  // 25c. حذف أو تعطيل منطقة توصيل
+  async deleteDeliveryZone(zoneId) {
+    if (isMySQL) {
+      await mysqlPool.execute(`UPDATE delivery_zones_pricing SET is_active = 0 WHERE id = ?`, [zoneId]);
+      return { success: true };
+    } else {
+      sqliteDb.prepare(`UPDATE delivery_zones_pricing SET is_active = 0 WHERE id = ?`).run(zoneId);
+      return { success: true };
+    }
+  },
+
+  // 25. تعديل سعر توصيل منطقة مع تسجيل السجل الرقابي
+  async updateDeliveryZoneFee(zoneId, newFee, adminId = null, reason = '') {
+    return this.updateDeliveryZone(zoneId, { delivery_fee: newFee }, adminId, reason);
   },
 
   // 26. تعديل سعر ساق الورد مع تسجيل السجل الرقابي

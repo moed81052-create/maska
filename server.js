@@ -1197,24 +1197,50 @@ apiRouter.get('/pricing/zones', async (req, res, next) => {
   }
 });
 
-// تعديل سعر التوصيل لمنطقة مع توثيق الأثر في سجل الرقابة
+// تعديل بيانات منطقة توصيل (الاسم، المدينة، السعر، النطاق الجغرافي والدائرة)
 apiRouter.patch('/pricing/zones/:id', async (req, res, next) => {
   try {
     const zoneId = parseInt(req.params.id, 10);
-    const { fee, adminId, reason } = req.body;
+    const { adminId, reason } = req.body;
 
-    if (typeof fee !== 'number') {
-      return res.status(400).json({
-        success: false,
-        message: 'سعر التوصيل الجديد مطلوب كرقم'
-      });
-    }
-
-    const updated = await db.updateDeliveryZoneFee(zoneId, fee, adminId, reason);
+    const updated = await db.updateDeliveryZone(zoneId, req.body, adminId, reason);
     res.json({
       success: true,
-      message: 'تم تعديل سعر التوصيل للمنطقة بنجاح',
+      message: 'تم تحديث بيانات ومنطقة التوصيل بنجاح 📍',
       data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إضافة منطقة توصيل جغرافية جديدة (دائرة أو مربع أو نطاق محدد)
+apiRouter.post('/pricing/zones', async (req, res, next) => {
+  try {
+    const { zone_name } = req.body;
+    if (!zone_name) {
+      return res.status(400).json({ success: false, message: 'اسم المنطقة مطلوب' });
+    }
+
+    const created = await db.createDeliveryZone(req.body, req.body.adminId);
+    res.status(201).json({
+      success: true,
+      message: `تم إضافة منطقة التوصيل "${created.zone_name}" بنجاح 📍`,
+      data: created
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// حذف / إلغاء تفعيل منطقة توصيل
+apiRouter.delete('/pricing/zones/:id', async (req, res, next) => {
+  try {
+    const zoneId = parseInt(req.params.id, 10);
+    await db.deleteDeliveryZone(zoneId);
+    res.json({
+      success: true,
+      message: 'تم حذف منطقة التوصيل بنجاح'
     });
   } catch (err) {
     next(err);

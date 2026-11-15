@@ -116,8 +116,11 @@ export const api = {
 
   // 9. الأسعار وسجل الرقابة
   getPricingZones: () => request('/pricing/zones'),
+  updatePricingZone: (id, zoneData) => request(`/pricing/zones/${id}`, { method: 'PATCH', body: zoneData }),
+  createPricingZone: (zoneData) => request('/pricing/zones', { method: 'POST', body: zoneData }),
+  deletePricingZone: (id) => request(`/pricing/zones/${id}`, { method: 'DELETE' }),
   updateZoneFee: (id, fee, reason = '', adminId = null) => 
-    request(`/pricing/zones/${id}`, { method: 'PATCH', body: { fee, reason, adminId } }),
+    request(`/pricing/zones/${id}`, { method: 'PATCH', body: { delivery_fee: fee, fee, reason, adminId } }),
   updateFlowerPrice: (id, price, reason = '', adminId = null) => 
     request(`/pricing/flowers/${id}`, { method: 'PATCH', body: { price, reason, adminId } }),
   updateBouquetPrice: (id, price, reason = '', adminId = null) => 

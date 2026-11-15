@@ -95,13 +95,19 @@ CREATE TABLE `addresses` (
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. تسعير التوصيل حسب المناطق والمدن (Delivery Zones Pricing)
+-- 7. تسعير التوصيل حسب المناطق والمدن والدوائر الجغرافية (Delivery Zones & Geographic Circles)
 DROP TABLE IF EXISTS `delivery_zones_pricing`;
 CREATE TABLE `delivery_zones_pricing` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `city` VARCHAR(100) NOT NULL,
     `zone_name` VARCHAR(100) NOT NULL,
     `delivery_fee` DECIMAL(10, 2) NOT NULL,
+    `center_lat` DECIMAL(10, 7) NULL,
+    `center_lng` DECIMAL(10, 7) NULL,
+    `radius_meters` INT DEFAULT 3000,
+    `shape_type` VARCHAR(20) DEFAULT 'circle',
+    `zone_color` VARCHAR(20) DEFAULT '#5e6b2c',
+    `polygon_geojson` TEXT NULL,
     `estimated_minutes` INT DEFAULT 60,
     `is_active` TINYINT(1) DEFAULT 1,
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP

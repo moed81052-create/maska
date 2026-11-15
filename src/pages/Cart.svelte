@@ -58,14 +58,18 @@
         selectedZone = deliveryZones[0];
       } else {
         deliveryZones = [
-          { id: 1, city_name: 'طرابلس', zone_name: 'المركز والمدينة القديمة', delivery_fee: 10.0 },
-          { id: 2, city_name: 'طرابلس', zone_name: 'بن عاشور والنوفليين', delivery_fee: 12.0 },
-          { id: 3, city_name: 'طرابلس', zone_name: 'السياحية وجنزور', delivery_fee: 15.0 },
-          { id: 4, city_name: 'بنغازي', zone_name: 'وسط المدينة والفويهات', delivery_fee: 20.0 },
-          { id: 5, city_name: 'مصراتة', zone_name: 'المركز وقصر أحمد', delivery_fee: 18.0 }
+          { id: 1, city: 'طرابلس', city_name: 'طرابلس', zone_name: 'طرابلس المركز', delivery_fee: 10.0, center_lat: 32.8925, center_lng: 13.1800, radius_meters: 3500, zone_color: '#5e6b2c' },
+          { id: 2, city: 'طرابلس', city_name: 'طرابلس', zone_name: 'النوفليين وبن عاشور', delivery_fee: 10.0, center_lat: 32.8750, center_lng: 13.2050, radius_meters: 3000, zone_color: '#b45309' },
+          { id: 3, city: 'طرابلس', city_name: 'طرابلس', zone_name: 'السياحية وحي الأندلس', delivery_fee: 10.0, center_lat: 32.8680, center_lng: 13.1100, radius_meters: 4000, zone_color: '#0284c7' },
+          { id: 4, city: 'طرابلس', city_name: 'طرابلس', zone_name: 'تاجوراء', delivery_fee: 15.0, center_lat: 32.8810, center_lng: 13.3400, radius_meters: 6000, zone_color: '#7c3aed' },
+          { id: 5, city: 'طرابلس', city_name: 'طرابلس', zone_name: 'جنزور', delivery_fee: 15.0, center_lat: 32.8180, center_lng: 13.0100, radius_meters: 5500, zone_color: '#059669' },
+          { id: 6, city: 'بنغازي', city_name: 'بنغازي', zone_name: 'كافة مناطق بنغازي', delivery_fee: 15.0, center_lat: 32.1167, center_lng: 20.0667, radius_meters: 12000, zone_color: '#dc2626' },
+          { id: 7, city: 'مصراتة', city_name: 'مصراتة', zone_name: 'كافة مناطق مصراتة', delivery_fee: 16.0, center_lat: 32.3754, center_lng: 15.0925, radius_meters: 10000, zone_color: '#d97706' }
         ];
         selectedZone = deliveryZones[0];
       }
+      renderCustomerZoneCircles();
+      updateCustomerZoneByCoords(customerLat, customerLng);
     } catch (e) {
       console.log('Using default delivery zones');
     } finally {
@@ -80,6 +84,124 @@
     }
   });
 
+  let customerZoneCircles = [];
+
+  // معادلة هافيرسين لحساب المسافة الدقيقة بين نقطتين جغرافيتين بالأمتار
+  function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // نصف قطر الأرض بالأمتار
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
+  // رسم الدوائر والمربعات الجغرافية لكافة مناطق التوصيل على خريطة الزبون
+  function renderCustomerZoneCircles() {
+    if (!mapInstance || !deliveryZones || deliveryZones.length === 0) return;
+
+    customerZoneCircles.forEach(c => mapInstance.removeLayer(c));
+    customerZoneCircles = [];
+
+    deliveryZones.forEach(z => {
+      const lat = Number(z.center_lat);
+      const lng = Number(z.center_lng);
+      const radius = Number(z.radius_meters) || 3000;
+      const color = z.zone_color || '#5e6b2c';
+
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        let layer;
+        if (z.shape_type === 'box') {
+          const latDelta = radius / 111000;
+          const lngDelta = radius / (111000 * Math.cos(lat * Math.PI / 180));
+          layer = L.rectangle([[lat - latDelta, lng - lngDelta], [lat + latDelta, lng + lngDelta]], {
+            color: color,
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 0.14,
+            dashArray: '4, 4'
+          });
+        } else {
+          layer = L.circle([lat, lng], {
+            radius: radius,
+            color: color,
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 0.14
+          });
+        }
+
+        layer.addTo(mapInstance);
+        layer.bindTooltip(`🌸 نطاق: <b>${z.zone_name}</b> (${z.delivery_fee} د.ل)`, {
+          permanent: false,
+          direction: 'center'
+        });
+
+        customerZoneCircles.push(layer);
+      }
+    });
+  }
+
+  // مطابقة إحداثيات موقع الزبون مع الدوائر الجغرافية واحتساب سعر التوصيل تلقائياً
+  function updateCustomerZoneByCoords(lat, lng) {
+    if (!deliveryZones || deliveryZones.length === 0) return;
+
+    let matchedZones = [];
+    let nearestZone = null;
+    let minDistance = Infinity;
+
+    for (const z of deliveryZones) {
+      const zLat = Number(z.center_lat);
+      const zLng = Number(z.center_lng);
+      const radius = Number(z.radius_meters) || 3000;
+
+      if (!isNaN(zLat) && !isNaN(zLng) && zLat !== 0 && zLng !== 0) {
+        const dist = calculateDistanceMeters(lat, lng, zLat, zLng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearestZone = z;
+        }
+
+        let isInside = false;
+        if (z.shape_type === 'box') {
+          const latDelta = radius / 111000;
+          const lngDelta = radius / (111000 * Math.cos(zLat * Math.PI / 180));
+          if (lat >= zLat - latDelta && lat <= zLat + latDelta && lng >= zLng - lngDelta && lng <= zLng + lngDelta) {
+            isInside = true;
+          }
+        } else {
+          if (dist <= radius) {
+            isInside = true;
+          }
+        }
+
+        if (isInside) {
+          matchedZones.push({ zone: z, distance: dist, radius: radius });
+        }
+      }
+    }
+
+    if (matchedZones.length > 0) {
+      // اختيار الدائرة الأكثر دقة وتخصيصاً (الأصغر نصف قطر)
+      matchedZones.sort((a, b) => a.radius - b.radius);
+      const chosen = matchedZones[0].zone;
+      selectedZone = chosen;
+      orderForm.city = chosen.city || chosen.city_name || orderForm.city;
+      locationStatus = `✅ تم التعرف على موقعك في دائرة: (${chosen.zone_name}) — رسوم التوصيل المعتمدة: ${chosen.delivery_fee} د.ل 🌸`;
+    } else if (nearestZone) {
+      selectedZone = nearestZone;
+      locationStatus = `📍 الإحداثيات (${lat.toFixed(4)}, ${lng.toFixed(4)}) — تقع قرب نطاق (${nearestZone.zone_name}) بسعر: ${nearestZone.delivery_fee} د.ل`;
+    } else {
+      locationStatus = `تم اختيار الموقع: (${lat.toFixed(4)}, ${lng.toFixed(4)}) 📍`;
+    }
+  }
+
   // تهيئة خريطة تحديد موقع الزبون التفاعلية
   async function initCustomerMap() {
     await tick();
@@ -90,7 +212,7 @@
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      attribution: '© OpenStreetMap - مسكة'
     }).addTo(mapInstance);
 
     const flowerPin = L.divIcon({
@@ -121,15 +243,19 @@
       const pos = mapMarker.getLatLng();
       customerLat = pos.lat;
       customerLng = pos.lng;
-      locationStatus = `تم ضبط موقع التوصيل: (${customerLat.toFixed(4)}, ${customerLng.toFixed(4)}) 📍`;
+      updateCustomerZoneByCoords(customerLat, customerLng);
     });
 
     mapInstance.on('click', (e) => {
       customerLat = e.latlng.lat;
       customerLng = e.latlng.lng;
       mapMarker.setLatLng(e.latlng);
-      locationStatus = `تم اختيار الموقع: (${customerLat.toFixed(4)}, ${customerLng.toFixed(4)}) 📍`;
+      updateCustomerZoneByCoords(customerLat, customerLng);
     });
+
+    // رسم الدوائر الجغرافية ومطابقة الموقع
+    renderCustomerZoneCircles();
+    updateCustomerZoneByCoords(customerLat, customerLng);
 
     // تحديد الموقع الحالي للزبون تلقائياً كأول خطوة
     detectCustomerLocation();
@@ -150,12 +276,12 @@
         customerLat = pos.coords.latitude;
         customerLng = pos.coords.longitude;
         detectingLocation = false;
-        locationStatus = `✅ تم تحديد موقعك الحالي بدقة (${customerLat.toFixed(4)}, ${customerLng.toFixed(4)}) 📍`;
 
         if (mapInstance && mapMarker) {
-          mapInstance.setView([customerLat, customerLng], 16);
+          mapInstance.setView([customerLat, customerLng], 15);
           mapMarker.setLatLng([customerLat, customerLng]);
         }
+        updateCustomerZoneByCoords(customerLat, customerLng);
       },
       (err) => {
         detectingLocation = false;
