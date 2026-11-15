@@ -617,6 +617,176 @@ apiRouter.post('/upload/flower-angle', async (req, res, next) => {
   }
 });
 
+// رفع وتخزين أي صورة عامة من الجهاز (باقات، زهور، مناسبات، إلخ)
+apiRouter.post('/upload/image', async (req, res, next) => {
+  try {
+    const { base64Data, category = 'bouquets', fileName = '' } = req.body;
+    if (!base64Data) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات الصورة مفقودة'
+      });
+    }
+
+    const matches = String(base64Data).match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    let ext = 'jpg';
+    let dataBuffer;
+
+    if (matches && matches.length === 3) {
+      const mime = matches[1].toLowerCase();
+      if (mime.includes('png')) ext = 'png';
+      else if (mime.includes('webp')) ext = 'webp';
+      else if (mime.includes('svg')) ext = 'svg';
+      else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+      else ext = 'jpg';
+      dataBuffer = Buffer.from(matches[2], 'base64');
+    } else {
+      dataBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    const safeCat = String(category).toLowerCase().replace(/[^a-z0-9_-]/gi, '') || 'general';
+    const uploadDirPublic = path.join(__dirname, 'public', 'assets', 'uploads', safeCat);
+    const uploadDirAssets = path.join(__dirname, 'assets', 'uploads', safeCat);
+    const uploadDirDist = path.join(__dirname, 'dist', 'assets', 'uploads', safeCat);
+
+    if (!fs.existsSync(uploadDirPublic)) fs.mkdirSync(uploadDirPublic, { recursive: true });
+    if (!fs.existsSync(uploadDirAssets)) fs.mkdirSync(uploadDirAssets, { recursive: true });
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      if (!fs.existsSync(uploadDirDist)) fs.mkdirSync(uploadDirDist, { recursive: true });
+    }
+
+    const cleanFileName = `${safeCat}-${Date.now()}-${Math.floor(Math.random() * 10000)}.${ext}`;
+
+    fs.writeFileSync(path.join(uploadDirPublic, cleanFileName), dataBuffer);
+    fs.writeFileSync(path.join(uploadDirAssets, cleanFileName), dataBuffer);
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      fs.writeFileSync(path.join(uploadDirDist, cleanFileName), dataBuffer);
+    }
+
+    const url = `/assets/uploads/${safeCat}/${cleanFileName}`;
+
+    res.json({
+      success: true,
+      message: 'تم رفع الصورة بنجاح من جهازك 🌸',
+      url
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تحديث صورة باقة مباشرة من الجهاز
+apiRouter.post('/bouquets/:id/image', async (req, res, next) => {
+  try {
+    const { base64Data, fileName } = req.body;
+    const bouquetId = parseInt(req.params.id, 10);
+    if (!base64Data) {
+      return res.status(400).json({ success: false, message: 'بيانات الصورة مفقودة' });
+    }
+
+    const matches = String(base64Data).match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    let ext = 'jpg';
+    let dataBuffer;
+    if (matches && matches.length === 3) {
+      const mime = matches[1].toLowerCase();
+      if (mime.includes('png')) ext = 'png';
+      else if (mime.includes('webp')) ext = 'webp';
+      else if (mime.includes('svg')) ext = 'svg';
+      else ext = 'jpg';
+      dataBuffer = Buffer.from(matches[2], 'base64');
+    } else {
+      dataBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    const uploadDirPublic = path.join(__dirname, 'public', 'assets', 'uploads', 'bouquets');
+    const uploadDirAssets = path.join(__dirname, 'assets', 'uploads', 'bouquets');
+    const uploadDirDist = path.join(__dirname, 'dist', 'assets', 'uploads', 'bouquets');
+
+    if (!fs.existsSync(uploadDirPublic)) fs.mkdirSync(uploadDirPublic, { recursive: true });
+    if (!fs.existsSync(uploadDirAssets)) fs.mkdirSync(uploadDirAssets, { recursive: true });
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      if (!fs.existsSync(uploadDirDist)) fs.mkdirSync(uploadDirDist, { recursive: true });
+    }
+
+    const cleanFileName = `bouquet-${bouquetId}-${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(uploadDirPublic, cleanFileName), dataBuffer);
+    fs.writeFileSync(path.join(uploadDirAssets, cleanFileName), dataBuffer);
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      fs.writeFileSync(path.join(uploadDirDist, cleanFileName), dataBuffer);
+    }
+
+    const url = `/assets/uploads/bouquets/${cleanFileName}`;
+    const updated = await db.updateBouquetImage(bouquetId, url);
+
+    res.json({
+      success: true,
+      message: 'تم تحديث صورة الباقة بنجاح من جهازك 🌸',
+      url,
+      bouquet: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تحديث صورة زاوية معينة للوردة مباشرة من الجهاز (front, side, top, stem)
+apiRouter.post('/flowers/:id/angle', async (req, res, next) => {
+  try {
+    const flowerId = parseInt(req.params.id, 10);
+    const { angle = 'front', base64Data, fileName = '' } = req.body;
+
+    if (!base64Data) {
+      return res.status(400).json({ success: false, message: 'بيانات الصورة مفقودة' });
+    }
+
+    const matches = String(base64Data).match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    let ext = 'jpg';
+    let dataBuffer;
+    if (matches && matches.length === 3) {
+      const mime = matches[1].toLowerCase();
+      if (mime.includes('png')) ext = 'png';
+      else if (mime.includes('webp')) ext = 'webp';
+      else if (mime.includes('svg')) ext = 'svg';
+      else ext = 'jpg';
+      dataBuffer = Buffer.from(matches[2], 'base64');
+    } else {
+      dataBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    const uploadDirPublic = path.join(__dirname, 'public', 'assets', 'flowers', 'uploads');
+    const uploadDirAssets = path.join(__dirname, 'assets', 'flowers', 'uploads');
+    const uploadDirDist = path.join(__dirname, 'dist', 'assets', 'flowers', 'uploads');
+
+    if (!fs.existsSync(uploadDirPublic)) fs.mkdirSync(uploadDirPublic, { recursive: true });
+    if (!fs.existsSync(uploadDirAssets)) fs.mkdirSync(uploadDirAssets, { recursive: true });
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      if (!fs.existsSync(uploadDirDist)) fs.mkdirSync(uploadDirDist, { recursive: true });
+    }
+
+    const safeAngle = (angle || 'front').replace(/[^a-z0-9_-]/gi, '');
+    const cleanFileName = `flower-${flowerId}-${safeAngle}-${Date.now()}.${ext}`;
+
+    fs.writeFileSync(path.join(uploadDirPublic, cleanFileName), dataBuffer);
+    fs.writeFileSync(path.join(uploadDirAssets, cleanFileName), dataBuffer);
+    if (fs.existsSync(path.join(__dirname, 'dist'))) {
+      fs.writeFileSync(path.join(uploadDirDist, cleanFileName), dataBuffer);
+    }
+
+    const url = `/assets/flowers/uploads/${cleanFileName}`;
+    const updated = await db.updateFlowerAngleImage(flowerId, safeAngle, url);
+
+    res.json({
+      success: true,
+      message: `تم تحديث صورة الوردة بنجاح من جهازك 🌸`,
+      url,
+      angle: safeAngle,
+      flower: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // إضافة صنف ورد جديد مع صوره من كافة الزوايا (أمامي، جانبي، علوي، تفاصيل الساق)
 apiRouter.post('/inventory', async (req, res, next) => {
   try {
@@ -1132,6 +1302,8 @@ app.use('/api', apiRouter);
 // خدمة مجلد الأصول والوسائط والصور
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'assets', 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'assets', 'uploads')));
 
 const DIST_DIR = path.join(__dirname, 'dist');
 

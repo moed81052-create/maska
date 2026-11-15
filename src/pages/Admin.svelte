@@ -487,6 +487,40 @@
     }
   }
 
+  let quickFlowerAngleUploading = false;
+  let quickFlowerAngleMsg = '';
+
+  async function handleQuickFlowerAngleUpload(event, flower, angle) {
+    const file = event.target.files && event.target.files[0];
+    if (!file || !flower) return;
+
+    quickFlowerAngleUploading = true;
+    quickFlowerAngleMsg = '';
+
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await api.uploadFlowerAngleDirect(flower.id, angle, base64, file.name);
+      const fileUrl = res.url || base64;
+
+      const colMap = { front: 'image_front', side: 'image_side', top: 'image_top', stem: 'image_stem' };
+      const col = colMap[angle] || 'image_front';
+
+      flower[col] = fileUrl;
+      if (angle === 'front') {
+        flower.image_url = fileUrl;
+      }
+      inventory = inventory.map(f => f.id === flower.id ? { ...f, [col]: fileUrl, ...(angle === 'front' ? { image_url: fileUrl } : {}) } : f);
+      flowerAnglesViewer.flower = { ...flower, [col]: fileUrl, ...(angle === 'front' ? { image_url: fileUrl } : {}) };
+      quickFlowerAngleMsg = `تم رفع وتحديث صورة (${getAngleLabel(angle)}) بنجاح 🌸`;
+    } catch (err) {
+      console.error('Quick flower angle upload failed:', err);
+      alert('تعذر رفع صورة الزاوية: ' + (err.message || 'خطأ'));
+    } finally {
+      quickFlowerAngleUploading = false;
+      if (event.target) event.target.value = '';
+    }
+  }
+
   const flowerPresets = [
     { name: 'جوري وردي نضر', color: 'وردي', price: 4, front: '/assets/flowers/pink-rose-front.svg', side: '/assets/flowers/pink-rose-side.svg', top: '/assets/flowers/pink-rose-top.svg', stem: '/assets/flowers/pink-rose-stem.svg' },
     { name: 'جوري أحمر مخملي', color: 'أحمر قرمزي', price: 5, front: '/assets/flowers/red-rose-front.svg', side: '/assets/flowers/red-rose-side.svg', top: '/assets/flowers/red-rose-top.svg', stem: '/assets/flowers/red-rose-stem.svg' },
@@ -616,6 +650,9 @@
 
   // كتالوج الباقات وتوليفات الورود الدقيقة
   let bouquets = [];
+  let uploadingBouquetImage = false;
+  let quickBouquetUploadingId = null;
+
   let bouquetModal = {
     open: false,
     isEdit: false,
@@ -788,6 +825,56 @@
       bouquets = bouquets.filter(b => b.id !== id);
     } catch (err) {
       alert(err.message || 'تعذر حذف الباقة');
+    }
+  }
+
+  async function handleBouquetImageUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    uploadingBouquetImage = true;
+    bouquetModal.errorMsg = '';
+    bouquetModal.successMsg = '';
+
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await api.uploadImage(base64, 'bouquets', file.name);
+      bouquetModal.image_svg_path = res.url || base64;
+      bouquetModal.successMsg = 'تم رفع واختيار صورة الباقة بنجاح من جهازك 🌸';
+    } catch (err) {
+      console.error('Bouquet upload error:', err);
+      try {
+        const base64 = await fileToBase64(file);
+        bouquetModal.image_svg_path = base64;
+        bouquetModal.successMsg = 'تم اعتماد صورة الباقة محلياً بنجاح 🌸';
+      } catch (e) {
+        bouquetModal.errorMsg = 'تعذر قراءة ملف الصورة: ' + (err.message || 'خطأ');
+      }
+    } finally {
+      uploadingBouquetImage = false;
+      if (event.target) event.target.value = '';
+    }
+  }
+
+  async function handleQuickBouquetPhotoUpload(event, bouquet) {
+    const file = event.target.files && event.target.files[0];
+    if (!file || !bouquet) return;
+
+    quickBouquetUploadingId = bouquet.id;
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await api.uploadBouquetImage(bouquet.id, base64, file.name);
+      const newUrl = res.url || base64;
+
+      bouquet.image_svg_path = newUrl;
+      bouquets = bouquets.map(b => b.id === bouquet.id ? { ...b, image_svg_path: newUrl } : b);
+      alert(`تم بنجاح رفع وتحديث صورة باقة "${bouquet.title}" من جهازك 🌸`);
+    } catch (err) {
+      console.error('Quick bouquet upload failed:', err);
+      alert('تعذر تحديث صورة الباقة: ' + (err.message || 'خطأ'));
+    } finally {
+      quickBouquetUploadingId = null;
+      if (event.target) event.target.value = '';
     }
   }
 
@@ -1375,6 +1462,13 @@
                 <div class="bouquet-card-head">
                   <div class="bouquet-thumb-box">
                     <img src={b.image_svg_path || '/assets/bouquet-pink-spring.svg'} alt={b.title} />
+                    {#if b.image_svg_path && (b.image_svg_path.includes('/uploads/') || b.image_svg_path.startsWith('data:'))}
+                      <span class="custom-photo-badge" title="صورة خاصة تم رفعها من جهازك">✓ خاصة</span>
+                    {/if}
+                    <label class="thumb-upload-overlay" title="انقر لتغيير صورة الباقة من جهازك مباشرة">
+                      <span>{quickBouquetUploadingId === b.id ? '⏳' : '📷'}</span>
+                      <input type="file" accept="image/*" on:change={(e) => handleQuickBouquetPhotoUpload(e, b)} hidden />
+                    </label>
                   </div>
                   <div class="bouquet-info-box">
                     <h4>{b.title}</h4>
@@ -1410,8 +1504,20 @@
                 {/if}
 
                 <div class="bouquet-card-actions">
+                  <label class="btn-sm-action upload-btn-card" title="تحميل صورة من جهازك لهذه الباقة">
+                    {#if quickBouquetUploadingId === b.id}
+                      <span>⏳ جاري الرفع...</span>
+                    {:else}
+                      <span>📷 تغيير الصورة من جهازك</span>
+                    {/if}
+                    <input type="file" accept="image/*" on:change={(e) => handleQuickBouquetPhotoUpload(e, b)} hidden />
+                  </label>
+                  <label class="btn-sm-action cam-btn-card" title="التقاط صورة بالكاميرا">
+                    📱 كاميرا
+                    <input type="file" accept="image/*" capture="environment" on:change={(e) => handleQuickBouquetPhotoUpload(e, b)} hidden />
+                  </label>
                   <button type="button" class="btn-sm-action" on:click={() => openEditBouquetModal(b)}>
-                    تعديل الباقة والتركيبة ✏️
+                    تعديل ✏️
                   </button>
                   <button type="button" class="btn-sm-action danger" on:click={() => handleDeleteBouquet(b.id)}>
                     حذف 🗑️
@@ -2592,13 +2698,47 @@
               <input type="number" step="1" class="input-field" bind:value={bouquetModal.price} />
             </div>
 
-            <div class="form-group">
-              <label>صورة الغلاف للباقة:</label>
-              <select class="input-field styled-select" bind:value={bouquetModal.image_svg_path}>
-                {#each bouquetImagePresets as bip}
-                  <option value={bip.path}>{bip.name}</option>
-                {/each}
-              </select>
+            <div class="form-group full-width bouquet-image-selector-wrap">
+              <label>صورة الغلاف الرسمية للباقة: *</label>
+              <div class="bouquet-img-upload-card">
+                <div class="bouquet-img-preview-box">
+                  <img src={bouquetModal.image_svg_path || '/assets/bouquet-pink-spring.svg'} alt="صورة الباقة" class="bouquet-modal-preview-img" />
+                  {#if uploadingBouquetImage}
+                    <div class="bouquet-upload-overlay">
+                      <div class="spinner-mini"></div>
+                      <span>جاري الرفع والمعالجة...</span>
+                    </div>
+                  {/if}
+                  {#if bouquetModal.image_svg_path && (bouquetModal.image_svg_path.includes('/uploads/') || bouquetModal.image_svg_path.startsWith('data:'))}
+                    <span class="badge-uploaded-tag">✓ صورة خاصة تم رفعها من جهازك</span>
+                  {:else}
+                    <span class="badge-preset-tag">نموذج فني معتمد</span>
+                  {/if}
+                </div>
+
+                <div class="bouquet-img-controls">
+                  <div class="bouquet-upload-btns-row">
+                    <label class="btn btn-primary btn-sm btn-upload-device">
+                      📁 رفع صورة من جهازك (كمبيوتر / هاتف)
+                      <input type="file" accept="image/*" on:change={handleBouquetImageUpload} hidden />
+                    </label>
+
+                    <label class="btn btn-outline btn-sm btn-cam-device">
+                      📷 التقاط بالكاميرا
+                      <input type="file" accept="image/*" capture="environment" on:change={handleBouquetImageUpload} hidden />
+                    </label>
+                  </div>
+
+                  <div class="preset-fallback-row">
+                    <span class="fallback-label">أو اختر نموذجاً جاهزاً من الأتيليه:</span>
+                    <select class="input-field styled-select select-sm" bind:value={bouquetModal.image_svg_path}>
+                      {#each bouquetImagePresets as bip}
+                        <option value={bip.path}>{bip.name}</option>
+                      {/each}
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="form-group full-width">
@@ -2785,6 +2925,38 @@
           {/if}
         </div>
 
+        {#if quickFlowerAngleMsg}
+          <div class="alert-success" style="margin: 10px 16px;">{quickFlowerAngleMsg}</div>
+        {/if}
+
+        <!-- شريط رفع واستبدال الصورة مباشرة من الجهاز -->
+        <div class="viewer-upload-toolbar">
+          <label class="btn btn-primary btn-sm btn-upload-angle" title="رفع صورة جديدة لهذه الزاوية من جهازك">
+            {#if quickFlowerAngleUploading}
+              <span>⏳ جاري الرفع والتحديث...</span>
+            {:else}
+              <span>📁 رفع وتعيين صورة من جهازك ({getAngleLabel(flowerAnglesViewer.activeAngle)})</span>
+            {/if}
+            <input 
+              type="file" 
+              accept="image/*" 
+              on:change={(e) => handleQuickFlowerAngleUpload(e, flowerAnglesViewer.flower, flowerAnglesViewer.activeAngle)} 
+              hidden 
+            />
+          </label>
+
+          <label class="btn btn-outline btn-sm btn-cam-angle" title="التقاط صورة بالكاميرا لهذه الزاوية">
+            <span>📷 التقاط بالكاميرا</span>
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment" 
+              on:change={(e) => handleQuickFlowerAngleUpload(e, flowerAnglesViewer.flower, flowerAnglesViewer.activeAngle)} 
+              hidden 
+            />
+          </label>
+        </div>
+
         <!-- شريط تحميل وتنزيل صور الزوايا للجهاز -->
         <div class="viewer-download-toolbar">
           <button 
@@ -2798,7 +2970,7 @@
           
           <button 
             type="button" 
-            class="btn btn-primary btn-sm" 
+            class="btn btn-secondary btn-sm" 
             title="تنزيل جميع صور الزوايا الأربعة معاً"
             on:click={() => downloadAllFlowerAngles(flowerAnglesViewer.flower)}
           >
@@ -4005,14 +4177,65 @@
     align-items: center;
     gap: 14px;
   }
+  .bouquet-thumb-box {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+  }
   .bouquet-thumb-box img {
-    width: 68px;
-    height: 68px;
-    object-fit: contain;
-    border-radius: 12px;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 14px;
     background: #faf6f0;
-    padding: 4px;
+    padding: 2px;
     border: 1px solid var(--line);
+  }
+  .custom-photo-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #5e6b2c;
+    color: #ffffff;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    z-index: 2;
+  }
+  .thumb-upload-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(43, 43, 40, 0.55);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    color: #ffffff;
+    font-size: 1.1rem;
+    z-index: 1;
+  }
+  .bouquet-thumb-box:hover .thumb-upload-overlay {
+    opacity: 1;
+  }
+  .upload-btn-card {
+    background: #f4fae6 !important;
+    color: var(--olive) !important;
+    border-color: #d8e5b6 !important;
+    cursor: pointer;
+    font-size: 0.78rem !important;
+  }
+  .upload-btn-card:hover {
+    background: #e6f3cb !important;
+  }
+  .cam-btn-card {
+    cursor: pointer;
+    font-size: 0.78rem !important;
   }
   .bouquet-info-box h4 {
     margin: 0 0 6px;
@@ -4460,6 +4683,23 @@
   }
 
   /* شريط تحميل وتنزيل صور الزوايا في المستعرض */
+  .viewer-upload-toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f4fae6;
+    border-top: 1px solid #d8e8c8;
+    flex-wrap: wrap;
+  }
+  .btn-upload-angle, .btn-cam-angle {
+    cursor: pointer;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .viewer-download-toolbar {
     display: flex;
     justify-content: center;
@@ -4469,6 +4709,114 @@
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
     flex-wrap: wrap;
+  }
+
+  /* تنسيقات رفع صورة الباقة في المودال */
+  .bouquet-image-selector-wrap {
+    margin-bottom: 8px;
+  }
+  .bouquet-img-upload-card {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: #faf6f0;
+    border: 1px solid #ebd9c2;
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin-top: 6px;
+  }
+  .bouquet-img-preview-box {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 2px solid #e2dac9;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bouquet-modal-preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .bouquet-upload-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--olive);
+    z-index: 3;
+  }
+  .badge-uploaded-tag {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(94, 107, 44, 0.95);
+    color: #ffffff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 2px 0;
+    z-index: 2;
+  }
+  .badge-preset-tag {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(100, 100, 95, 0.85);
+    color: #ffffff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 2px 0;
+    z-index: 2;
+  }
+  .bouquet-img-controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bouquet-upload-btns-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn-upload-device, .btn-cam-device {
+    cursor: pointer;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .preset-fallback-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .fallback-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .select-sm {
+    padding: 6px 12px;
+    font-size: 0.82rem;
   }
 
   @media (max-width: 600px) {

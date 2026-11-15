@@ -501,6 +501,46 @@ module.exports = {
     }
   },
 
+  // 7e. تحديث صورة زاوية معينة للوردة مباشرة من الجهاز
+  async updateFlowerAngleImage(flowerId, angle, imageUrl) {
+    const colMap = {
+      front: 'image_front',
+      side: 'image_side',
+      top: 'image_top',
+      stem: 'image_stem'
+    };
+    const col = colMap[angle] || 'image_front';
+    const updateMain = col === 'image_front';
+    if (isMySQL) {
+      if (updateMain) {
+        await mysqlPool.execute(`UPDATE flower_inventory SET ${col} = ?, image_url = ? WHERE id = ?`, [imageUrl, imageUrl, flowerId]);
+      } else {
+        await mysqlPool.execute(`UPDATE flower_inventory SET ${col} = ?, image_url = COALESCE(NULLIF(image_url, ''), ?) WHERE id = ?`, [imageUrl, imageUrl, flowerId]);
+      }
+      const [rows] = await mysqlPool.execute(`SELECT * FROM flower_inventory WHERE id = ?`, [flowerId]);
+      return rows[0];
+    } else {
+      if (updateMain) {
+        sqliteDb.prepare(`UPDATE flower_inventory SET ${col} = ?, image_url = ? WHERE id = ?`).run(imageUrl, imageUrl, flowerId);
+      } else {
+        sqliteDb.prepare(`UPDATE flower_inventory SET ${col} = ?, image_url = COALESCE(NULLIF(image_url, ''), ?) WHERE id = ?`).run(imageUrl, imageUrl, flowerId);
+      }
+      return sqliteDb.prepare(`SELECT * FROM flower_inventory WHERE id = ?`).get(flowerId);
+    }
+  },
+
+  // 7f. تحديث صورة الباقة مباشرة من الجهاز
+  async updateBouquetImage(bouquetId, imageUrl) {
+    if (isMySQL) {
+      await mysqlPool.execute(`UPDATE bouquets SET image_svg_path = ? WHERE id = ?`, [imageUrl, bouquetId]);
+      const [rows] = await mysqlPool.execute(`SELECT * FROM bouquets WHERE id = ?`, [bouquetId]);
+      return rows[0];
+    } else {
+      sqliteDb.prepare(`UPDATE bouquets SET image_svg_path = ? WHERE id = ?`).run(imageUrl, bouquetId);
+      return sqliteDb.prepare(`SELECT * FROM bouquets WHERE id = ?`).get(bouquetId);
+    }
+  },
+
   // 8. تحديث كمية صنف في مخزون الزهور
   async updateFlowerStock(flowerId, quantity, unitPrice = null) {
     if (isMySQL) {

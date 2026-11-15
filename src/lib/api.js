@@ -81,6 +81,8 @@ export const api = {
   deleteFlower: (id) => request(`/inventory/${id}`, { method: 'DELETE' }),
   uploadFlowerAngle: (angle, base64Data, fileName = '') => 
     request('/upload/flower-angle', { method: 'POST', body: { angle, base64Data, fileName } }),
+  uploadFlowerAngleDirect: (id, angle, base64Data, fileName = '') => 
+    request(`/flowers/${id}/angle`, { method: 'POST', body: { angle, base64Data, fileName } }),
   updateInventory: (flowerId, quantity, unitPrice = null) => 
     request(`/inventory/${flowerId}`, { method: 'PATCH', body: { quantity, unitPrice } }),
 
@@ -90,6 +92,10 @@ export const api = {
   createBouquet: (bouquetData) => request('/bouquets', { method: 'POST', body: bouquetData }),
   updateBouquet: (id, bouquetData) => request(`/bouquets/${id}`, { method: 'PUT', body: bouquetData }),
   deleteBouquet: (id) => request(`/bouquets/${id}`, { method: 'DELETE' }),
+  uploadImage: (base64Data, category = 'bouquets', fileName = '') => 
+    request('/upload/image', { method: 'POST', body: { base64Data, category, fileName } }),
+  uploadBouquetImage: (id, base64Data, fileName = '') => 
+    request(`/bouquets/${id}/image`, { method: 'POST', body: { base64Data, fileName } }),
 
   // 6. الكوبونات والخصومات
   getCoupons: () => request('/coupons'),
