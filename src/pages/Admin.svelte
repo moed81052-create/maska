@@ -4,7 +4,24 @@
   import { router } from '../stores/router.js';
   import { api } from '../lib/api.js';
 
-  let currentTab = 'orders'; // 'orders' | 'drivers' | 'inventory' | 'coupons' | 'reviews' | 'pricing'
+  let currentTab = 'orders'; // 'orders' | 'drivers' | 'financials' | 'users' | 'inventory' | 'bouquets' | 'coupons' | 'reviews' | 'pricing'
+  let mobileSidebarOpen = false;
+
+  function getActiveTabLabel(tab) {
+    switch (tab) {
+      case 'orders': return 'الطلبات والتسليم 📦';
+      case 'drivers': return 'السائقون والتتبع 🚗';
+      case 'financials': return 'العهد والمالية 💰';
+      case 'users': return 'الطاقم والمستخدمون 👥';
+      case 'inventory': return 'مخزون الورود والزوايا 🌸';
+      case 'bouquets': return 'كتالوج الباقات 💐';
+      case 'coupons': return 'الكوبونات والخصومات 🏷️';
+      case 'reviews': return 'التقييمات والملاحظات ⭐';
+      case 'pricing': return 'أسعار التوصيل والرقابة 📍';
+      default: return 'لوحة التحكم 👑';
+    }
+  }
+
   let loading = true;
   let stats = null;
 
@@ -1048,152 +1065,237 @@
 </script>
 
 <div class="admin-dashboard-page fade-in">
-  <div class="container">
-    <div class="dash-top-bar">
-      <div>
-        <span class="badge badge-pink">لوحة تحكم الأتيليه والإدارة 👑</span>
-        <h1 class="dash-title">نظام إدارة مسكة الموحد</h1>
-        <p class="dash-sub">
-          مرحباً بك {$auth?.full_name || 'يا مدير النظام'} — متابعة الطلبات، السائقين، المخزون الحي، والكوبونات
-        </p>
-      </div>
+  <div class="admin-shell-container">
+    <div class="admin-dashboard-layout">
 
-      <button type="button" class="btn btn-outline" on:click={loadAllAdminData}>
-        تحديث البيانات 🔄
-      </button>
-    </div>
+      <!-- =========================================================================
+           الشريط الجانبي للوحة التحكم (Admin Sidebar)
+           ========================================================================= -->
+      <aside class="admin-sidebar" class:mobile-open={mobileSidebarOpen}>
+        <div class="sidebar-brand-box">
+          <div class="brand-top-row">
+            <span class="sidebar-brand-badge">👑 لوحة الإدارة</span>
+            <button type="button" class="btn-close-sidebar-mobile" on:click={() => mobileSidebarOpen = false}>✕</button>
+          </div>
+          <h2 class="sidebar-title">أتيليه مسكة</h2>
+          <p class="sidebar-subtitle">نظام الإدارة والتشغيل الموحد</p>
+        </div>
 
-    <!-- بطاقات الإحصائيات (KPI Cards) -->
-    {#if stats}
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <span class="kpi-icon">📦</span>
-          <div>
-            <span class="kpi-label">طلبات اليوم</span>
-            <b class="kpi-value">{stats.todayOrders} طلب</b>
+        <!-- بطاقة المسؤول المسجل -->
+        <div class="sidebar-admin-profile">
+          <div class="admin-avatar-circle">
+            {($auth?.full_name || 'م')[0]}
+          </div>
+          <div class="admin-profile-text">
+            <strong class="admin-profile-name">{$auth?.full_name || 'مدير النظام'}</strong>
+            <span class="admin-profile-role">
+              <span class="online-indicator"></span>
+              مدير الأتيليه والمتجر
+            </span>
           </div>
         </div>
 
-        <div class="kpi-card">
-          <span class="kpi-icon">💰</span>
-          <div>
-            <span class="kpi-label">مبيعات اليوم</span>
-            <b class="kpi-value">{stats.todaySales} د.ل</b>
-          </div>
+        <!-- قائمة التبويبات العمودية (Sidebar Navigation Menu) -->
+        <nav class="sidebar-nav-menu">
+          <div class="nav-group-header">⚡ العمليات والمالية</div>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'orders'}
+            on:click={() => { currentTab = 'orders'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">📦</span>
+            <span class="nav-btn-title">الطلبات والتسليم</span>
+            <span class="nav-btn-badge">{orders.length}</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'drivers'}
+            on:click={() => { currentTab = 'drivers'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">🚗</span>
+            <span class="nav-btn-title">السائقون والتتبع</span>
+            <span class="nav-btn-badge">{drivers.length}</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn nav-btn-financials" 
+            class:active={currentTab === 'financials'}
+            on:click={() => { currentTab = 'financials'; reloadFinancials(); mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">💰</span>
+            <span class="nav-btn-title">العهد والمالية</span>
+            <span class="nav-btn-badge badge-gold">{driversFinancials.drivers?.length || 0}</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn nav-btn-users" 
+            class:active={currentTab === 'users'}
+            on:click={() => { currentTab = 'users'; reloadUsers(); mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">👥</span>
+            <span class="nav-btn-title">الطاقم والمستخدمون</span>
+            <span class="nav-btn-badge badge-teal">{allUsers.length}</span>
+          </button>
+
+          <div class="nav-group-header">🌸 المخزون والمنتجات</div>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'inventory'}
+            on:click={() => { currentTab = 'inventory'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">🌸</span>
+            <span class="nav-btn-title">مخزون الورود والزوايا</span>
+            <span class="nav-btn-badge">{inventory.length}</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'bouquets'}
+            on:click={() => { currentTab = 'bouquets'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">💐</span>
+            <span class="nav-btn-title">كتالوج الباقات والتركيبات</span>
+            <span class="nav-btn-badge">{bouquets.length}</span>
+          </button>
+
+          <div class="nav-group-header">⚙️ التسويق والإعدادات</div>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'coupons'}
+            on:click={() => { currentTab = 'coupons'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">🏷️</span>
+            <span class="nav-btn-title">الكوبونات والخصومات</span>
+            <span class="nav-btn-badge">{coupons.length}</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'reviews'}
+            on:click={() => { currentTab = 'reviews'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">⭐</span>
+            <span class="nav-btn-title">التقييمات والملاحظات</span>
+            <span class="nav-btn-badge">{reviews.length}</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'pricing'}
+            on:click={() => { currentTab = 'pricing'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon">📍</span>
+            <span class="nav-btn-title">أسعار التوصيل والرقابة</span>
+            <span class="nav-btn-badge">{zones.length}</span>
+          </button>
+        </nav>
+
+        <!-- أسفل القائمة الجانبية -->
+        <div class="sidebar-bottom-actions">
+          <button type="button" class="btn-sidebar-sync" on:click={loadAllAdminData}>
+            <span>🔄</span>
+            <span>تحديث البيانات الحية</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- طبقة عتامة لشاشات الموبايل عند فتح القائمة -->
+      {#if mobileSidebarOpen}
+        <div class="mobile-sidebar-backdrop" on:click={() => mobileSidebarOpen = false}></div>
+      {/if}
+
+      <!-- =========================================================================
+           منطقة المحتوى الرئيسية للوحة الإدارة (Main Content Area)
+           ========================================================================= -->
+      <main class="admin-main-viewport">
+        <!-- شريط علوي للهاتف والقوائم المنسدلة -->
+        <div class="mobile-top-bar-admin">
+          <button type="button" class="btn-open-sidebar-mobile" on:click={() => mobileSidebarOpen = true}>
+            <span class="burger-icon">☰</span>
+            <span>القائمة: {getActiveTabLabel(currentTab)}</span>
+          </button>
+          <button type="button" class="btn-mobile-sync-icon" title="تحديث البيانات" on:click={loadAllAdminData}>
+            🔄
+          </button>
         </div>
 
-        <div class="kpi-card highlight-profit-card">
-          <span class="kpi-icon">💎</span>
+        <!-- ترويسة الصفحة وبطاقات الإحصائيات -->
+        <div class="dash-top-bar">
           <div>
-            <span class="kpi-label">أرباح المتجر اليومية</span>
-            <b class="kpi-value profit-color">{stats.todayStoreProfit !== undefined ? stats.todayStoreProfit : stats.todaySales} د.ل</b>
+            <div class="dash-current-tab-pill">
+              {getActiveTabLabel(currentTab)}
+            </div>
+            <h1 class="dash-title">نظام إدارة مسكة الموحد</h1>
+            <p class="dash-sub">
+              مرحباً بك {$auth?.full_name || 'يا مدير النظام'} — متابعة الطلبات، السائقين، المخزون الحي، والكوبونات
+            </p>
           </div>
+
+          <button type="button" class="btn btn-outline desk-sync-btn" on:click={loadAllAdminData}>
+            تحديث البيانات 🔄
+          </button>
         </div>
 
-        <div class="kpi-card">
-          <span class="kpi-icon">💐</span>
-          <div>
-            <span class="kpi-label">قيد التنسيق</span>
-            <b class="kpi-value">{stats.preparingCount} باقة</b>
+        <!-- بطاقات الإحصائيات (KPI Cards) -->
+        {#if stats}
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-icon">📦</span>
+              <div>
+                <span class="kpi-label">طلبات اليوم</span>
+                <b class="kpi-value">{stats.todayOrders} طلب</b>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <span class="kpi-icon">💰</span>
+              <div>
+                <span class="kpi-label">مبيعات اليوم</span>
+                <b class="kpi-value">{stats.todaySales} د.ل</b>
+              </div>
+            </div>
+
+            <div class="kpi-card highlight-profit-card">
+              <span class="kpi-icon">💎</span>
+              <div>
+                <span class="kpi-label">أرباح المتجر اليومية</span>
+                <b class="kpi-value profit-color">{stats.todayStoreProfit !== undefined ? stats.todayStoreProfit : stats.todaySales} د.ل</b>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <span class="kpi-icon">💐</span>
+              <div>
+                <span class="kpi-label">قيد التنسيق</span>
+                <b class="kpi-value">{stats.preparingCount} باقة</b>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <span class="kpi-icon">🚗</span>
+              <div>
+                <span class="kpi-label">السائقون النشطون</span>
+                <b class="kpi-value">{stats.activeDrivers} سائقين</b>
+              </div>
+            </div>
           </div>
-        </div>
+        {/if}
 
-        <div class="kpi-card">
-          <span class="kpi-icon">🚗</span>
-          <div>
-            <span class="kpi-label">السائقون النشطون</span>
-            <b class="kpi-value">{stats.activeDrivers} سائقين</b>
-          </div>
-        </div>
-      </div>
-    {/if}
-
-    <!-- تبويبات لوحة التحكم -->
-    <div class="admin-tabs-bar">
-      <button 
-        type="button" 
-        class="admin-tab" 
-        class:active={currentTab === 'orders'}
-        on:click={() => currentTab = 'orders'}
-      >
-        الطلبات والتسليم ({orders.length})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab" 
-        class:active={currentTab === 'drivers'}
-        on:click={() => currentTab = 'drivers'}
-      >
-        السائقون والتتبع ({drivers.length})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab fin-tab-highlight" 
-        class:active={currentTab === 'financials'}
-        on:click={() => { currentTab = 'financials'; reloadFinancials(); }}
-      >
-        💰 العهد والمالية ({driversFinancials.drivers?.length || 0})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab users-tab-highlight" 
-        class:active={currentTab === 'users'}
-        on:click={() => { currentTab = 'users'; reloadUsers(); }}
-      >
-        👥 الطاقم والمستخدمون ({allUsers.length})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab" 
-        class:active={currentTab === 'inventory'}
-        on:click={() => currentTab = 'inventory'}
-      >
-        مخزون الورود والزوايا ({inventory.length})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab" 
-        class:active={currentTab === 'bouquets'}
-        on:click={() => currentTab = 'bouquets'}
-      >
-        كتالوج الباقات والتركيبات ({bouquets.length})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab" 
-        class:active={currentTab === 'coupons'}
-        on:click={() => currentTab = 'coupons'}
-      >
-        الكوبونات والخصومات ({coupons.length})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab" 
-        class:active={currentTab === 'reviews'}
-        on:click={() => currentTab = 'reviews'}
-      >
-        التقييمات والملاحظات ({reviews.length})
-      </button>
-
-      <button 
-        type="button" 
-        class="admin-tab" 
-        class:active={currentTab === 'pricing'}
-        on:click={() => currentTab = 'pricing'}
-      >
-        أسعار التوصيل والرقابة ({zones.length})
-      </button>
-    </div>
-
-    <!-- محتوى التبويبات -->
-    <div class="tab-content-area">
+        <!-- محتوى التبويبات -->
+        <div class="tab-content-area">
       <!-- 1. تبويب الطلبات -->
       {#if currentTab === 'orders'}
         <div class="card table-card">
@@ -2117,6 +2219,8 @@
           </div>
         </div>
       {/if}
+        </div>
+      </main>
     </div>
   </div>
 
@@ -3457,88 +3561,437 @@
 
 <style>
   .admin-dashboard-page {
-    padding: 40px 0 80px;
+    padding: 30px 0 80px;
     background: var(--bg);
+    min-height: 100vh;
   }
+
+  .admin-shell-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 24px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* الهيكل العام: شريط جانبي + منطقة محتوى */
+  .admin-dashboard-layout {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+  }
+
+  /* =========================================================================
+     الشريط الجانبي الفاخر للوحة التحكم (Admin Sidebar)
+     ========================================================================= */
+  .admin-sidebar {
+    width: 290px;
+    flex-shrink: 0;
+    background: var(--card-solid);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 22px 16px;
+    position: sticky;
+    top: 86px;
+    max-height: calc(100vh - 104px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 4px 22px rgba(43, 43, 40, 0.04);
+    z-index: 50;
+    scrollbar-width: thin;
+    scrollbar-color: #d8e5b6 transparent;
+  }
+
+  .admin-sidebar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .admin-sidebar::-webkit-scrollbar-thumb {
+    background-color: #d8e5b6;
+    border-radius: 999px;
+  }
+
+  /* ترويسة الشريط الجانبي */
+  .sidebar-brand-box {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .sidebar-brand-badge {
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: #f1ebd8;
+    color: var(--olive);
+    padding: 3px 10px;
+    border-radius: 999px;
+    display: inline-block;
+  }
+  .btn-close-sidebar-mobile {
+    display: none;
+  }
+  .sidebar-title {
+    margin: 0 0 2px;
+    font-size: 1.5rem;
+    color: var(--olive);
+    font-weight: 800;
+    font-family: 'Playfair Display', serif;
+  }
+  .sidebar-subtitle {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  /* بطاقة المسؤول في الشريط الجانبي */
+  .sidebar-admin-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #faf6f0;
+    border: 1px solid #ebd9c2;
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+  .admin-avatar-circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--olive);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(94, 107, 44, 0.25);
+  }
+  .admin-profile-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .admin-profile-name {
+    font-size: 0.88rem;
+    color: #2b2b28;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .admin-profile-role {
+    font-size: 0.72rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .online-indicator {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+  }
+
+  /* قائمة التبويبات العمودية */
+  .sidebar-nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+  .nav-group-header {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #8c887b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 12px 8px 4px;
+  }
+  .sidebar-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 14px;
+    border: none;
+    background: transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-align: right;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #4a4843;
+    border-right: 3px solid transparent;
+  }
+  .sidebar-nav-btn:hover {
+    background: #f7f3ea;
+    color: var(--olive);
+    transform: translateX(-3px);
+  }
+  .sidebar-nav-btn.active {
+    background: rgba(94, 107, 44, 0.11);
+    color: var(--olive);
+    font-weight: 800;
+    border-right-color: var(--olive);
+    box-shadow: inset 0 0 0 1px rgba(94, 107, 44, 0.12);
+  }
+  .nav-btn-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .nav-btn-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nav-btn-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: #e8e2d4;
+    color: #555146;
+    padding: 2px 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .sidebar-nav-btn.active .nav-btn-badge {
+    background: var(--olive);
+    color: #ffffff;
+  }
+  .badge-gold {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+  }
+  .sidebar-nav-btn.active .badge-gold {
+    background: #b45309 !important;
+    color: #ffffff !important;
+  }
+  .badge-teal {
+    background: #e0f2fe !important;
+    color: #0284c7 !important;
+  }
+  .sidebar-nav-btn.active .badge-teal {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+  }
+
+  /* أسفل القائمة الجانبية */
+  .sidebar-bottom-actions {
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .btn-sidebar-sync {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px;
+    border: 1px dashed var(--line-strong);
+    background: #faf6f0;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--olive);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-sidebar-sync:hover {
+    background: #f1ebd8;
+    border-color: var(--olive);
+  }
+
+  /* =========================================================================
+     منطقة المحتوى الرئيسية (Admin Main Area)
+     ========================================================================= */
+  .admin-main-viewport {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-top-bar-admin {
+    display: none;
+  }
+  .mobile-sidebar-backdrop {
+    display: none;
+  }
+
+  .dash-current-tab-pill {
+    display: inline-block;
+    background: #f1ebd8;
+    color: var(--olive);
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 3px 12px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+    border: 1px solid #ebd9c2;
+  }
+
   .dash-top-bar {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    margin-bottom: 30px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
     gap: 16px;
   }
   .dash-title {
-    font-size: 2.2rem;
+    font-size: 2.1rem;
     color: var(--olive);
-    margin: 8px 0 4px;
+    margin: 4px 0;
     font-family: 'Cairo', sans-serif;
   }
   .dash-sub {
     color: var(--text-muted);
-    font-size: 1rem;
+    font-size: 0.95rem;
     margin: 0;
   }
+  .desk-sync-btn {
+    padding: 10px 18px;
+    font-weight: 700;
+  }
+
   .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-    margin-bottom: 32px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
   }
   .kpi-card {
     background: var(--card-solid);
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-md);
-    padding: 22px;
+    padding: 18px;
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 14px;
     box-shadow: var(--shadow-sm);
   }
   .kpi-icon {
-    font-size: 2rem;
-    width: 52px;
-    height: 52px;
+    font-size: 1.8rem;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     background: var(--bg);
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
   }
   .kpi-label {
     display: block;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--muted);
     font-weight: 600;
   }
   .kpi-value {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     color: var(--olive);
     font-weight: 800;
   }
-  .admin-tabs-bar {
-    display: flex;
-    gap: 8px;
-    border-bottom: 2px solid var(--line);
-    margin-bottom: 24px;
-    overflow-x: auto;
-    padding-bottom: 4px;
+  .highlight-profit-card {
+    border-color: #a3e635;
+    background: linear-gradient(135deg, #ffffff 0%, #f4fce3 100%);
   }
-  .admin-tab {
-    background: none;
-    border: none;
-    padding: 12px 20px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-bottom: 3px solid transparent;
-    white-space: nowrap;
-    transition: all 0.2s;
+  .profit-color {
+    color: #15803d !important;
   }
-  .admin-tab:hover, .admin-tab.active {
-    color: var(--olive);
-    border-color: var(--olive);
+
+  /* استجابة الشاشات الصغيرة والهواتف */
+  @media (max-width: 1024px) {
+    .admin-dashboard-layout {
+      flex-direction: column;
+      gap: 16px;
+    }
+    .admin-sidebar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      right: -320px;
+      width: 290px;
+      max-height: 100vh;
+      border-radius: 0;
+      z-index: 1000;
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: -4px 0 24px rgba(0,0,0,0.18);
+    }
+    .admin-sidebar.mobile-open {
+      right: 0;
+    }
+    .btn-close-sidebar-mobile {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: transparent;
+      cursor: pointer;
+      font-size: 1rem;
+      color: #555146;
+    }
+    .mobile-sidebar-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(2px);
+      z-index: 999;
+    }
+    .mobile-top-bar-admin {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-solid);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-open-sidebar-mobile {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #ebd9c2;
+      background: #faf6f0;
+      color: var(--olive);
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+    .burger-icon {
+      font-size: 1.1rem;
+    }
+    .btn-mobile-sync-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+    .desk-sync-btn {
+      display: none;
+    }
   }
   .table-card {
     background: var(--card-solid);
