@@ -209,11 +209,22 @@
 
     <!-- 2. شريط محفظة العهدة النقدية وأرباح التوصيل اللحظية لكابتن التوصيل -->
     <div class="driver-financial-banner card">
+      <div class="fin-banner-item fin-today-highlight">
+        <span class="fin-b-icon">⚡</span>
+        <div>
+          <span class="fin-b-title">أرباحك اليومية:</span>
+          <b class="fin-b-val text-gold">+{Number(financialSummary.today?.earnings || financialSummary.driver?.today_earnings || 0).toLocaleString()} د.ل</b>
+          <span class="fin-b-sub">{financialSummary.today?.delivered_count || financialSummary.driver?.today_delivered_count || 0} طلبات سُلّمت اليوم</span>
+        </div>
+      </div>
+
+      <div class="fin-banner-divider"></div>
+
       <div class="fin-banner-item">
         <span class="fin-b-icon">💵</span>
         <div>
           <span class="fin-b-title">العهدة النقدية الحالية:</span>
-          <b class="fin-b-val">{financialSummary.driver?.current_custody_amount || 0} د.ل</b>
+          <b class="fin-b-val">{Number(financialSummary.driver?.current_custody_amount || 0).toLocaleString()} د.ل</b>
           <span class="fin-b-sub">كاش في حوزتك للإدارة</span>
         </div>
       </div>
@@ -223,8 +234,8 @@
       <div class="fin-banner-item">
         <span class="fin-b-icon">🌟</span>
         <div>
-          <span class="fin-b-title">أرباح التوصيل المستحقة:</span>
-          <b class="fin-b-val text-green">{financialSummary.driver?.pending_earnings || 0} د.ل</b>
+          <span class="fin-b-title">إجمالي أرباحك المعلقة:</span>
+          <b class="fin-b-val text-green">+{Number(financialSummary.driver?.pending_earnings || 0).toLocaleString()} د.ل</b>
           <span class="fin-b-sub">تخصم لصالحك</span>
         </div>
       </div>
@@ -235,7 +246,7 @@
         <span class="fin-b-icon">⚖️</span>
         <div>
           <span class="fin-b-title">الصافي لتوريده للإدارة:</span>
-          <b class="fin-b-val text-blue">{financialSummary.net_cash_due_to_admin || 0} د.ل</b>
+          <b class="fin-b-val text-blue">{Number(financialSummary.net_cash_due_to_admin || 0).toLocaleString()} د.ل</b>
           <span class="fin-b-sub">العهدة بعد خصم أرباحك</span>
         </div>
       </div>
@@ -334,20 +345,25 @@
             </button>
           </div>
 
-          <div class="fin-grid-3">
+          <div class="fin-grid-4">
+            <div class="fin-stat-box gold">
+              <span class="stat-title">⚡ أرباحك اليومية المحققة</span>
+              <b class="stat-num text-gold">+{Number(financialSummary.today?.earnings || 0).toLocaleString()} د.ل</b>
+              <small>{financialSummary.today?.delivered_count || 0} طلبات سُلّمت اليوم | كاش: {Number(financialSummary.today?.cash_collected || 0).toLocaleString()} د.ل</small>
+            </div>
             <div class="fin-stat-box red">
               <span class="stat-title">💵 العهدة النقدية المعلقة (كاش)</span>
-              <b class="stat-num">{financialSummary.driver?.current_custody_amount || 0} د.ل</b>
+              <b class="stat-num">{Number(financialSummary.driver?.current_custody_amount || 0).toLocaleString()} د.ل</b>
               <small>المطلوب تسليمه للإدارة عند تصفية العهدة</small>
             </div>
             <div class="fin-stat-box green">
-              <span class="stat-title">🌟 أرباحك المستحقة من التوصيل</span>
-              <b class="stat-num">{financialSummary.driver?.pending_earnings || 0} د.ل</b>
+              <span class="stat-title">🌟 إجمالي أرباحك المعلقة</span>
+              <b class="stat-num">{Number(financialSummary.driver?.pending_earnings || 0).toLocaleString()} د.ل</b>
               <small>عمولات التوصيل المكتسبة التي تخصم لصالحك</small>
             </div>
             <div class="fin-stat-box blue">
               <span class="stat-title">⚖️ صافي المبلغ المطلوب توريده</span>
-              <b class="stat-num">{financialSummary.net_cash_due_to_admin || 0} د.ل</b>
+              <b class="stat-num">{Number(financialSummary.net_cash_due_to_admin || 0).toLocaleString()} د.ل</b>
               <small>صافي الكاش الذي تسلمه للإدارة</small>
             </div>
           </div>
@@ -1264,10 +1280,27 @@
     font-size: 0.82rem;
     color: var(--muted);
   }
-  .fin-grid-3 {
+  .fin-grid-4, .fin-grid-3 {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 16px;
+  }
+  .fin-today-highlight {
+    background: rgba(217, 119, 6, 0.05);
+    padding: 6px 14px;
+    border-radius: 12px;
+    border: 1px dashed rgba(217, 119, 6, 0.3);
+  }
+  .text-gold {
+    color: #b45309 !important;
+    font-weight: 800;
+  }
+  .fin-stat-box.gold {
+    border-color: #fde68a;
+    background: #fffbeb;
+  }
+  .fin-stat-box.gold .stat-num {
+    color: #b45309;
   }
   .fin-stat-box {
     background: #faf7f0;
@@ -1425,7 +1458,7 @@
     .fin-banner-divider {
       display: none;
     }
-    .fin-grid-3 {
+    .fin-grid-4, .fin-grid-3 {
       grid-template-columns: 1fr;
     }
   }

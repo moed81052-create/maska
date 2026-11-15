@@ -97,26 +97,60 @@ module.exports = {
   async getDashboardStats() {
     if (isMySQL) {
       const [[r1]] = await mysqlPool.query(`SELECT COUNT(*) as c FROM orders WHERE DATE(created_at) = CURDATE()`);
-      const [[r2]] = await mysqlPool.query(`SELECT COALESCE(SUM(total_amount), 0) as s FROM orders WHERE DATE(created_at) = CURDATE()`);
+      const [[r2]] = await mysqlPool.query(`SELECT COALESCE(SUM(total_amount), 0) as s, COALESCE(SUM(delivery_fee), 0) as df FROM orders WHERE DATE(created_at) = CURDATE()`);
       const [[r3]] = await mysqlPool.query(`SELECT COUNT(*) as c FROM orders WHERE status = 'preparing'`);
       const [[r4]] = await mysqlPool.query(`SELECT COUNT(*) as c FROM flower_inventory WHERE stock_quantity <= alert_threshold`);
       const [[r5]] = await mysqlPool.query(`SELECT COUNT(*) as c FROM driver_profiles WHERE current_status IN ('available', 'busy')`);
+      
+      const [[rDriverToday]] = await mysqlPool.query(`
+        SELECT 
+          COALESCE(SUM(driver_profit), 0) as today_driver_profits,
+          COALESCE(SUM(CASE WHEN type = 'order_collection' THEN amount ELSE 0 END), 0) as today_cash_collected
+        FROM driver_custody_transactions
+        WHERE DATE(created_at) = CURDATE()
+      `);
+
+      const [[rSettledToday]] = await mysqlPool.query(`
+        SELECT COALESCE(SUM(net_cash_received), 0) as today_cash_settled
+        FROM driver_settlements
+        WHERE DATE(created_at) = CURDATE()
+      `);
+
+      const totalSales = Number(r2?.s || 0);
+      const deliveryFees = Number(r2?.df || 0);
+      const storeNetProfit = Math.max(0, totalSales - deliveryFees);
+
       return {
         todayOrders: Number(r1?.c || 0),
-        todaySales: Number(r2?.s || 0),
+        todaySales: totalSales,
+        todayDeliveryFees: deliveryFees,
+        todayStoreProfit: storeNetProfit,
+        todayDriverEarnings: Number(rDriverToday?.today_driver_profits || deliveryFees),
+        todayCashCollected: Number(rDriverToday?.today_cash_collected || 0),
+        todayCashSettled: Number(rSettledToday?.today_cash_settled || 0),
         preparingCount: Number(r3?.c || 0),
         lowStockCount: Number(r4?.c || 0),
         activeDrivers: Number(r5?.c || 0)
       };
     } else {
       const todayOrders = sqliteDb.prepare(`SELECT COUNT(*) as c FROM orders WHERE date(created_at) = date('now')`).get().c;
-      const todaySales = sqliteDb.prepare(`SELECT COALESCE(SUM(total_amount), 0) as s FROM orders WHERE date(created_at) = date('now')`).get().s;
+      const r2 = sqliteDb.prepare(`SELECT COALESCE(SUM(total_amount), 0) as s, COALESCE(SUM(delivery_fee), 0) as df FROM orders WHERE date(created_at) = date('now')`).get();
       const preparingCount = sqliteDb.prepare(`SELECT COUNT(*) as c FROM orders WHERE status = 'preparing'`).get().c;
       const lowStockCount = sqliteDb.prepare(`SELECT COUNT(*) as c FROM flower_inventory WHERE stock_quantity <= alert_threshold`).get().c;
       const activeDrivers = sqliteDb.prepare(`SELECT COUNT(*) as c FROM driver_profiles WHERE current_status IN ('available', 'busy')`).get().c;
+      
+      const totalSales = Number(r2?.s || 0);
+      const deliveryFees = Number(r2?.df || 0);
+      const storeNetProfit = Math.max(0, totalSales - deliveryFees);
+
       return {
         todayOrders,
-        todaySales,
+        todaySales: totalSales,
+        todayDeliveryFees: deliveryFees,
+        todayStoreProfit: storeNetProfit,
+        todayDriverEarnings: deliveryFees,
+        todayCashCollected: 0,
+        todayCashSettled: 0,
         preparingCount,
         lowStockCount,
         activeDrivers
@@ -1791,6 +1825,20 @@ module.exports = {
         LIMIT 20
       `, [driverId]);
 
+      // إحصائيات وأرباح السائق اليومية
+      const [[todayDriverStat]] = await mysqlPool.query(`
+        SELECT 
+          COUNT(DISTINCT order_id) as today_delivered_count,
+          COALESCE(SUM(driver_profit), 0) as today_earnings,
+          COALESCE(SUM(CASE WHEN type = 'order_collection' THEN amount ELSE 0 END), 0) as today_cash_collected
+        FROM driver_custody_transactions
+        WHERE driver_id = ? AND DATE(created_at) = CURDATE()
+      `, [driverId]);
+
+      const todayEarnings = Number(todayDriverStat?.today_earnings || 0);
+      const todayDelivered = Number(todayDriverStat?.today_delivered_count || 0);
+      const todayCash = Number(todayDriverStat?.today_cash_collected || 0);
+
       const custody = Number(driver.current_custody_amount) || 0;
       const earnings = Number(driver.pending_earnings) || 0;
       const netDue = Math.max(0, custody - earnings);
@@ -1801,7 +1849,10 @@ module.exports = {
           current_custody_amount: custody,
           pending_earnings: earnings,
           net_cash_due_to_admin: netDue,
-          net_due: netDue
+          net_due: netDue,
+          today_earnings: todayEarnings,
+          today_delivered_count: todayDelivered,
+          today_cash_collected: todayCash
         },
         profile: {
           ...driver,
@@ -1809,7 +1860,15 @@ module.exports = {
           pending_earnings: earnings,
           net_cash_due_to_admin: netDue,
           net_due: netDue,
-          delivered_count: driver.total_deliveries || 0
+          delivered_count: driver.total_deliveries || 0,
+          today_earnings: todayEarnings,
+          today_delivered_count: todayDelivered,
+          today_cash_collected: todayCash
+        },
+        today: {
+          earnings: todayEarnings,
+          delivered_count: todayDelivered,
+          cash_collected: todayCash
         },
         transactions: txs,
         recent_transactions: txs,
@@ -1824,7 +1883,14 @@ module.exports = {
         FROM users u JOIN driver_profiles dp ON u.id = dp.user_id
         WHERE u.id = ?
       `).get(driverId);
-      return { driver, transactions: [], settlements: [], net_cash_due_to_admin: 0 };
+      return { 
+        driver, 
+        profile: driver,
+        today: { earnings: 0, delivered_count: 0, cash_collected: 0 },
+        transactions: [], 
+        settlements: [], 
+        net_cash_due_to_admin: 0 
+      };
     }
   },
 
@@ -1846,27 +1912,58 @@ module.exports = {
           COALESCE(dp.settled_amount_total, 0) as settled_amount_total,
           dp.total_deliveries,
           (SELECT COUNT(*) FROM orders o WHERE o.assigned_driver_id = u.id AND o.status = 'delivered') as delivered_orders_count,
-          (SELECT COUNT(*) FROM orders o WHERE o.assigned_driver_id = u.id AND o.status IN ('preparing', 'out_for_delivery')) as active_orders_count
+          (SELECT COUNT(*) FROM orders o WHERE o.assigned_driver_id = u.id AND o.status IN ('preparing', 'out_for_delivery')) as active_orders_count,
+          (SELECT COALESCE(SUM(dct.driver_profit), 0) FROM driver_custody_transactions dct WHERE dct.driver_id = u.id AND DATE(dct.created_at) = CURDATE()) as today_earnings,
+          (SELECT COUNT(DISTINCT dct.order_id) FROM driver_custody_transactions dct WHERE dct.driver_id = u.id AND dct.type = 'order_collection' AND DATE(dct.created_at) = CURDATE()) as today_delivered_count,
+          (SELECT COALESCE(SUM(dct.amount), 0) FROM driver_custody_transactions dct WHERE dct.driver_id = u.id AND dct.type = 'order_collection' AND DATE(dct.created_at) = CURDATE()) as today_cash_collected
         FROM users u
         JOIN driver_profiles dp ON u.id = dp.user_id
         WHERE u.status = 'active'
         ORDER BY dp.current_custody_amount DESC
       `);
 
+      // إحصائيات مالية إجمالية لليوم
+      const [[todayGeneralStats]] = await mysqlPool.query(`
+        SELECT 
+          COALESCE(SUM(total_amount), 0) as today_sales,
+          COALESCE(SUM(delivery_fee), 0) as today_delivery_fees,
+          COUNT(CASE WHEN status = 'delivered' THEN 1 END) as today_delivered_orders
+        FROM orders
+        WHERE DATE(created_at) = CURDATE()
+      `);
+
+      const [[todaySettledStats]] = await mysqlPool.query(`
+        SELECT 
+          COALESCE(SUM(net_cash_received), 0) as today_cash_settled,
+          COALESCE(SUM(custody_cleared), 0) as today_custody_cleared,
+          COALESCE(SUM(driver_earnings_deducted), 0) as today_driver_payouts
+        FROM driver_settlements
+        WHERE DATE(created_at) = CURDATE()
+      `);
+
       let totalCustody = 0;
       let totalPendingEarnings = 0;
       let totalSettled = 0;
       let totalCollected = 0;
+      let todayDriverEarningsTotal = 0;
+      let todayCashCollectedTotal = 0;
+      let todayDeliveredTotal = 0;
 
       const formattedDrivers = drivers.map(d => {
         const custody = Number(d.current_custody_amount) || 0;
         const earnings = Number(d.pending_earnings) || 0;
         const netDue = Math.max(0, custody - earnings);
+        const tEarnings = Number(d.today_earnings) || 0;
+        const tDelivered = Number(d.today_delivered_count) || 0;
+        const tCash = Number(d.today_cash_collected) || 0;
 
         totalCustody += custody;
         totalPendingEarnings += earnings;
         totalSettled += (Number(d.settled_amount_total) || 0);
         totalCollected += (Number(d.total_collected_cash) || 0);
+        todayDriverEarningsTotal += tEarnings;
+        todayCashCollectedTotal += tCash;
+        todayDeliveredTotal += tDelivered;
 
         return {
           ...d,
@@ -1875,9 +1972,17 @@ module.exports = {
           net_due_to_admin: netDue,
           net_due: netDue,
           vehicle_plate: d.plate_number,
-          delivered_count: d.delivered_orders_count || d.total_deliveries || 0
+          delivered_count: d.delivered_orders_count || d.total_deliveries || 0,
+          today_earnings: tEarnings,
+          today_delivered_count: tDelivered,
+          today_cash_collected: tCash
         };
       });
+
+      const todayStoreSales = Number(todayGeneralStats?.today_sales || 0);
+      const todayDeliveryFees = Number(todayGeneralStats?.today_delivery_fees || 0);
+      const todayStoreProfit = Math.max(0, todayStoreSales - todayDeliveryFees);
+      const todayCashSettled = Number(todaySettledStats?.today_cash_settled || 0);
 
       return {
         drivers: formattedDrivers,
@@ -1891,7 +1996,22 @@ module.exports = {
           total_settled_historically: totalSettled,
           totalSettled,
           total_collected_historically: totalCollected,
-          totalCollected
+          totalCollected,
+          // ملخص الأرباح والتدفقات المالية اليومية
+          today: {
+            today_store_sales: todayStoreSales,
+            todayStoreSales,
+            today_store_profit: todayStoreProfit,
+            todayStoreProfit,
+            today_driver_earnings: todayDriverEarningsTotal,
+            todayDriverEarnings: todayDriverEarningsTotal,
+            today_cash_collected: todayCashCollectedTotal,
+            todayCashCollected: todayCashCollectedTotal,
+            today_cash_settled: todayCashSettled,
+            todayCashSettled,
+            today_delivered_orders: Number(todayGeneralStats?.today_delivered_orders || todayDeliveredTotal),
+            todayDeliveredOrders: Number(todayGeneralStats?.today_delivered_orders || todayDeliveredTotal)
+          }
         }
       };
     } else {

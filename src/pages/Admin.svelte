@@ -853,6 +853,14 @@
           </div>
         </div>
 
+        <div class="kpi-card highlight-profit-card">
+          <span class="kpi-icon">💎</span>
+          <div>
+            <span class="kpi-label">أرباح المتجر اليومية</span>
+            <b class="kpi-value profit-color">{stats.todayStoreProfit !== undefined ? stats.todayStoreProfit : stats.todaySales} د.ل</b>
+          </div>
+        </div>
+
         <div class="kpi-card">
           <span class="kpi-icon">💐</span>
           <div>
@@ -1397,6 +1405,47 @@
             </button>
           </div>
 
+          <!-- شريط الأرباح والتدفق المالي اليومي -->
+          <div class="today-profit-banner">
+            <div class="today-banner-header">
+              <div class="today-title-row">
+                <span class="live-pulse-dot"></span>
+                <span class="today-icon">⚡</span>
+                <div>
+                  <h4>ملخص الأرباح والتدفق المالي لليوم</h4>
+                  <p class="today-subtitle">متابعة فورية للأرباح الصافية اليومية للمتجر، عوائد التوصيل للكباتن، والنقدية المحصلة في الميدان.</p>
+                </div>
+              </div>
+              <span class="badge-today-orders">📦 {driversFinancials.totals?.today?.todayDeliveredOrders || stats.todayOrders || 0} طلبات مسلمة اليوم</span>
+            </div>
+
+            <div class="today-metrics-row">
+              <div class="today-metric-box store-profit-box">
+                <span class="tm-label">🌸 أرباح المتجر الصافية اليوم</span>
+                <strong class="tm-value text-emerald">{(driversFinancials.totals?.today?.todayStoreProfit !== undefined ? driversFinancials.totals.today.todayStoreProfit : (stats.todayStoreProfit || 0)).toLocaleString()} د.ل</strong>
+                <span class="tm-hint">صافي مبيعات الباقات بدون التوصيل</span>
+              </div>
+
+              <div class="today-metric-box driver-profit-box">
+                <span class="tm-label">🚗 أرباح التوصيل للكباتن اليوم</span>
+                <strong class="tm-value text-amber">{(driversFinancials.totals?.today?.todayDriverEarnings !== undefined ? driversFinancials.totals.today.todayDriverEarnings : (stats.todayDriverEarnings || 0)).toLocaleString()} د.ل</strong>
+                <span class="tm-hint">عمولات التوصيل المكتسبة للكباتن اليوم</span>
+              </div>
+
+              <div class="today-metric-box cash-collected-box">
+                <span class="tm-label">💼 كاش العهدة المحصل اليوم</span>
+                <strong class="tm-value text-gold">{(driversFinancials.totals?.today?.todayCashCollected !== undefined ? driversFinancials.totals.today.todayCashCollected : (stats.todayCashCollected || 0)).toLocaleString()} د.ل</strong>
+                <span class="tm-hint">كاش الطلبات المسلمة نقداً اليوم</span>
+              </div>
+
+              <div class="today-metric-box cash-settled-box">
+                <span class="tm-label">🏦 التوريدات المستلمة بالخزينة اليوم</span>
+                <strong class="tm-value text-blue">{(driversFinancials.totals?.today?.todayCashSettled !== undefined ? driversFinancials.totals.today.todayCashSettled : (stats.todayCashSettled || 0)).toLocaleString()} د.ل</strong>
+                <span class="tm-hint">التسويات المودعة بالخزينة اليوم</span>
+              </div>
+            </div>
+          </div>
+
           <!-- بطاقات المؤشرات المالية العامة -->
           <div class="fin-kpi-grid">
             <div class="fin-kpi-card fin-card-custody">
@@ -1452,6 +1501,7 @@
                   <tr>
                     <th>الكابتن</th>
                     <th>حالة العمل</th>
+                    <th>أرباح اليوم ⚡</th>
                     <th>الطلبات المسلمة</th>
                     <th>العهدة الحالية (كاش)</th>
                     <th>أرباح التوصيل المستحقة</th>
@@ -1483,6 +1533,12 @@
                         {:else}
                           <span class="badge badge-secondary">⚪ غير متصل</span>
                         {/if}
+                      </td>
+                      <td>
+                        <div class="today-earning-pill" class:has-earning={Number(d.today_earnings) > 0}>
+                          <span class="te-num">+{Number(d.today_earnings || 0).toLocaleString()} د.ل</span>
+                          <small class="te-orders">{d.today_delivered_count || 0} طلب اليوم</small>
+                        </div>
                       </td>
                       <td>
                         <span class="orders-count-badge">📦 {d.delivered_count || 0} طلب</span>
@@ -1528,7 +1584,7 @@
                     </tr>
                   {:else}
                     <tr>
-                      <td colspan="8" class="empty-table-cell">
+                      <td colspan="9" class="empty-table-cell">
                         لا يوجد سائقون مسجلون حالياً
                       </td>
                     </tr>
@@ -2559,6 +2615,10 @@
           {:else if driverStatementModal.data}
             <!-- بطاقة الموقف المالي -->
             <div class="statement-profile-banner">
+              <div class="stmt-col stmt-today-box">
+                <span class="stmt-lbl">أرباح اليوم ⚡:</span>
+                <strong class="stmt-val text-amber">+{Number(driverStatementModal.data.today?.earnings || driverStatementModal.data.profile.today_earnings || 0).toLocaleString()} د.ل</strong>
+              </div>
               <div class="stmt-col">
                 <span class="stmt-lbl">العهدة الحالية (كاش في حوزته):</span>
                 <strong class="stmt-val text-custody">{Number(driverStatementModal.data.profile.current_custody_amount || 0).toLocaleString()} د.ل</strong>
@@ -4549,6 +4609,177 @@
     .settle-form-fields {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* ================= أنماط الأرباح اليومية ================= */
+  .highlight-profit-card {
+    border-color: #a7f3d0 !important;
+    background: linear-gradient(135deg, #ffffff, #f0fdf4) !important;
+  }
+  .profit-color {
+    color: #047857 !important;
+  }
+
+  .today-profit-banner {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 18px;
+    padding: 22px 26px;
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+    margin-bottom: 8px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .today-profit-banner::after {
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(217, 119, 6, 0.25), transparent 70%);
+    pointer-events: none;
+  }
+
+  .today-banner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 18px;
+  }
+
+  .today-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .live-pulse-dot {
+    width: 10px;
+    height: 10px;
+    background: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: livePulse 2s infinite;
+  }
+
+  @keyframes livePulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  }
+
+  .today-icon {
+    font-size: 1.6rem;
+  }
+
+  .today-banner-header h4 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: #f8fafc;
+    font-weight: 700;
+  }
+
+  .today-subtitle {
+    margin: 3px 0 0;
+    font-size: 0.8rem;
+    color: #94a3b8;
+  }
+
+  .badge-today-orders {
+    background: rgba(255, 255, 255, 0.12);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .today-metrics-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .today-metric-box {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+  }
+
+  .today-metric-box:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .tm-label {
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    font-weight: 600;
+  }
+
+  .tm-value {
+    font-size: 1.55rem;
+    font-weight: 800;
+    line-height: 1.2;
+    font-family: inherit;
+  }
+
+  .tm-hint {
+    font-size: 0.74rem;
+    color: #94a3b8;
+  }
+
+  .text-emerald { color: #34d399 !important; }
+  .text-amber { color: #fbbf24 !important; }
+  .text-gold { color: #f59e0b !important; }
+  .text-blue { color: #60a5fa !important; }
+
+  .today-earning-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+  }
+
+  .today-earning-pill.has-earning {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+
+  .today-earning-pill .te-num {
+    font-weight: 800;
+    color: #b45309;
+  }
+
+  .today-earning-pill .te-orders {
+    font-size: 0.72rem;
+    color: #78716c;
+  }
+
+  .stmt-today-box {
+    background: #fffbeb;
+    border: 1px dashed #fde68a;
+    border-radius: 10px;
+    padding: 8px 12px;
   }
 </style>
 
