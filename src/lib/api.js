@@ -129,6 +129,8 @@ export const api = {
 
   // 10. محادثة خبير مسكة للذكاء الاصطناعي (AI Florist Chat)
   aiChat: (message, history = [], context = {}) => 
-    request('/ai/chat', { method: 'POST', body: { message, history, context } })
+    request('/ai/chat', { method: 'POST', body: { message, history, context } }),
+  getAiStatus: () => request('/ai/status'),
+  saveAiKey: (apiKey) => request('/ai/key', { method: 'POST', body: { apiKey } })
 };
 

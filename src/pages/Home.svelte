@@ -3,6 +3,7 @@
   import { router } from '../stores/router.js';
   import { cart } from '../stores/cart.js';
   import { api } from '../lib/api.js';
+  import { setPendingBouquetDesign } from '../stores/aiChatStore.js';
 
   let activeFilter = 'all';
   let trackInput = '';
@@ -24,11 +25,20 @@
   let homeChatContainerEl;
 
   const homeQuickQuestions = [
+    '💖 صمملي باقة رومانسية فخمة',
+    '🎓 صمملي باقة تخرج بالورد المتاح',
+    '💍 صمملي باقة زفاف ملكية ناصعة',
     '🌹 ما أفضل باقة لمناسبة ذكرى زواج؟',
     '💧 كيف أحافظ على الورد الطبيعي في المنزل لمدة أسبوعين؟',
-    '🤍 ما معاني ألوان ورد الجوري والتوليب؟',
-    '🎓 ما هي مواصفات باقة التخرج الفخمة؟'
+    '🤍 ما معاني ألوان ورد الجوري والتوليب؟'
   ];
+
+  function applyHomeProposalAndGoToStudio(designAction) {
+    if (designAction) {
+      setPendingBouquetDesign(designAction);
+    }
+    router.navigate('/studio');
+  }
 
   async function sendHomeChatMessage(textToSend) {
     const text = (textToSend || homeChatInput).trim();
@@ -62,6 +72,7 @@
           id: Date.now() + 1,
           sender: 'ai',
           text: res.reply || 'أهلاً بك! أنا في خدمتك دائماً.',
+          designAction: res.designAction || null,
           time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
         }
       ];
@@ -819,6 +830,45 @@
               {/if}
               <div class="chat-bubble-card" class:bubble-user={msg.sender === 'user'} class:bubble-ai={msg.sender === 'ai'} class:bubble-error={msg.error}>
                 <div class="bubble-text-body">{msg.text}</div>
+
+                {#if msg.designAction}
+                  <div class="home-proposal-box">
+                    <div class="h-prop-head">
+                      <span class="h-prop-badge">🎨 باقة مقترحة من المخزون المتوفر</span>
+                      <h4 class="h-prop-title">🌺 {msg.designAction.name}</h4>
+                    </div>
+                    <div class="h-prop-details">
+                      <div class="h-prop-row">
+                        <span>📐 التنسيق:</span>
+                        <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي' : msg.designAction.style === 'royal' ? 'هرمي ملكي' : msg.designAction.style === 'heart' ? 'قلب رومانسي' : 'بوهيمي'}</b>
+                      </div>
+                      <div class="h-prop-row">
+                        <span>🎀 التغليف:</span>
+                        <b>{msg.designAction.wrapName || msg.designAction.wrap}</b>
+                      </div>
+                      <div class="h-prop-row">
+                        <span>💰 السعر المقدر:</span>
+                        <b class="h-prop-price">{msg.designAction.totalPrice} دينار</b>
+                      </div>
+                      <div class="h-prop-stems">
+                        {#each msg.designAction.stems as s}
+                          <span class="h-stem-tag">
+                            <span class="h-stem-dot" style="background-color: {s.color || '#5e6b2c'}"></span>
+                            {s.qty} × {s.name}
+                          </span>
+                        {/each}
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      class="btn btn-primary h-prop-apply-btn"
+                      on:click={() => applyHomeProposalAndGoToStudio(msg.designAction)}
+                    >
+                      🌸 تطبيق هذا التصميم في استوديو مسكة فوراً 🎨
+                    </button>
+                  </div>
+                {/if}
+
                 <div class="bubble-timestamp">{msg.time}</div>
               </div>
             </div>
@@ -1884,6 +1934,101 @@
     font-weight: 700;
     border-radius: 14px;
     white-space: nowrap;
+  }
+
+  /* بطاقة عرض تصميم الباقة المقترحة في الصفحة الرئيسية */
+  .home-proposal-box {
+    margin-top: 14px;
+    background: #ffffff;
+    border: 2px solid #5e6b2c;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(94, 107, 44, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .h-prop-head {
+    border-bottom: 1px solid #ebd9c8;
+    padding-bottom: 8px;
+  }
+
+  .h-prop-badge {
+    display: inline-block;
+    background: #eef2dc;
+    color: #5e6b2c;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+
+  .h-prop-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #2b2b28;
+    margin: 6px 0 0;
+  }
+
+  .h-prop-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.88rem;
+  }
+
+  .h-prop-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #555;
+  }
+
+  .h-prop-row b {
+    color: #2b2b28;
+  }
+
+  .h-prop-price {
+    color: #b45309 !important;
+    font-size: 1.1rem;
+  }
+
+  .h-prop-stems {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .h-stem-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fdfaf4;
+    border: 1px solid #ebd9c8;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #465020;
+  }
+
+  .h-stem-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .h-prop-apply-btn {
+    margin-top: 6px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(94, 107, 44, 0.25);
   }
 
   @media (max-width: 900px) {

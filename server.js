@@ -10,6 +10,11 @@ if (typeof process.loadEnvFile === 'function') {
   } catch (e) {}
 }
 
+// تخطي قيود شهادات TLS في بيئات التطوير لتسهيل الاتصال بواجهات الذكاء الاصطناعي الخارجية
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -1355,6 +1360,210 @@ function isStrictlyFlowerRelated(text) {
   return secondaryKeywords.some(regex => regex.test(t));
 }
 
+// التحقق مما إذا كان الطلب يتضمن طلباً لتصميم أو تشكيل باقة
+function isDesignRequest(query) {
+  const t = (query || '').toLowerCase();
+  return /صمم|صمملي|تصميم|اخترلي|اختارلي|اقترحلي|توليفة|ركبلي|بوكيه|نسقلي|باقة جديدة|تنسيق باقة|شكل باقة|تشكيل باقة|اعملي باقة|جهزلي باقة|اقترح باقة/i.test(t);
+}
+
+// مفاتيح الزهور لتطابق الأصول المرئية الشفافة
+function getFlowerKey(name, color = '') {
+  const n = (name || '').toLowerCase();
+  const c = (color || '').toLowerCase();
+  if (n.includes('أحمر') || n.includes('حمراء') || c.includes('أحمر') || c.includes('قرمزي')) return 'red-rose';
+  if (n.includes('توليب') || n.includes('tulip')) return 'white-tulip';
+  if (n.includes('جيبسوفيلا') || n.includes('جبسوفيلا') || n.includes('طفل')) return 'baby-breath';
+  if (n.includes('فاوانيا') || n.includes('بيوني') || n.includes('peony')) return 'peony';
+  if (n.includes('أوكالبتوس') || n.includes('اوكالبتوس') || n.includes('مريمي') || n.includes('eucalyptus')) return 'eucalyptus';
+  if (n.includes('أوركيد') || n.includes('اوركيد') || n.includes('orchid')) return 'orchid';
+  if (n.includes('شمس') || n.includes('sunflower')) return 'sunflower';
+  if (n.includes('ليلي') || n.includes('زنابق') || n.includes('lily')) return 'lily';
+  if (n.includes('جوري') || n.includes('ورد') || c.includes('وردي')) return 'pink-rose';
+  return 'red-rose';
+}
+
+// محرك تصميم الباقات الذكي بناءً على المخزون الحي لزهور مسكة
+function generateSmartFloralDesign(query, availableFlowers) {
+  const q = (query || '').toLowerCase();
+  
+  const findFlower = (terms) => {
+    return availableFlowers.find(f => {
+      const name = (f.name_ar || '').toLowerCase();
+      const color = (f.color || '').toLowerCase();
+      return terms.some(term => name.includes(term) || color.includes(term));
+    });
+  };
+
+  let theme = 'spring';
+  if (/حب|رومانس|عاطف|زوج|زوجة|حبيب|أحمر|عشق/i.test(q)) theme = 'romantic';
+  else if (/زفاف|عرس|خطوب|ملكة|عاج|عروس/i.test(q)) theme = 'wedding';
+  else if (/تخرج|نجاح|تفوق|شهادة/i.test(q)) theme = 'graduation';
+  else if (/فخم|ملكي|نادر|أوركيد|فاخر|هيبة/i.test(q)) theme = 'luxury';
+  else if (/اعتذار|صلح|أسف/i.test(q)) theme = 'apology';
+
+  let selectedStems = [];
+  let bouquetName = 'باقة مسكة المتناسقة';
+  let style = 'dome'; // 'dome' | 'royal' | 'boho' | 'heart'
+  let wrap = 'kraft';
+  let wrapName = 'ورق كرافت فاخر';
+  let ribbon = 'gold_rose';
+  let ribbonName = 'وردي مذهب';
+  let story = '';
+
+  const redRose = findFlower(['حمراء', 'أحمر', 'جوري أحمر']);
+  const pinkRose = findFlower(['وردية', 'وردي', 'جوري وردي']);
+  const whiteTulip = findFlower(['توليب', 'أبيض نقي']);
+  const babyBreath = findFlower(['جبسوفيلا', 'جيبسوفيلا', 'نَفَس الطفل']);
+  const peony = findFlower(['فاوانيا', 'بيوني']);
+  const eucalyptus = findFlower(['أوكالبتوس', 'اوكالبتوس', 'مريمية']);
+  const orchid = findFlower(['أوركيد', 'اوركيد']);
+  const sunflower = findFlower(['شمس', 'عباد']);
+  const lily = findFlower(['ليلي', 'زنابق']);
+
+  if (theme === 'romantic') {
+    bouquetName = 'باقة نبض العاطفة الملكية';
+    style = 'heart';
+    wrap = 'olive';
+    wrapName = 'زيتي مسكة ملكي';
+    ribbon = 'crimson';
+    ribbonName = 'أحمر قرمزي';
+    story = 'توليفة مصممة خصيصاً للمشاعر الصادقة والرومانسية، تعتمد على ورد الجوري الأحمر كقلب للباقة، مع لمسات حالمة من الجبسوفيلا والأوكالبتوس.';
+
+    if (redRose && redRose.stock_quantity > 0) {
+      selectedStems.push({ flower: redRose, qty: Math.min(7, redRose.stock_quantity), section: 'center' });
+    }
+    if (babyBreath && babyBreath.stock_quantity > 0) {
+      selectedStems.push({ flower: babyBreath, qty: Math.min(4, babyBreath.stock_quantity), section: 'right' });
+    }
+    if (eucalyptus && eucalyptus.stock_quantity > 0) {
+      selectedStems.push({ flower: eucalyptus, qty: Math.min(3, eucalyptus.stock_quantity), section: 'bottom' });
+    }
+  } else if (theme === 'wedding') {
+    bouquetName = 'باقة النقاء والصفاء الملكي';
+    style = 'dome';
+    wrap = 'white';
+    wrapName = 'أبيض عاجي نقي';
+    ribbon = 'silk_white';
+    ribbonName = 'حرير عاجي';
+    story = 'تصميم ناصع وراقٍ يليق بمناسبات الزفاف والخطوبة، يجمع التوليب الأبيض النقي مع الفاوانيا الفاخرة وسحاب الجبسوفيلا لطلّة ساحرة متزنة.';
+
+    if (whiteTulip && whiteTulip.stock_quantity > 0) {
+      selectedStems.push({ flower: whiteTulip, qty: Math.min(6, whiteTulip.stock_quantity), section: 'center' });
+    }
+    if (peony && peony.stock_quantity > 0) {
+      selectedStems.push({ flower: peony, qty: Math.min(3, peony.stock_quantity), section: 'top' });
+    } else if (lily && lily.stock_quantity > 0) {
+      selectedStems.push({ flower: lily, qty: Math.min(3, lily.stock_quantity), section: 'top' });
+    }
+    if (babyBreath && babyBreath.stock_quantity > 0) {
+      selectedStems.push({ flower: babyBreath, qty: Math.min(4, babyBreath.stock_quantity), section: 'left' });
+    }
+  } else if (theme === 'graduation') {
+    bouquetName = 'باقة إشراقة النجاح والتفوق';
+    style = 'royal';
+    wrap = 'black';
+    wrapName = 'أسود سهرة فاحم';
+    ribbon = 'royal_gold';
+    ribbonName = 'ذهب ملكي';
+    story = 'تنسيق هرمي جريء ومبهر يعكس الفخر والإنجاز، يتألق بعباد الشمس الذهبي مع الجوري والأغصان الخضراء العطرة.';
+
+    if (sunflower && sunflower.stock_quantity > 0) {
+      selectedStems.push({ flower: sunflower, qty: Math.min(4, sunflower.stock_quantity), section: 'center' });
+    }
+    if (redRose && redRose.stock_quantity > 0) {
+      selectedStems.push({ flower: redRose, qty: Math.min(5, redRose.stock_quantity), section: 'top' });
+    } else if (pinkRose && pinkRose.stock_quantity > 0) {
+      selectedStems.push({ flower: pinkRose, qty: Math.min(5, pinkRose.stock_quantity), section: 'top' });
+    }
+    if (eucalyptus && eucalyptus.stock_quantity > 0) {
+      selectedStems.push({ flower: eucalyptus, qty: Math.min(3, eucalyptus.stock_quantity), section: 'bottom' });
+    }
+  } else if (theme === 'luxury') {
+    bouquetName = 'باقة الهيبة الأرستقراطية';
+    style = 'royal';
+    wrap = 'gold';
+    wrapName = 'ذهبي شامبين عتيق';
+    ribbon = 'royal_gold';
+    ribbonName = 'ذهب ملكي';
+    story = 'باقة ملكية باذخة تجمع الأوركيد النادر والفاوانيا الإمبراطورية بانسجام بصري لا يُضاهى للمناسبات شديدة الخصوصية.';
+
+    if (orchid && orchid.stock_quantity > 0) {
+      selectedStems.push({ flower: orchid, qty: Math.min(3, orchid.stock_quantity), section: 'center' });
+    }
+    if (peony && peony.stock_quantity > 0) {
+      selectedStems.push({ flower: peony, qty: Math.min(4, peony.stock_quantity), section: 'top' });
+    }
+    if (eucalyptus && eucalyptus.stock_quantity > 0) {
+      selectedStems.push({ flower: eucalyptus, qty: Math.min(3, eucalyptus.stock_quantity), section: 'bottom' });
+    }
+  } else {
+    bouquetName = 'باقة الربيع المخملية';
+    style = 'dome';
+    wrap = 'kraft';
+    wrapName = 'ورق كرافت فاخر';
+    ribbon = 'gold_rose';
+    ribbonName = 'وردي مذهب';
+    story = 'تناغم ربيعي دافئ من ورود الجوري الوردي والتوليب الأبيض، ملفوفة بورق كرافت إيطالي كلاسيكي يبرز نضارة وجمال الزهور الطبيعية.';
+
+    if (pinkRose && pinkRose.stock_quantity > 0) {
+      selectedStems.push({ flower: pinkRose, qty: Math.min(6, pinkRose.stock_quantity), section: 'center' });
+    } else if (redRose && redRose.stock_quantity > 0) {
+      selectedStems.push({ flower: redRose, qty: Math.min(6, redRose.stock_quantity), section: 'center' });
+    }
+    if (whiteTulip && whiteTulip.stock_quantity > 0) {
+      selectedStems.push({ flower: whiteTulip, qty: Math.min(4, whiteTulip.stock_quantity), section: 'left' });
+    }
+    if (babyBreath && babyBreath.stock_quantity > 0) {
+      selectedStems.push({ flower: babyBreath, qty: Math.min(3, babyBreath.stock_quantity), section: 'right' });
+    }
+    if (eucalyptus && eucalyptus.stock_quantity > 0) {
+      selectedStems.push({ flower: eucalyptus, qty: Math.min(2, eucalyptus.stock_quantity), section: 'bottom' });
+    }
+  }
+
+  if (selectedStems.length === 0) {
+    const valid = availableFlowers.slice(0, 3);
+    selectedStems = valid.map((f, idx) => ({
+      flower: f,
+      qty: Math.min(4, f.stock_quantity),
+      section: idx === 0 ? 'center' : (idx === 1 ? 'top' : 'bottom')
+    }));
+  }
+
+  const wrapPrice = 12.0;
+  const flowersPrice = selectedStems.reduce((acc, item) => acc + (item.qty * parseFloat(item.flower.unit_price)), 0);
+  const totalPrice = flowersPrice + wrapPrice;
+
+  const stemsDetailLines = selectedStems.map(s => 
+    `• **${s.qty} سيقان من ${s.flower.name_ar}** (${s.flower.color}) - السعر: ${(s.qty * s.flower.unit_price).toFixed(1)} د.ل [توزيع: في ${s.section === 'center' ? 'قلب الباقة' : s.section === 'top' ? 'أعلى الباقة' : s.section === 'bottom' ? 'قاعدة الباقة' : 'الجوانب'}]`
+  ).join('\n');
+
+  const reply = `🌸 **صممت لك هذه الباقة بناءً على الزهور المتوفرة لدينا في المخزن حالياً:**\n\n### 🌺 ${bouquetName}\n${story}\n\n**الزهور المختارة من المخزون المتوفر:**\n${stemsDetailLines}\n\n**تفاصيل التغليف والشريط:**\n- 🎀 **التغليف:** ${wrapName}\n- 🎗️ **شريط الساتان:** ${ribbonName}\n- 📐 **نمط التنسيق:** ${style === 'dome' ? 'دائري كلاسيكي متناسق' : style === 'royal' ? 'هرمي ملكي متدرج' : style === 'heart' ? 'قلب رومانسي مدمج' : 'بوهيمي عصري'}\n- 💰 **السعر الإجمالي للباقة والتغليف:** ${totalPrice.toFixed(0)} دينار ليبي\n\n✨ **اضغط على الزر أدناه لتطبيق هذا التصميم فوراً داخل استوديو مسكة ومعاينته بالكامل!**`;
+
+  const designAction = {
+    type: 'apply_bouquet_design',
+    name: bouquetName,
+    style: style,
+    wrap: wrap,
+    wrapName: wrapName,
+    ribbon: ribbon,
+    ribbonName: ribbonName,
+    totalPrice: Math.round(totalPrice),
+    story: story,
+    stems: selectedStems.map(s => ({
+      flower_id: s.flower.id,
+      name: s.flower.name_ar,
+      key: s.flower.key || getFlowerKey(s.flower.name_ar, s.flower.color),
+      qty: s.qty,
+      section: s.section,
+      price: parseFloat(s.flower.unit_price),
+      color: s.flower.color
+    }))
+  };
+
+  return { reply, designAction };
+}
+
 // محرك خبير مسكة للزهور الذكي للإجابات المتخصصة
 function generateLocalFloralResponse(query) {
   const q = query.toLowerCase();
@@ -1404,10 +1613,57 @@ function generateLocalFloralResponse(query) {
   }
 
   // 5. إجابة استشارية عامة في نطاق الزهور
-  return '🌸 **مرحباً بك في استوديو مسكة للزهور الطبيعية!**\nيسعدني مساعدتك في اختيار أرقى الزهور، شرح دلالاتها، اقتراح أفضل تنسيقات الألوان والأغلفة المناسبة، أو إرشادك لأفضل طرق العناية بالباقة لتدوم نضرة ومزهرة في منزلك. كيف تحب أن نبدأ باقتك اليوم؟';
+  return '🌸 **مرحباً بك في استوديو مسكة للزهور الطبيعية!**\nيسعدني مساعدتك في اختيار أرقى الزهور المتوفرة لدينا، شرح دلالاتها، اقتراح أفضل التنسيقات والأغلفة المناسبة، أو تصميم باقة خاصة بك فوراً. يمكنك سؤالي: "صمملي باقة لعيد ميلاد" أو "ما معنى التوليب؟" وسأكون في خدمتك دائماً!';
 }
 
-// نقطة الاتصال لمحادثة الذكاء الاصطناعي مع القيود الصارمة
+// فحص حالة مفتاح الذكاء الاصطناعي
+apiRouter.get('/ai/status', (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  const isConfigured = apiKey.length > 20 && !apiKey.includes('DEMO');
+  res.json({
+    success: true,
+    configured: isConfigured,
+    model: 'gemini-1.5-flash',
+    keyPreview: isConfigured ? `${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)}` : null
+  });
+});
+
+// حفظ مفتاح Google Gemini API الجديد وتحديثه في البيئة وملف .env
+apiRouter.post('/ai/key', (req, res) => {
+  const { apiKey } = req.body;
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 15) {
+    return res.status(400).json({
+      success: false,
+      message: 'مفتاح API غير صالح. يرجى إدخال مفتاح Gemini API صحيح يبدأ بـ AIzaSy...'
+    });
+  }
+
+  const cleanKey = apiKey.trim();
+  process.env.GEMINI_API_KEY = cleanKey;
+
+  try {
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+      let envContent = fs.readFileSync(envPath, 'utf8');
+      if (envContent.includes('GEMINI_API_KEY=')) {
+        envContent = envContent.replace(/GEMINI_API_KEY=.*/g, `GEMINI_API_KEY=${cleanKey}`);
+      } else {
+        envContent += `\nGEMINI_API_KEY=${cleanKey}\n`;
+      }
+      fs.writeFileSync(envPath, envContent, 'utf8');
+    }
+  } catch (err) {
+    console.warn('[AI] Could not persist key to .env:', err.message);
+  }
+
+  res.json({
+    success: true,
+    message: 'تم تفعيل وحفظ مفتاح Google Gemini API بنجاح 🌸!',
+    configured: true
+  });
+});
+
+// نقطة الاتصال لمحادثة الذكاء الاصطناعي مع القيود الصارمة ودعم اختيار الورد من المخزون
 apiRouter.post('/ai/chat', async (req, res, next) => {
   try {
     const { message, history, context } = req.body;
@@ -1432,16 +1688,59 @@ apiRouter.post('/ai/chat', async (req, res, next) => {
       });
     }
 
-    // 2. إذا كان السؤال ضمن اختصاص الزهور، التحقق من توفر مفتاح Gemini API
+    // 2. جلب رصيد المخزون الفعلي الحالي لزهور مسكة من قاعدة البيانات
+    let availableFlowers = [];
+    try {
+      const stock = await db.getFlowerStock();
+      availableFlowers = (stock || []).filter(f => f.is_available && f.stock_quantity > 0);
+    } catch (e) {
+      console.warn('[AI Chat] Could not fetch flower inventory:', e.message);
+    }
+
+    const wantsDesign = isDesignRequest(trimmedMsg);
+
+    // 3. التحقق من مفتاح Gemini API الحقيقي
     const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey && apiKey.length > 20 && !apiKey.includes('DEMO')) {
+    const hasValidKey = apiKey && apiKey.length > 20 && !apiKey.includes('DEMO');
+
+    if (hasValidKey) {
       try {
-        const systemPrompt = `أنت "منسق مسكة الذكي" - خبير استشاري بالزهور والباقات في أتيليه مسكة للزهور بليبيا.
-أجب بأسلوب فاخر وودود وموجز ومفيد مع إيموجيات لطيفة.
-قيد إلزامي وحاسم: إذا كان سؤال الزبون خارج نطاق الزهور والورود والباقات (مثل السياسة، البرمجة، الرياضة، الطبخ، الأخبار العامة)، يجب الرد حصراً بهذه الجملة فقط:
+        const inventoryText = availableFlowers.map(f => 
+          `- ${f.name_ar} (id: ${f.id}, المتوفر: ${f.stock_quantity} ساق, سعر الساق: ${f.unit_price} د.ل, اللون: ${f.color})`
+        ).join('\n');
+
+        const systemPrompt = `أنت "خبير ومصمم مسكة الذكي" - المصمم الاستشاري الأول للزهور والباقات في أتيليه مسكة للزهور الفاخرة بليبيا.
+أجب بأسلوب راقٍ وشاعري ومفيد مع إيموجيات لطيفة.
+
+الزهور المتوفرة حالياً في مخزن مسكة:
+${inventoryText}
+
+خيارات التغليف: kraft (ورق كرافت فاخر), olive (زيتي مسكة ملكي), blush (وردي مخملي), black (أسود سهرة), white (أبيض عاجي), gold (ذهبي شامبين).
+خيارات أشرطة الساتان: gold_rose (وردي مذهب), sage (زيتي مسكة), crimson (أحمر قرمزي), silk_white (حرير عاجي), royal_gold (ذهب ملكي).
+أنماط التشكيل: dome (دائري كلاسيكي), royal (هرمي ملكي متدرج), boho (بوهيمي عصري), heart (قلب رومانسي).
+
+القواعد الإلزامية:
+1. قيد السياق الصارم: إذا كان سؤال الزبون خارج نطاق الزهور والورود والباقات (مثل السياسة، البرمجة، الرياضة، الطبخ، الأخبار العامة)، يجب الرد حصراً بهذه الجملة فقط:
 "عذراً، لا يمكنني الإجابة على هذا السؤال لأنه خارج سياق اختصاصي في الزهور والباقات 🌸. يسعدني جداً مساعدتك في كل ما يتعلق بأنواع الورد، معانيه، تنسيق الباقات، وطرق العناية بالزهور!"
 
-سؤال الزبون: ${trimmedMsg}`;
+2. عندما يطلب الزبون تصميم باقة أو اختيار ورد (مثل "صمملي باقة"):
+- اختر حصراً من الزهور المتوفرة أعلاه وبكميات لا تتجاوز الكمية المتوفرة في المخزن.
+- اشرح للزبون بأسلوب فاخر ودافئ سبب اختيارك لكل نوع ورد ولونه ورمزيته.
+- أرفق في نهاية إجابتك كود JSON نقي محاط بـ \`\`\`json و \`\`\` يحتوي على بنية التصميم الدقيقة بالشكل التالي:
+\`\`\`json
+{
+  "action": "design_bouquet",
+  "name": "اسم الباقة الشاعري",
+  "style": "dome",
+  "wrap": "kraft",
+  "ribbon": "gold_rose",
+  "stems": [
+    { "flower_id": 1, "name": "وردة جورية وردية", "qty": 6, "section": "center" },
+    { "flower_id": 3, "name": "جبسوفيلا ناعمة", "qty": 3, "section": "right" }
+  ]
+}
+\`\`\`
+sections المتاحة: "center", "top", "left", "right", "bottom".`;
 
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
@@ -1450,35 +1749,105 @@ apiRouter.post('/ai/chat', async (req, res, next) => {
             contents: [
               {
                 role: 'user',
-                parts: [{ text: systemPrompt }]
+                parts: [{ text: `${systemPrompt}\n\nطلب الزبون: ${trimmedMsg}` }]
               }
-            ]
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1024
+            }
           }),
-          signal: AbortSignal.timeout(7000)
+          signal: AbortSignal.timeout(9000)
         });
 
         if (geminiRes.ok) {
           const data = await geminiRes.json();
           const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (candidateText && candidateText.trim()) {
+            let replyText = candidateText.trim();
+            let designAction = null;
+
+            // استخراج كود الـ JSON إذا وجد
+            const jsonMatch = replyText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+            if (jsonMatch) {
+              try {
+                const parsed = JSON.parse(jsonMatch[1]);
+                if (parsed.stems && Array.isArray(parsed.stems)) {
+                  // تنظيف نص الرد من كود الـ JSON ليظهر أنيقاً للقارئ
+                  replyText = replyText.replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/, '').trim();
+                  
+                  // مطابقة السيقان وتجهيز كائن الإجراء
+                  const stems = parsed.stems.map(s => {
+                    const matched = availableFlowers.find(f => f.id === s.flower_id || f.name_ar.includes(s.name));
+                    const price = matched ? parseFloat(matched.unit_price) : 5.0;
+                    return {
+                      flower_id: s.flower_id || (matched ? matched.id : 1),
+                      name: s.name,
+                      key: getFlowerKey(s.name),
+                      qty: Math.min(s.qty || 1, matched ? matched.stock_quantity : s.qty || 1),
+                      section: s.section || 'center',
+                      price: price,
+                      color: matched ? matched.color : '#dc2626'
+                    };
+                  });
+
+                  const wrapFee = 12.0;
+                  const flowersFee = stems.reduce((sum, item) => sum + (item.qty * item.price), 0);
+
+                  designAction = {
+                    type: 'apply_bouquet_design',
+                    name: parsed.name || 'باقة الذكاء الاصطناعي الفاخرة',
+                    style: parsed.style || 'dome',
+                    wrap: parsed.wrap || 'kraft',
+                    wrapName: parsed.wrap === 'olive' ? 'زيتي مسكة ملكي' : parsed.wrap === 'black' ? 'أسود سهرة فاحم' : 'ورق كرافت فاخر',
+                    ribbon: parsed.ribbon || 'gold_rose',
+                    ribbonName: parsed.ribbon === 'royal_gold' ? 'ذهب ملكي' : 'وردي مذهب',
+                    totalPrice: Math.round(flowersFee + wrapFee),
+                    stems: stems
+                  };
+                }
+              } catch (e) {
+                console.warn('[AI] Could not parse JSON from Gemini candidate:', e.message);
+              }
+            }
+
+            // إذا كان طلب تصميم ولكن Gemini لم ينتج JSON صالحاً، ندمجه مع محرك التصميم المعتمد على المخزون
+            if (wantsDesign && !designAction) {
+              const fallbackDesign = generateSmartFloralDesign(trimmedMsg, availableFlowers);
+              designAction = fallbackDesign.designAction;
+            }
+
             return res.json({
               success: true,
-              reply: candidateText.trim(),
+              reply: replyText,
+              designAction: designAction,
               isOffTopic: false,
               source: 'gemini'
             });
           }
         }
       } catch (geminiErr) {
-        console.log('[AI Chat] Gemini API unavailable or timed out, using floral knowledge engine:', geminiErr.message);
+        console.log('[AI Chat] Gemini API error, using smart inventory floral engine:', geminiErr.message);
       }
     }
 
-    // 3. المحرك المحلي الذكي للزهور (Local Floral Intelligence Engine)
+    // 4. المحرك الذكي المعتمد على المخزون الحي (Smart Floral Inventory Engine)
+    if (wantsDesign) {
+      const designResult = generateSmartFloralDesign(trimmedMsg, availableFlowers);
+      return res.json({
+        success: true,
+        reply: designResult.reply,
+        designAction: designResult.designAction,
+        isOffTopic: false,
+        source: 'smart_inventory_brain'
+      });
+    }
+
     const localReply = generateLocalFloralResponse(trimmedMsg);
     return res.json({
       success: true,
       reply: localReply,
+      designAction: null,
       isOffTopic: false,
       source: 'local_brain'
     });

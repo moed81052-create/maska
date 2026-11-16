@@ -3,6 +3,7 @@
   import { router } from '../stores/router.js';
   import { cart } from '../stores/cart.js';
   import { api } from '../lib/api.js';
+  import { pendingBouquetDesign } from '../stores/aiChatStore.js';
 
   // 1. خيارات الزهور الافتراضية مع دعم زوايا الرؤية المتعددة
   let flowers = [
@@ -296,6 +297,59 @@
 
     initializeStemsFromQuantities();
   });
+
+  // تطبيق تصميم باقة مقترح بالكامل من الذكاء الاصطناعي على اللوحة الحية
+  function applyAiBouquetDesign(design) {
+    if (!design || !design.stems) return;
+
+    flowers = flowers.map(f => {
+      const match = design.stems.find(s => 
+        (s.flower_id && s.flower_id === f.id) ||
+        (s.name && (f.name.includes(s.name) || s.name.includes(f.name.split(' ')[0]))) ||
+        (s.key && (f.key === s.key || f.key.includes(s.key)))
+      );
+      if (match) {
+        return {
+          ...f,
+          qty: Math.min(match.qty || 1, f.stock_quantity),
+          section: match.section || f.section
+        };
+      }
+      return { ...f, qty: 0 };
+    });
+
+    if (design.wrap) {
+      const w = wrapOptions.find(o => o.id === design.wrap || o.name.includes(design.wrap));
+      if (w) selectedWrap = w;
+    }
+    if (design.ribbon) {
+      const r = ribbonOptions.find(o => o.id === design.ribbon || o.name.includes(design.ribbon));
+      if (r) selectedRibbon = r;
+    }
+    if (design.style) {
+      aiStylePreset = design.style;
+    }
+
+    initializeStemsFromQuantities();
+    applyStylePreset(aiStylePreset);
+
+    aiStatusMessage = `🌸 تم تطبيق تصميم "${design.name || 'باقة مسكة'}" بالكامل على اللوحة!`;
+    activeTab = 'flowers';
+
+    const canvas = document.querySelector('.bouquet-canvas-box') || document.querySelector('.canvas-view-port');
+    if (canvas) {
+      canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  // الاستماع للتصميم المعلق القادم من الشات العائم أو الصفحة الرئيسية
+  $: if ($pendingBouquetDesign) {
+    const design = $pendingBouquetDesign;
+    pendingBouquetDesign.set(null);
+    setTimeout(() => {
+      applyAiBouquetDesign(design);
+    }, 150);
+  }
 
   // تعديل كمية الزهرة (+ أو -)
   function adjustQty(flowerId, delta) {
@@ -811,6 +865,7 @@
             id: Date.now() + 1,
             sender: 'ai',
             text: res.reply,
+            designAction: res.designAction || null,
             isOffTopic: res.isOffTopic || false,
             timestamp: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
           }
@@ -964,18 +1019,24 @@
 
             <!-- أزرار الأسئلة السريعة -->
             <div class="chat-quick-questions">
-              <span class="quick-title">جرّب الضغط على سؤال سريع:</span>
+              <span class="quick-title">جرّب الضغط على سؤال سريع أو طلب تصميم فوري:</span>
+              <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة رومانسية فخمة من الورد المتوفر عندك')}>
+                💖 صمملي باقة رومانسية
+              </button>
+              <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة تخرج ونجاح مبهجة بالورد المتاح')}>
+                🎓 صمملي باقة تخرج
+              </button>
+              <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة زفاف ملكية ناصعة')}>
+                💍 صمملي باقة زفاف ملكية
+              </button>
               <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما هو معنى ودلالة الورد الجوري الأحمر؟')}>
                 🌹 ما دلالة الجوري الأحمر؟
               </button>
               <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('كيف أعتني بالباقة في المزهرية لتطول نضارتها لأكثر من 10 أيام؟')}>
-                💧 كيف أعتني بالباقة لتطول نضارتها؟
-              </button>
-              <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما أفضل باقة ورد وتغليف لمناسبة تخرج ونجاح؟')}>
-                🎓 ما أفضل باقة لمناسبة تخرج؟
+                💧 كيف أعتني بالباقة؟
               </button>
               <button type="button" class="quick-q-btn btn-try-guardrail" on:click={() => sendChatMessage('اكتب لي كود بايثون لحساب الأرقام')}>
-                ⚠️ تجربة سؤال خارج السياق (اختبار الحظر)
+                ⚠️ تجربة سؤال خارج السياق
               </button>
             </div>
 
@@ -994,6 +1055,45 @@
                     <div class="msg-text">
                       {@html msg.text.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}
                     </div>
+
+                    {#if msg.designAction}
+                      <div class="ai-bouquet-proposal-card">
+                        <div class="proposal-head">
+                          <span class="proposal-tag">🎨 تصميم مقترح من المخزون المتوفر</span>
+                          <h4 class="proposal-title">🌺 {msg.designAction.name}</h4>
+                        </div>
+                        <div class="proposal-details">
+                          <div class="proposal-row">
+                            <span>📐 نمط التنسيق:</span>
+                            <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي متناسق' : msg.designAction.style === 'royal' ? 'هرمي ملكي متدرج' : msg.designAction.style === 'heart' ? 'قلب رومانسي مدمج' : 'بوهيمي عصري'}</b>
+                          </div>
+                          <div class="proposal-row">
+                            <span>🎀 التغليف والشريط:</span>
+                            <b>{msg.designAction.wrapName || msg.designAction.wrap} + {msg.designAction.ribbonName || msg.designAction.ribbon}</b>
+                          </div>
+                          <div class="proposal-row">
+                            <span>💰 السعر الإجمالي:</span>
+                            <b class="price-val">{msg.designAction.totalPrice} د.ل</b>
+                          </div>
+                          <div class="proposal-stems-list">
+                            {#each msg.designAction.stems as s}
+                              <div class="stem-chip">
+                                <span class="chip-dot" style="background-color: {s.color || '#5e6b2c'}"></span>
+                                <span>{s.qty} × {s.name}</span>
+                                <span class="sec-label">({s.section === 'center' ? 'الوسط' : s.section === 'top' ? 'فوق' : s.section === 'bottom' ? 'القاعدة' : s.section === 'left' ? 'يسار' : 'يمين'})</span>
+                              </div>
+                            {/each}
+                          </div>
+                        </div>
+                        <button 
+                          type="button" 
+                          class="btn btn-apply-design" 
+                          on:click={() => applyAiBouquetDesign(msg.designAction)}
+                        >
+                          🌸 تطبيق هذا التصميم على اللوحة فوراً 🎨
+                        </button>
+                      </div>
+                    {/if}
                   </div>
                 </div>
               {/each}
@@ -1727,21 +1827,24 @@
 
         <!-- أزرار الأسئلة السريعة الشائعة -->
         <div class="chat-quick-questions">
-          <span class="quick-title">جرّب أن تسأل:</span>
+          <span class="quick-title">جرّب الضغط على طلب تصميم فوري أو سؤال سريع:</span>
+          <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة رومانسية فخمة من الورد المتوفر عندك')}>
+            💖 صمملي باقة رومانسية
+          </button>
+          <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة تخرج ونجاح مبهجة بالورد المتاح')}>
+            🎓 صمملي باقة تخرج
+          </button>
+          <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة زفاف ملكية ناصعة')}>
+            💍 صمملي باقة زفاف ملكية
+          </button>
           <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما هو معنى ودلالة الورد الجوري الأحمر؟')}>
             🌹 ما دلالة الجوري الأحمر؟
           </button>
           <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('كيف أعتني بالباقة في المزهرية لتطول نضارتها لأكثر من 10 أيام؟')}>
             💧 كيف أعتني بالباقة لتدوم نضرة؟
           </button>
-          <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما أفضل باقة ورد وتغليف لمناسبة تخرج ونجاح؟')}>
-            🎓 ما أفضل باقة لمناسبة تخرج؟
-          </button>
-          <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما هو ورق التغليف الملكي الأنسب للورود الفاتحة؟')}>
-            🎀 اقتراح ورق تغليف للورد الفاتح
-          </button>
           <button type="button" class="quick-q-btn btn-try-guardrail" on:click={() => sendChatMessage('اكتب لي كود بايثون لحساب الأرقام')}>
-            ⚠️ تجربة سؤال خارج السياق (اختبار الحظر)
+            ⚠️ تجربة سؤال خارج السياق
           </button>
         </div>
 
@@ -1760,6 +1863,45 @@
                 <div class="msg-text">
                   {@html msg.text.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}
                 </div>
+
+                {#if msg.designAction}
+                  <div class="ai-bouquet-proposal-card">
+                    <div class="proposal-head">
+                      <span class="proposal-tag">🎨 تصميم مقترح من المخزون المتوفر</span>
+                      <h4 class="proposal-title">🌺 {msg.designAction.name}</h4>
+                    </div>
+                    <div class="proposal-details">
+                      <div class="proposal-row">
+                        <span>📐 نمط التنسيق:</span>
+                        <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي متناسق' : msg.designAction.style === 'royal' ? 'هرمي ملكي متدرج' : msg.designAction.style === 'heart' ? 'قلب رومانسي مدمج' : 'بوهيمي عصري'}</b>
+                      </div>
+                      <div class="proposal-row">
+                        <span>🎀 التغليف والشريط:</span>
+                        <b>{msg.designAction.wrapName || msg.designAction.wrap} + {msg.designAction.ribbonName || msg.designAction.ribbon}</b>
+                      </div>
+                      <div class="proposal-row">
+                        <span>💰 السعر الإجمالي:</span>
+                        <b class="price-val">{msg.designAction.totalPrice} د.ل</b>
+                      </div>
+                      <div class="proposal-stems-list">
+                        {#each msg.designAction.stems as s}
+                          <div class="stem-chip">
+                            <span class="chip-dot" style="background-color: {s.color || '#5e6b2c'}"></span>
+                            <span>{s.qty} × {s.name}</span>
+                            <span class="sec-label">({s.section === 'center' ? 'الوسط' : s.section === 'top' ? 'فوق' : s.section === 'bottom' ? 'القاعدة' : s.section === 'left' ? 'يسار' : 'يمين'})</span>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      class="btn btn-apply-design" 
+                      on:click={() => applyAiBouquetDesign(msg.designAction)}
+                    >
+                      🌸 تطبيق هذا التصميم على اللوحة فوراً 🎨
+                    </button>
+                  </div>
+                {/if}
               </div>
             </div>
           {/each}
@@ -3134,6 +3276,129 @@
     background: #10b981;
     border-radius: 50%;
     box-shadow: 0 0 6px #10b981;
+  }
+
+  .btn-design-quick {
+    background: linear-gradient(135deg, rgba(94, 107, 44, 0.12) 0%, rgba(212, 175, 55, 0.18) 100%) !important;
+    border-color: #5e6b2c !important;
+    color: #465020 !important;
+    font-weight: 800 !important;
+  }
+  .btn-design-quick:hover {
+    background: #5e6b2c !important;
+    color: #ffffff !important;
+  }
+
+  /* بطاقة عرض تصميم الباقة المقترح من الذكاء الاصطناعي */
+  .ai-bouquet-proposal-card {
+    margin-top: 14px;
+    background: #ffffff;
+    border: 2px solid #5e6b2c;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(94, 107, 44, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .proposal-head {
+    border-bottom: 1px solid #ebd9c8;
+    padding-bottom: 8px;
+  }
+
+  .proposal-tag {
+    display: inline-block;
+    background: #eef2dc;
+    color: #5e6b2c;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 4px;
+  }
+
+  .proposal-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #2b2b28;
+    margin: 4px 0 0;
+  }
+
+  .proposal-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+
+  .proposal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #555;
+  }
+
+  .proposal-row b {
+    color: #2b2b28;
+  }
+
+  .price-val {
+    color: #b45309 !important;
+    font-size: 1.05rem;
+  }
+
+  .proposal-stems-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .stem-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fdfaf4;
+    border: 1px solid #d4c5b3;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #465020;
+  }
+
+  .chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .sec-label {
+    font-size: 0.68rem;
+    color: #71716e;
+    font-weight: normal;
+  }
+
+  .btn-apply-design {
+    background: linear-gradient(135deg, #5e6b2c 0%, #465020 100%);
+    color: #ffffff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(94, 107, 44, 0.3);
+    transition: all 0.2s;
+    text-align: center;
+    width: 100%;
+  }
+
+  .btn-apply-design:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(94, 107, 44, 0.45);
+    background: #465020;
   }
 
   @media (max-width: 768px) {

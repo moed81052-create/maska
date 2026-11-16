@@ -1,6 +1,6 @@
 <script>
   import { onMount, tick } from 'svelte';
-  import { isGlobalChatOpen, toggleGlobalChat, closeGlobalChat } from '../stores/aiChatStore.js';
+  import { isGlobalChatOpen, toggleGlobalChat, closeGlobalChat, setPendingBouquetDesign } from '../stores/aiChatStore.js';
   import { api } from '../lib/api.js';
   import { router } from '../stores/router.js';
 
@@ -8,7 +8,7 @@
     {
       id: 1,
       sender: 'ai',
-      text: 'مرحباً بك في مسكة 🌸! أنا خبير ومستشار الزهور الذكي المدعوم بالذكاء الاصطناعي.\n\nيسعدني جداً مساعدتك في اختيار أفضل أنواع الورد لمناسبتك، معاني ألوان الزهور، نصائح العناية بالباقات لتدوم طويلاً، أو مساعدتك في تنسيق بوكيه خاص بك! كيف يمكنني مساعدتك اليوم؟',
+      text: 'مرحباً بك في مسكة 🌸! أنا خبير ومستشار الزهور الذكي.\n\nيسعدني جداً مساعدتك في اختيار أفضل أنواع الورد لمناسبتك من مخزوننا الحي، معاني ألوان الزهور، نصائح العناية، أو تصميم باقة مخصصة لك وتطبيقها فوراً في استوديو مسكة! كيف يمكنني مساعدتك اليوم؟',
       time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
     }
   ];
@@ -17,18 +17,52 @@
   let isLoading = false;
   let chatBoxEl;
   let isMinimized = false;
+  let showKeySettings = false;
+  let userApiKey = '';
+  let keyStatusMessage = '';
+  let isSavingKey = false;
+  let aiConfigured = false;
 
   const quickQuestions = [
-    '🌹 ما هي أفضل باقة لذكرى زواج؟',
-    '💧 كيف أعتني بالورد الطبيعي ليدوم 14 يوماً؟',
-    '🤍 ما هي معاني ألوان التوليب والجوري؟',
-    '🎓 ما الباقة المناسبة لحفلة تخرج فاخرة؟'
+    '💖 صمملي باقة رومانسية فخمة',
+    '🎓 صمملي باقة تخرج بالورد المتاح',
+    '💍 صمملي باقة زفاف ملكية ناصعة',
+    '🌹 ما هي معاني ألوان الجوري والتوليب؟',
+    '💧 كيف أعتني بالورد الطبيعي ليدوم 14 يوماً؟'
   ];
+
+  onMount(async () => {
+    try {
+      const status = await api.getAiStatus();
+      if (status && status.configured) {
+        aiConfigured = true;
+      }
+    } catch (e) {}
+  });
 
   async function scrollToBottom() {
     await tick();
     if (chatBoxEl) {
       chatBoxEl.scrollTop = chatBoxEl.scrollHeight;
+    }
+  }
+
+  async function saveKey() {
+    if (!userApiKey.trim()) return;
+    isSavingKey = true;
+    keyStatusMessage = '';
+    try {
+      const res = await api.saveAiKey(userApiKey.trim());
+      keyStatusMessage = '✅ تم حفظ وتفعيل مفتاح Gemini API بنجاح!';
+      aiConfigured = true;
+      setTimeout(() => {
+        showKeySettings = false;
+        keyStatusMessage = '';
+      }, 1500);
+    } catch (err) {
+      keyStatusMessage = '❌ فشل في حفظ المفتاح: ' + (err.message || 'خطأ غير معروف');
+    } finally {
+      isSavingKey = false;
     }
   }
 
@@ -50,7 +84,6 @@
     scrollToBottom();
 
     try {
-      // بناء سجل المحادثة
       const history = messages.slice(-6).map(m => ({
         role: m.sender === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }]
@@ -62,6 +95,7 @@
         id: Date.now() + 1,
         sender: 'ai',
         text: res.reply || 'أهلاً بك! أنا في خدمتك دائماً في كل ما يخص الزهور.',
+        designAction: res.designAction || null,
         time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' }),
         source: res.source
       };
@@ -90,6 +124,14 @@
       e.preventDefault();
       sendMessage();
     }
+  }
+
+  function applyProposalAndGoToStudio(designAction) {
+    if (designAction) {
+      setPendingBouquetDesign(designAction);
+    }
+    closeGlobalChat();
+    router.navigate('/studio');
   }
 
   function goToStudio() {
@@ -139,6 +181,14 @@
           <button 
             type="button" 
             class="control-btn" 
+            on:click={() => showKeySettings = !showKeySettings}
+            title="إعدادات مفتاح الذكاء الاصطناعي (Gemini API)"
+          >
+            ⚙️
+          </button>
+          <button 
+            type="button" 
+            class="control-btn" 
             on:click={() => isMinimized = !isMinimized}
             title={isMinimized ? 'تكبير' : 'تصغير'}
           >
@@ -156,6 +206,32 @@
       </div>
 
       {#if !isMinimized}
+        {#if showKeySettings}
+          <div class="key-settings-panel">
+            <div class="key-panel-title">
+              <span>🔑 إعداد مفتاح Google Gemini API:</span>
+              <button type="button" class="close-panel-btn" on:click={() => showKeySettings = false}>✕</button>
+            </div>
+            <p class="key-panel-desc">
+              يمكنك ربط مفتاح Gemini API الحقيقي للحصول على ذكاء اصطناعي مباشر. المفتاح متوفر مجاناً من Google AI Studio:
+            </p>
+            <div class="key-input-row">
+              <input 
+                type="password" 
+                class="key-text-input" 
+                placeholder="AIzaSy..." 
+                bind:value={userApiKey} 
+              />
+              <button type="button" class="key-save-btn" on:click={saveKey} disabled={isSavingKey || !userApiKey.trim()}>
+                {isSavingKey ? '...' : 'حفظ'}
+              </button>
+            </div>
+            {#if keyStatusMessage}
+              <div class="key-status-msg">{keyStatusMessage}</div>
+            {/if}
+          </div>
+        {/if}
+
         <!-- تنبيه القيود والسياق -->
         <div class="guardrail-strip">
           <span>🌿 متخصص حصرياً في الزهور، معانيها، وتنسيق الباقات</span>
@@ -173,6 +249,35 @@
               {/if}
               <div class="message-bubble" class:user-bubble={msg.sender === 'user'} class:ai-bubble={msg.sender === 'ai'} class:is-error={msg.error}>
                 <div class="bubble-content">{msg.text}</div>
+
+                {#if msg.designAction}
+                  <div class="widget-proposal-card">
+                    <div class="w-head">
+                      <span class="w-badge">🎨 باقة مقترحة من المخزون المتوفر</span>
+                      <h5 class="w-title">🌺 {msg.designAction.name}</h5>
+                    </div>
+                    <div class="w-stems">
+                      {#each msg.designAction.stems as s}
+                        <div class="w-chip">
+                          <span class="chip-dot" style="background-color: {s.color || '#5e6b2c'}"></span>
+                          <span>{s.qty} × {s.name}</span>
+                        </div>
+                      {/each}
+                    </div>
+                    <div class="w-meta">
+                      <span>🎀 {msg.designAction.wrapName || msg.designAction.wrap}</span>
+                      <b class="w-price">{msg.designAction.totalPrice} د.ل</b>
+                    </div>
+                    <button 
+                      type="button" 
+                      class="w-apply-btn" 
+                      on:click={() => applyProposalAndGoToStudio(msg.designAction)}
+                    >
+                      🌸 تطبيق هذا التصميم في استوديو مسكة 🎨
+                    </button>
+                  </div>
+                {/if}
+
                 <div class="bubble-time">{msg.time}</div>
               </div>
             </div>
@@ -448,6 +553,161 @@
     background: #dc2626;
   }
 
+  /* لوحة إعدادات مفتاح الذكاء الاصطناعي */
+  .key-settings-panel {
+    background: #fffdf8;
+    border-bottom: 2px solid #d4af37;
+    padding: 12px 14px;
+    font-size: 0.8rem;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .key-panel-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 800;
+    color: #5e6b2c;
+    margin-bottom: 4px;
+  }
+
+  .close-panel-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #888;
+  }
+
+  .key-panel-desc {
+    font-size: 0.7rem;
+    color: #666;
+    margin: 0 0 8px;
+    line-height: 1.4;
+  }
+
+  .key-input-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .key-text-input {
+    flex: 1;
+    border: 1px solid #d4c5b3;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    font-family: monospace;
+    direction: ltr;
+  }
+
+  .key-save-btn {
+    background: #5e6b2c;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .key-status-msg {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #15803d;
+  }
+
+  /* بطاقة تصميم الباقة المقترحة داخل الويدجت */
+  .widget-proposal-card {
+    margin-top: 8px;
+    background: #ffffff;
+    border: 1.5px solid #5e6b2c;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(94, 107, 44, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .w-head {
+    border-bottom: 1px solid #ebd9c8;
+    padding-bottom: 4px;
+  }
+
+  .w-badge {
+    background: #eef2dc;
+    color: #5e6b2c;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 999px;
+  }
+
+  .w-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #2b2b28;
+    margin: 4px 0 0;
+  }
+
+  .w-stems {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .w-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fdfaf4;
+    border: 1px solid #ebd9c8;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #465020;
+  }
+
+  .w-chip .chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .w-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #555;
+  }
+
+  .w-price {
+    color: #b45309;
+    font-size: 0.9rem;
+  }
+
+  .w-apply-btn {
+    background: linear-gradient(135deg, #5e6b2c 0%, #465020 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+
+  .w-apply-btn:hover {
+    background: #465020;
+  }
+
   /* شريط الإشعار والحصريات */
   .guardrail-strip {
     background: #faf7f2;
@@ -686,3 +946,4 @@
     }
   }
 </style>
+
