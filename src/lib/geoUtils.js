@@ -174,3 +174,4 @@ export function isCoordinateInsideZone(lat, lng, zone) {
   const dist = calculateDistanceMeters(lat, lng, cLat, cLng);
   return dist <= radius;
 }
+
