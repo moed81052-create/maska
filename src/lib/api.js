@@ -125,6 +125,10 @@ export const api = {
     request(`/pricing/flowers/${id}`, { method: 'PATCH', body: { price, reason, adminId } }),
   updateBouquetPrice: (id, price, reason = '', adminId = null) => 
     request(`/pricing/bouquets/${id}`, { method: 'PATCH', body: { price, reason, adminId } }),
-  getPriceHistory: (limit = 50) => request(`/pricing/history?limit=${limit}`)
+  getPriceHistory: (limit = 50) => request(`/pricing/history?limit=${limit}`),
+
+  // 10. محادثة خبير مسكة للذكاء الاصطناعي (AI Florist Chat)
+  aiChat: (message, history = [], context = {}) => 
+    request('/ai/chat', { method: 'POST', body: { message, history, context } })
 };
 
