@@ -1742,7 +1742,7 @@ ${inventoryText}
 \`\`\`
 sections المتاحة: "center", "top", "left", "right", "bottom".`;
 
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        let geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1759,6 +1759,18 @@ sections المتاحة: "center", "top", "left", "right", "bottom".`;
           }),
           signal: AbortSignal.timeout(9000)
         });
+
+        if (!geminiRes.ok) {
+          geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nطلب الزبون: ${trimmedMsg}` }] }],
+              generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+            }),
+            signal: AbortSignal.timeout(9000)
+          });
+        }
 
         if (geminiRes.ok) {
           const data = await geminiRes.json();
