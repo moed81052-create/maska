@@ -3,6 +3,7 @@
   import { isDriver } from './stores/auth.js';
   import Navbar from './components/Navbar.svelte';
   import Footer from './components/Footer.svelte';
+  import GlobalAIChatWidget from './components/GlobalAIChatWidget.svelte';
 
   // استيراد الصفحات
   import Home from './pages/Home.svelte';
@@ -48,6 +49,10 @@
   </main>
 
   <Footer />
+
+  {#if !$isDriver}
+    <GlobalAIChatWidget />
+  {/if}
 </div>
 
 <style>

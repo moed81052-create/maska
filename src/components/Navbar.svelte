@@ -2,6 +2,7 @@
   import { router } from '../stores/router.js';
   import { auth, isAuthenticated, isStaff, isDriver } from '../stores/auth.js';
   import { cartCount } from '../stores/cart.js';
+  import { openGlobalChat } from '../stores/aiChatStore.js';
   import ThemeToggle from './ThemeToggle.svelte';
 
   let mobileMenuOpen = false;
@@ -83,6 +84,18 @@
           on:click={() => go('/track')}
         >
           تتبع الطلب 📍
+        </button>
+
+        <!-- زر شات الذكاء الاصطناعي المميز -->
+        <button 
+          type="button" 
+          class="nav-link ai-chat-nav-pill" 
+          on:click={openGlobalChat}
+          title="افتح شات خبير مسكة للذكاء الاصطناعي"
+        >
+          <span class="sparkle-icon">🌸💬</span>
+          <span>شات الذكاء الاصطناعي</span>
+          <span class="pulse-dot-ai"></span>
         </button>
 
         {#if $isStaff}
@@ -168,6 +181,9 @@
         <button type="button" class="m-link" on:click={() => go('/studio')}>استوديو مسكة 💐</button>
         <button type="button" class="m-link" on:click={() => go('/designer')}>المصمم التفاعلي ✨</button>
         <button type="button" class="m-link" on:click={() => go('/track')}>تتبع الطلب 📍</button>
+        <button type="button" class="m-link ai-chat" on:click={() => { openGlobalChat(); mobileMenuOpen = false; }}>
+          🌸💬 شات الذكاء الاصطناعي للزهور ✦
+        </button>
         
         {#if $isStaff}
           <button type="button" class="m-link admin" on:click={() => go('/admin')}>لوحة الإدارة 👑</button>
@@ -268,6 +284,36 @@
   .nav-link.admin-pill.active {
     background: #963547;
     color: #ffffff;
+  }
+  .nav-link.ai-chat-nav-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(94, 107, 44, 0.12) 0%, rgba(212, 175, 55, 0.18) 100%);
+    color: #465020;
+    border: 1.5px solid rgba(94, 107, 44, 0.35);
+    font-weight: 700;
+    padding: 7px 16px;
+  }
+  .nav-link.ai-chat-nav-pill:hover {
+    background: #5e6b2c;
+    color: #ffffff;
+    border-color: #5e6b2c;
+    box-shadow: 0 4px 14px rgba(94, 107, 44, 0.25);
+  }
+  .pulse-dot-ai {
+    width: 8px;
+    height: 8px;
+    background: #16a34a;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+    animation: navPulse 1.8s infinite;
+  }
+  .m-link.ai-chat {
+    background: linear-gradient(135deg, rgba(94, 107, 44, 0.1) 0%, rgba(212, 175, 55, 0.15) 100%);
+    color: #5e6b2c;
+    border: 1px solid rgba(94, 107, 44, 0.3);
+    font-weight: 800;
   }
   .nav-link.driver-pill {
     color: #1565c0;

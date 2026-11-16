@@ -841,6 +841,16 @@
       chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
     }
   }
+
+  function scrollToChat() {
+    activeTab = 'chat';
+    setTimeout(() => {
+      const el = document.getElementById('studio-ai-chat');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 50);
+  }
 </script>
 
 <div class="studio-page fade-in">
@@ -855,6 +865,16 @@
       <p class="page-subtitle">
         شاهد كل وردة تضاف وتتحرك حياً على اللوحة، وزّع الزهور في القمة أو الوسط أو الأطراف، حرّكها يدوياً أو دع الذكاء الاصطناعي يشكّلها ببراعة من جميع زوايا التصوير.
       </p>
+
+      <!-- أزرار الدخول السريع للشات والذكاء الاصطناعي -->
+      <div class="header-action-pills">
+        <button type="button" class="action-pill-chat" on:click={() => activeTab = 'chat'}>
+          💬 فتح شات الذكاء الاصطناعي للزهور
+        </button>
+        <button type="button" class="action-pill-scroll" on:click={scrollToChat}>
+          ⬇️ النزول إلى الشات المباشر بالأسفل
+        </button>
+      </div>
     </div>
 
     {#if addedToast}
@@ -869,7 +889,7 @@
       <!-- العمود الأول: أدوات وتفاصيل التصميم التفاعلي -->
       <div class="studio-controls">
         
-        <!-- أشرطة التبويب الأربعة -->
+        <!-- أشرطة التبويب الخمسة مع الشات المباشر -->
         <div class="studio-tabs">
           <button 
             type="button" 
@@ -882,11 +902,20 @@
           
           <button 
             type="button" 
+            class="tab-btn tab-btn-chat" 
+            class:active={activeTab === 'chat'}
+            on:click={() => activeTab = 'chat'}
+          >
+            💬 شات الذكاء الاصطناعي ✦
+          </button>
+
+          <button 
+            type="button" 
             class="tab-btn" 
             class:active={activeTab === 'ai'}
             on:click={() => activeTab = 'ai'}
           >
-            ✨ منسق الذكاء الاصطناعي
+            ✨ التنسيق والأنماط
           </button>
 
           <button 
@@ -904,9 +933,107 @@
             class:active={activeTab === 'packaging'}
             on:click={() => activeTab = 'packaging'}
           >
-            🎀 التغليف والشريط والكرت
+            🎀 التغليف والشريط
           </button>
         </div>
+
+        <!-- 0. تبويب محادثة خبير مسكة للذكاء الاصطناعي المباشرة -->
+        {#if activeTab === 'chat'}
+          <div class="card control-box fade-in">
+            <div class="chat-header">
+              <div class="chat-agent-info">
+                <div class="agent-avatar-wrap">
+                  <span class="agent-avatar">🌸</span>
+                  <span class="agent-status-dot" title="متصل الآن"></span>
+                </div>
+                <div>
+                  <div class="agent-title-row">
+                    <h3 class="agent-name">محادثة مباشرة مع خبير مسكة للذكاء الاصطناعي</h3>
+                    <span class="badge badge-gold">Gemini Floral AI ✦</span>
+                  </div>
+                  <p class="agent-desc">
+                    اسأل عن معاني الورود، نصائح العناية وإطالة النضارة، أو اطلب تنسيقاً فورياً للباقة الحية.
+                  </p>
+                </div>
+              </div>
+              <div class="chat-scope-badge">
+                <span class="lock-icon">🔒</span>
+                <span>نطاق مقيّد بالزهور فقط</span>
+              </div>
+            </div>
+
+            <!-- أزرار الأسئلة السريعة -->
+            <div class="chat-quick-questions">
+              <span class="quick-title">جرّب الضغط على سؤال سريع:</span>
+              <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما هو معنى ودلالة الورد الجوري الأحمر؟')}>
+                🌹 ما دلالة الجوري الأحمر؟
+              </button>
+              <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('كيف أعتني بالباقة في المزهرية لتطول نضارتها لأكثر من 10 أيام؟')}>
+                💧 كيف أعتني بالباقة لتطول نضارتها؟
+              </button>
+              <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما أفضل باقة ورد وتغليف لمناسبة تخرج ونجاح؟')}>
+                🎓 ما أفضل باقة لمناسبة تخرج؟
+              </button>
+              <button type="button" class="quick-q-btn btn-try-guardrail" on:click={() => sendChatMessage('اكتب لي كود بايثون لحساب الأرقام')}>
+                ⚠️ تجربة سؤال خارج السياق (اختبار الحظر)
+              </button>
+            </div>
+
+            <!-- صندوق سيل الرسائل -->
+            <div class="chat-messages-body tab-messages-body" bind:this={chatMessagesContainer}>
+              {#each chatMessages as msg (msg.id)}
+                <div class="chat-msg-row" class:user={msg.sender === 'user'} class:ai={msg.sender === 'ai'}>
+                  <div class="msg-avatar">
+                    {msg.sender === 'user' ? '👤' : '🌸'}
+                  </div>
+                  <div class="msg-bubble" class:off-topic={msg.isOffTopic}>
+                    <div class="msg-header">
+                      <span class="msg-sender-name">{msg.sender === 'user' ? 'أنت (الزبون)' : 'خبير مسكة للزهور'}</span>
+                      <span class="msg-time">{msg.timestamp}</span>
+                    </div>
+                    <div class="msg-text">
+                      {@html msg.text.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}
+                    </div>
+                  </div>
+                </div>
+              {/each}
+
+              {#if chatIsLoading}
+                <div class="chat-msg-row ai">
+                  <div class="msg-avatar">🌸</div>
+                  <div class="msg-bubble typing-bubble">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-text">جاري استشارة خبير مسكة للذكاء الاصطناعي… ✨</span>
+                  </div>
+                </div>
+              {/if}
+            </div>
+
+            <!-- شريط إدخال الرسالة والإرسال -->
+            <form class="chat-input-bar" on:submit|preventDefault={() => sendChatMessage()}>
+              <input 
+                type="text" 
+                class="input-field chat-text-field"
+                placeholder="اكتب سؤالك هنا عن أنواع الورد، معانيها، العناية بها، أو التنسيق…"
+                bind:value={chatInput}
+                disabled={chatIsLoading}
+              />
+              <button 
+                type="submit" 
+                class="btn btn-primary chat-send-btn"
+                disabled={chatIsLoading || !chatInput.trim()}
+              >
+                إرسال 💬
+              </button>
+            </form>
+
+            <div class="chat-disclaimer">
+              🔒 تنبيه حاسم: هذا المساعد مبرمج للإجابة حصرياً عن الزهور والباقات، وأي سؤال خارج هذا النطاق يتم الاعتذار عنه فوراً لضمان التخصص والدقة.
+            </div>
+          </div>
+        {/if}
 
         <!-- 1. تبويب اختيار الزهور وتوزيع الأقسام (فوق، وسط، يمين، يسار، قاعدة) -->
         {#if activeTab === 'flowers'}
@@ -1571,7 +1698,7 @@
     </div>
 
     <!-- 3. قسم محادثة خبير مسكة للذكاء الاصطناعي في الأسفل (AI Florist Live Chat Stream) -->
-    <section class="studio-ai-chat-section fade-in">
+    <section class="studio-ai-chat-section fade-in" id="studio-ai-chat">
       <div class="card ai-chat-card">
         
         <!-- رأس الشات -->
@@ -1675,6 +1802,13 @@
       </div>
     </section>
   </div>
+
+  <!-- زر الشات العائم في أسفل الشاشة (Floating Chat Pill) -->
+  <button type="button" class="floating-chat-trigger" on:click={scrollToChat} title="محادثة خبير الذكاء الاصطناعي">
+    <span class="float-icon">🌸💬</span>
+    <span class="float-text">شات خبير مسكة للزهور</span>
+    <span class="float-status-dot"></span>
+  </button>
 </div>
 
 <style>
@@ -1705,6 +1839,46 @@
     font-size: 1.02rem;
     color: var(--text-muted);
     line-height: 1.7;
+    margin-bottom: 16px;
+  }
+
+  /* أزرار الإجراءات السريعة في رأس الصفحة */
+  .header-action-pills {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .action-pill-chat {
+    background: linear-gradient(135deg, var(--olive), #3a471b);
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--radius-full);
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(94, 107, 44, 0.35);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .action-pill-chat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(94, 107, 44, 0.45);
+  }
+  .action-pill-scroll {
+    background: var(--card-solid);
+    color: var(--olive);
+    border: 1.5px solid var(--olive);
+    padding: 10px 18px;
+    border-radius: var(--radius-full);
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .action-pill-scroll:hover {
+    background: rgba(94, 107, 44, 0.08);
   }
 
   .studio-toast {
@@ -2910,5 +3084,64 @@
     font-size: 0.78rem;
     color: var(--text-muted);
     margin-top: 10px;
+  }
+
+  .tab-btn-chat {
+    background: linear-gradient(135deg, rgba(94, 107, 44, 0.15), rgba(197, 155, 39, 0.2)) !important;
+    color: var(--olive) !important;
+    border: 1.5px solid var(--olive) !important;
+    position: relative;
+    font-weight: 800 !important;
+  }
+  .tab-btn-chat.active {
+    background: var(--olive) !important;
+    color: #ffffff !important;
+  }
+  .tab-messages-body {
+    height: 320px;
+  }
+
+  /* زر الشات العائم في أسفل الشاشة */
+  .floating-chat-trigger {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 999;
+    background: linear-gradient(135deg, var(--olive), #3a471b);
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    border-radius: var(--radius-full);
+    padding: 12px 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(94, 107, 44, 0.45);
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 800;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .floating-chat-trigger:hover {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 30px rgba(94, 107, 44, 0.6);
+  }
+  .float-icon {
+    font-size: 1.3rem;
+  }
+  .float-status-dot {
+    width: 10px;
+    height: 10px;
+    background: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #10b981;
+  }
+
+  @media (max-width: 768px) {
+    .floating-chat-trigger {
+      bottom: 16px;
+      left: 16px;
+      padding: 10px 16px;
+      font-size: 0.85rem;
+    }
   }
 </style>

@@ -10,6 +10,88 @@
   let toastMessage = '';
   let toastTimer = null;
 
+  // شات الذكاء الاصطناعي في أسفل الصفحة
+  let homeChatMessages = [
+    {
+      id: 1,
+      sender: 'ai',
+      text: 'مرحباً بك في مسكة 🌸! أنا مستشارك وخبير الزهور الذكي.\n\nيسعدني جداً الإجابة عن أي استفسار يخص عالم الزهور: أفضل الباقات لمناسبتك، معاني ألوان الورود، وطرق العناية بالزهور لتدوم نضرة لأكثر من أسبوعين. كيف يمكنني خدمتك اليوم؟',
+      time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
+    }
+  ];
+  let homeChatInput = '';
+  let homeChatLoading = false;
+  let homeChatContainerEl;
+
+  const homeQuickQuestions = [
+    '🌹 ما أفضل باقة لمناسبة ذكرى زواج؟',
+    '💧 كيف أحافظ على الورد الطبيعي في المنزل لمدة أسبوعين؟',
+    '🤍 ما معاني ألوان ورد الجوري والتوليب؟',
+    '🎓 ما هي مواصفات باقة التخرج الفخمة؟'
+  ];
+
+  async function sendHomeChatMessage(textToSend) {
+    const text = (textToSend || homeChatInput).trim();
+    if (!text || homeChatLoading) return;
+    homeChatInput = '';
+    
+    homeChatMessages = [
+      ...homeChatMessages,
+      {
+        id: Date.now(),
+        sender: 'user',
+        text,
+        time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
+      }
+    ];
+    homeChatLoading = true;
+    
+    setTimeout(() => {
+      if (homeChatContainerEl) homeChatContainerEl.scrollTop = homeChatContainerEl.scrollHeight;
+    }, 40);
+
+    try {
+      const history = homeChatMessages.slice(-6).map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
+      const res = await api.aiChat(text, history, { source: 'home_bottom_chat' });
+      homeChatMessages = [
+        ...homeChatMessages,
+        {
+          id: Date.now() + 1,
+          sender: 'ai',
+          text: res.reply || 'أهلاً بك! أنا في خدمتك دائماً.',
+          time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
+        }
+      ];
+    } catch (err) {
+      console.error('Home chat error:', err);
+      homeChatMessages = [
+        ...homeChatMessages,
+        {
+          id: Date.now() + 1,
+          sender: 'ai',
+          text: 'عذراً، حدث خطأ مؤقت في الاتصال بمستشار الذكاء الاصطناعي. تفضل بالمحاولة مجدداً وسأكون سعيداً بإجابتك 🌸',
+          time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' }),
+          error: true
+        }
+      ];
+    } finally {
+      homeChatLoading = false;
+      setTimeout(() => {
+        if (homeChatContainerEl) homeChatContainerEl.scrollTop = homeChatContainerEl.scrollHeight;
+      }, 40);
+    }
+  }
+
+  function handleHomeChatKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendHomeChatMessage();
+    }
+  }
+
   // الباقات الجاهزة
   let readyBouquets = [
     {
@@ -693,6 +775,107 @@
             </div>
           {/if}
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. شات الذكاء الاصطناعي في أسفل الصفحة الرئيسية -->
+  <section class="section home-ai-chat-section" id="home-ai-chat">
+    <div class="container">
+      <div class="card home-ai-card">
+        <!-- ترويسة الشات -->
+        <div class="home-ai-header">
+          <div class="ai-header-content">
+            <div class="ai-badge-top">
+              <span class="ai-icon">🌸</span>
+              <span class="ai-title-tag">مساعد مسكة الذكي | AI Floral Advisor</span>
+              <span class="ai-status-dot"></span>
+              <span class="ai-status-text">متصل الآن 24/7</span>
+            </div>
+            <h2 class="ai-headline">تحدّث مع خبير مسكة للزهور بالذكاء الاصطناعي 💬</h2>
+            <p class="ai-sub">
+              اسأل عن أي نوع ورد، معاني الألوان، تنسيق الباقات للمناسبات الخاصة، أو خطوات العناية بالزهور لتدوم نضرة طويلاً.
+            </p>
+          </div>
+          <div class="ai-header-action">
+            <button type="button" class="btn btn-outline" on:click={() => router.navigate('/studio')}>
+              🎨 استوديو تنسيق الباقات ←
+            </button>
+          </div>
+        </div>
+
+        <!-- شريط القيود -->
+        <div class="ai-guardrail-bar">
+          <span class="shield-icon">🛡️</span>
+          <span><b>ملاحظة:</b> هذا الشات مخصص حصرياً لعالم الزهور وتنسيق الباقات والعناية بها، ولا يجيب عن أي مواضيع أخرى خارج السياق.</span>
+        </div>
+
+        <!-- مساحة الرسائل المتدفقة -->
+        <div class="home-chat-stream" bind:this={homeChatContainerEl}>
+          {#each homeChatMessages as msg (msg.id)}
+            <div class="home-chat-row" class:user-msg={msg.sender === 'user'} class:ai-msg={msg.sender === 'ai'}>
+              {#if msg.sender === 'ai'}
+                <div class="chat-avatar">🌸</div>
+              {/if}
+              <div class="chat-bubble-card" class:bubble-user={msg.sender === 'user'} class:bubble-ai={msg.sender === 'ai'} class:bubble-error={msg.error}>
+                <div class="bubble-text-body">{msg.text}</div>
+                <div class="bubble-timestamp">{msg.time}</div>
+              </div>
+            </div>
+          {/each}
+
+          {#if homeChatLoading}
+            <div class="home-chat-row ai-msg">
+              <div class="chat-avatar">🌸</div>
+              <div class="chat-bubble-card bubble-ai typing-state">
+                <div class="dots-pulse">
+                  <span></span><span></span><span></span>
+                </div>
+                <span class="typing-text">خبير مسكة يحلل استفسارك الزهري ويكتب لك...</span>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        <!-- أسئلة سريعة شائعة -->
+        <div class="home-quick-wrapper">
+          <span class="quick-title">💡 أسئلة سريعة يمكنك تجربتها:</span>
+          <div class="quick-pills-row">
+            {#each homeQuickQuestions as q}
+              <button 
+                type="button" 
+                class="quick-pill-btn" 
+                disabled={homeChatLoading}
+                on:click={() => sendHomeChatMessage(q)}
+              >
+                {q}
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <!-- نموذج إدخال السؤال -->
+        <form class="home-chat-input-row" on:submit|preventDefault={() => sendHomeChatMessage()}>
+          <input 
+            type="text" 
+            class="input-chat" 
+            placeholder="اكتب استفسارك هنا (مثال: ما معنى التوليب الأبيض؟ أو كيف أختار باقة لخطوبة؟)..."
+            bind:value={homeChatInput}
+            on:keydown={handleHomeChatKeydown}
+            disabled={homeChatLoading}
+          />
+          <button 
+            type="submit" 
+            class="btn btn-primary btn-chat-submit" 
+            disabled={homeChatLoading || !homeChatInput.trim()}
+          >
+            {#if homeChatLoading}
+              <span>جاري التفكير... ⏳</span>
+            {:else}
+              <span>إرسال الاستفسار ↵</span>
+            {/if}
+          </button>
+        </form>
       </div>
     </div>
   </section>
@@ -1434,12 +1617,290 @@
     cursor: pointer;
   }
 
+  /* أنماط شات الذكاء الاصطناعي في الصفحة الرئيسية */
+  .home-ai-chat-section {
+    padding: 40px 0 80px;
+    background: linear-gradient(180deg, transparent 0%, rgba(94, 107, 44, 0.04) 100%);
+  }
+
+  .home-ai-card {
+    background: #ffffff;
+    border: 1px solid rgba(94, 107, 44, 0.2);
+    border-radius: 24px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-ai-header {
+    background: linear-gradient(135deg, #5e6b2c 0%, #465020 100%);
+    color: #ffffff;
+    padding: 28px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    border-bottom: 2px solid rgba(212, 175, 55, 0.3);
+  }
+
+  .ai-badge-top {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .ai-status-dot {
+    width: 8px;
+    height: 8px;
+    background: #4ade80;
+    border-radius: 50%;
+    animation: navPulse 1.8s infinite;
+  }
+
+  .ai-headline {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+    color: #ffffff;
+  }
+
+  .ai-sub {
+    font-size: 0.92rem;
+    color: #e5f0d0;
+    max-width: 680px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .home-ai-header .btn-outline {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.4);
+    font-weight: 700;
+  }
+
+  .home-ai-header .btn-outline:hover {
+    background: #ffffff;
+    color: #5e6b2c;
+  }
+
+  .ai-guardrail-bar {
+    background: #fffbeb;
+    border-bottom: 1px solid #fef3c7;
+    padding: 10px 24px;
+    font-size: 0.82rem;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .home-chat-stream {
+    height: 380px;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: #fdfbf7;
+  }
+
+  .home-chat-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .home-chat-row.user-msg {
+    justify-content: flex-end;
+  }
+
+  .chat-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #eef2dc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    border: 1px solid #dbe2be;
+  }
+
+  .chat-bubble-card {
+    max-width: 75%;
+    padding: 14px 18px;
+    border-radius: 18px;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    position: relative;
+    word-break: break-word;
+    white-space: pre-line;
+  }
+
+  .chat-bubble-card.bubble-ai {
+    background: #ffffff;
+    color: #2b2b28;
+    border: 1px solid #e8e2d8;
+    border-top-right-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .chat-bubble-card.bubble-user {
+    background: #5e6b2c;
+    color: #ffffff;
+    border-top-left-radius: 4px;
+    box-shadow: 0 4px 12px rgba(94, 107, 44, 0.2);
+  }
+
+  .chat-bubble-card.bubble-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+  }
+
+  .bubble-timestamp {
+    font-size: 0.7rem;
+    margin-top: 6px;
+    opacity: 0.65;
+    text-align: left;
+  }
+
+  .bubble-user .bubble-timestamp {
+    color: #e5f0d0;
+  }
+
+  .typing-state {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .dots-pulse {
+    display: flex;
+    gap: 4px;
+  }
+
+  .dots-pulse span {
+    width: 7px;
+    height: 7px;
+    background: #5e6b2c;
+    border-radius: 50%;
+    animation: typingBounce 1.4s infinite ease-in-out;
+  }
+
+  .dots-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dots-pulse span:nth-child(3) { animation-delay: 0.4s; }
+
+  .typing-text {
+    font-size: 0.8rem;
+    color: #71716e;
+  }
+
+  .home-quick-wrapper {
+    padding: 14px 24px;
+    background: #faf7f2;
+    border-top: 1px solid #ebd9c8;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .quick-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #5e6b2c;
+  }
+
+  .quick-pills-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .quick-pills-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quick-pill-btn {
+    background: #ffffff;
+    border: 1px solid #d4c5b3;
+    color: #465020;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .quick-pill-btn:hover:not(:disabled) {
+    background: #5e6b2c;
+    color: #ffffff;
+    border-color: #5e6b2c;
+  }
+
+  .home-chat-input-row {
+    padding: 16px 24px;
+    background: #ffffff;
+    border-top: 1px solid #ebd9c8;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .input-chat {
+    flex: 1;
+    border: 1.5px solid #d4c5b3;
+    border-radius: 14px;
+    padding: 12px 18px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.2s;
+  }
+
+  .input-chat:focus {
+    border-color: #5e6b2c;
+    box-shadow: 0 0 0 3px rgba(94, 107, 44, 0.15);
+  }
+
+  .btn-chat-submit {
+    padding: 12px 24px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    border-radius: 14px;
+    white-space: nowrap;
+  }
+
   @media (max-width: 900px) {
     .hero-container, .delivery-grid, .feedback-card {
       grid-template-columns: 1fr;
     }
     .hero-title {
       font-size: 2.1rem;
+    }
+    .home-chat-stream {
+      height: 320px;
+    }
+    .chat-bubble-card {
+      max-width: 88%;
+    }
+    .home-ai-header {
+      padding: 20px;
     }
   }
 </style>
