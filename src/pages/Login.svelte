@@ -75,7 +75,7 @@
   <div class="container">
     <div class="auth-card">
       <div class="auth-brand">
-        <span class="auth-symbol">🌸</span>
+        <svg class="auth-symbol" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L3 9l9 13 9-13-9-7z"/><path d="M2.5 9h19"/><path d="M12 22V9"/></svg>
         <h2>مَـسْـكَة</h2>
         <p>أتيليه الزهور الطبيعية وبطاقات الإهداء الملكية</p>
       </div>
@@ -109,11 +109,11 @@
 
           <div class="form-group">
             <label>
-              <span class="field-icon">📱</span>
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
               <span>رقم الهاتف الليبي:</span>
             </label>
             <div class="input-with-icon">
-              <span class="input-prefix-icon">🇱🇾</span>
+              <span class="input-prefix-icon" style="font-size:0.75rem; font-weight:700;">+218</span>
               <input 
                 type="tel" 
                 class="input-field input-lux" 
@@ -126,11 +126,11 @@
 
           <div class="form-group">
             <label>
-              <span class="field-icon">🔒</span>
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
               <span>كلمة المرور:</span>
             </label>
             <div class="input-with-icon">
-              <span class="input-prefix-icon">🔑</span>
+              <span class="input-prefix-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M21 3l-8.5 8.5"/><path d="M16 8l2 2"/></svg></span>
               <input 
                 type="password" 
                 class="input-field input-lux" 
@@ -142,7 +142,7 @@
           </div>
 
           <button type="submit" class="btn btn-primary btn-block btn-lg btn-lux" disabled={loginLoading}>
-            {loginLoading ? 'جاري التحقق من الهوية...' : 'تسجيل الدخول الفوري 🌸'}
+            {loginLoading ? 'جاري التحقق من الهوية...' : 'تسجيل الدخول الفوري'}
           </button>
         </form>
       {:else}
@@ -153,7 +153,7 @@
           {/if}
 
           <div class="vip-welcome-banner">
-            <span class="vip-icon">✨</span>
+            <span class="vip-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
             <div class="vip-text">
               <strong>تذكرة عضوية مسكة الملكية</strong>
               <p>استمتعي بتصميم باقاتك الخاصة، ومتابعة السائق بالـ GPS، وتخفيضات المواسم</p>
@@ -162,7 +162,7 @@
 
           <div class="form-group">
             <label>
-              <span class="field-icon">👤</span>
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
               <span>الاسم الكريم:</span>
             </label>
             <input 
@@ -176,11 +176,11 @@
 
           <div class="form-group">
             <label>
-              <span class="field-icon">📱</span>
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
               <span>رقم الهاتف:</span>
             </label>
             <div class="input-with-icon">
-              <span class="input-prefix-icon">🇱🇾</span>
+              <span class="input-prefix-icon" style="font-size:0.75rem; font-weight:700;">+218</span>
               <input 
                 type="tel" 
                 class="input-field input-lux" 
@@ -193,7 +193,7 @@
 
           <div class="form-group">
             <label>
-              <span class="field-icon">✉️</span>
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
               <span>البريد الإلكتروني (اختياري):</span>
             </label>
             <input 
@@ -206,11 +206,11 @@
 
           <div class="form-group">
             <label>
-              <span class="field-icon">🔒</span>
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
               <span>كلمة المرور الجديدة:</span>
             </label>
             <div class="input-with-icon">
-              <span class="input-prefix-icon">🔑</span>
+              <span class="input-prefix-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M21 3l-8.5 8.5"/><path d="M16 8l2 2"/></svg></span>
               <input 
                 type="password" 
                 class="input-field input-lux" 
@@ -222,7 +222,7 @@
           </div>
 
           <button type="submit" class="btn btn-primary btn-block btn-lg btn-lux" disabled={regLoading}>
-            {regLoading ? 'جاري إصدار العضوية...' : 'تأكيد إنشاء الحساب الملكي 🌸'}
+            {regLoading ? 'جاري إصدار العضوية...' : 'تأكيد إنشاء الحساب الملكي'}
           </button>
         </form>
       {/if}
@@ -230,7 +230,7 @@
       <!-- بطاقات وتذاكر الحسابات التجريبية للمشروع -->
       <div class="demo-accounts-box">
         <div class="demo-title-bar">
-          <span class="ticket-symbol">🎟️</span>
+          <span class="ticket-symbol"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg></span>
           <div>
             <span class="demo-title">تذاكر الدخول السريع (مشروع التخرج)</span>
             <small class="demo-subtitle">اضغط على أي تذكرة لتعبئة الحساب وتجربة الصلاحيات فوراً</small>
@@ -246,15 +246,15 @@
             on:click={() => fillDemoAccount('0911111111', 'admin123')}
           >
             <div class="ticket-header-line">
-              <span class="ticket-role-pill admin">👑 مدير النظام</span>
+              <span class="ticket-role-pill admin">مدير النظام</span>
               <span class="ticket-status-dot"></span>
             </div>
             <div class="ticket-user-info">
               <b class="user-fullname">محمد المنفي</b>
-              <span class="user-cred">📞 0911111111</span>
+              <span class="user-cred">0911111111</span>
             </div>
             <div class="ticket-footer-line">
-              <span class="ticket-action-hint">استخدام التذكرة ⚡</span>
+              <span class="ticket-action-hint">استخدام التذكرة</span>
             </div>
           </button>
 
@@ -266,15 +266,15 @@
             on:click={() => fillDemoAccount('0915555555', 'customer123')}
           >
             <div class="ticket-header-line">
-              <span class="ticket-role-pill customer">🌸 زبونة المتجر</span>
+              <span class="ticket-role-pill customer">زبونة المتجر</span>
               <span class="ticket-status-dot"></span>
             </div>
             <div class="ticket-user-info">
               <b class="user-fullname">سارة المحمودي</b>
-              <span class="user-cred">📞 0915555555</span>
+              <span class="user-cred">0915555555</span>
             </div>
             <div class="ticket-footer-line">
-              <span class="ticket-action-hint">استخدام التذكرة ⚡</span>
+              <span class="ticket-action-hint">استخدام التذكرة</span>
             </div>
           </button>
 
@@ -286,15 +286,15 @@
             on:click={() => fillDemoAccount('0912222222', 'florist123')}
           >
             <div class="ticket-header-line">
-              <span class="ticket-role-pill florist">💐 منسقة الزهور</span>
+              <span class="ticket-role-pill florist">منسقة الزهور</span>
               <span class="ticket-status-dot"></span>
             </div>
             <div class="ticket-user-info">
               <b class="user-fullname">فاطمة الورفلي</b>
-              <span class="user-cred">📞 0912222222</span>
+              <span class="user-cred">0912222222</span>
             </div>
             <div class="ticket-footer-line">
-              <span class="ticket-action-hint">استخدام التذكرة ⚡</span>
+              <span class="ticket-action-hint">استخدام التذكرة</span>
             </div>
           </button>
 
@@ -306,15 +306,15 @@
             on:click={() => fillDemoAccount('0923333333', 'driver123')}
           >
             <div class="ticket-header-line">
-              <span class="ticket-role-pill driver">🚗 كابتن التوصيل</span>
+              <span class="ticket-role-pill driver">كابتن التوصيل</span>
               <span class="ticket-status-dot"></span>
             </div>
             <div class="ticket-user-info">
               <b class="user-fullname">طارق الزوي</b>
-              <span class="user-cred">📞 0923333333</span>
+              <span class="user-cred">0923333333</span>
             </div>
             <div class="ticket-footer-line">
-              <span class="ticket-action-hint">استخدام التذكرة ⚡</span>
+              <span class="ticket-action-hint">استخدام التذكرة</span>
             </div>
           </button>
         </div>

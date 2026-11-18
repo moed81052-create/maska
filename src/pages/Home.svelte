@@ -16,7 +16,7 @@
     {
       id: 1,
       sender: 'ai',
-      text: 'مرحباً بك في مسكة 🌸! أنا مستشارك وخبير الزهور الذكي.\n\nيسعدني جداً الإجابة عن أي استفسار يخص عالم الزهور: أفضل الباقات لمناسبتك، معاني ألوان الورود، وطرق العناية بالزهور لتدوم نضرة لأكثر من أسبوعين. كيف يمكنني خدمتك اليوم؟',
+      text: 'مرحباً بك في مسكة! أنا مستشارك وخبير الزهور الذكي.\n\nيسعدني جداً الإجابة عن أي استفسار يخص عالم الزهور: أفضل الباقات لمناسبتك، معاني ألوان الورود، وطرق العناية بالزهور لتدوم نضرة لأكثر من أسبوعين. كيف يمكنني خدمتك اليوم؟',
       time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
     }
   ];
@@ -25,12 +25,12 @@
   let homeChatContainerEl;
 
   const homeQuickQuestions = [
-    '💖 صمملي باقة رومانسية فخمة',
-    '🎓 صمملي باقة تخرج بالورد المتاح',
-    '💍 صمملي باقة زفاف ملكية ناصعة',
-    '🌹 ما أفضل باقة لمناسبة ذكرى زواج؟',
-    '💧 كيف أحافظ على الورد الطبيعي في المنزل لمدة أسبوعين؟',
-    '🤍 ما معاني ألوان ورد الجوري والتوليب؟'
+    'صمملي باقة رومانسية فخمة',
+    'صمملي باقة تخرج بالورد المتاح',
+    'صمملي باقة زفاف ملكية ناصعة',
+    'ما أفضل باقة لمناسبة ذكرى زواج؟',
+    'كيف أحافظ على الورد الطبيعي في المنزل لمدة أسبوعين؟',
+    'ما معاني ألوان ورد الجوري والتوليب؟'
   ];
 
   function applyHomeProposalAndGoToStudio(designAction) {
@@ -83,7 +83,7 @@
         {
           id: Date.now() + 1,
           sender: 'ai',
-          text: 'عذراً، حدث خطأ مؤقت في الاتصال بمستشار الذكاء الاصطناعي. تفضل بالمحاولة مجدداً وسأكون سعيداً بإجابتك 🌸',
+          text: 'عذراً، حدث خطأ مؤقت في الاتصال بمستشار الذكاء الاصطناعي. تفضل بالمحاولة مجدداً وسأكون سعيداً بإجابتك.',
           time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' }),
           error: true
         }
@@ -218,7 +218,7 @@
             rating: 5,
             comment: 'طلبت باقة ربيع وردي لعيد ميلاد أختي، التغليف اليدوي والكرت المكتوب بخط أنيق مع الختم الشمعي خلى المفاجأة استثنائية! والورد قعد نضر ومفتح أكثر من 12 يوم.',
             bouquet_type: 'ربيع وردي',
-            admin_reply: 'ألف صحة وعافية يا سارة! سعداء جداً بمشاركتكم هذه اللحظة الدافئة 🌸'
+            admin_reply: 'ألف صحة وعافية يا سارة! سعداء جداً بمشاركتكم هذه اللحظة الدافئة.'
           },
           {
             id: 'r2',
@@ -287,7 +287,7 @@
       image: b.image,
       desc: b.desc
     });
-    showToast(`تمت إضافة "${b.title}" إلى السلة بنجاح 🌸`);
+    showToast(`تمت إضافة "${b.title}" إلى السلة بنجاح.`);
   }
 
   function handleTrackSubmit(e) {
@@ -304,7 +304,7 @@
     reviewSubmitting = true;
     try {
       await api.addReview(newReview);
-      showToast('شكراً لتقييمك وملاحظاتك القيمة 🌸 تم الحفظ بنجاح!');
+      showToast('شكراً لتقييمك وملاحظاتك القيمة، تم الحفظ بنجاح!');
       showReviewModal = false;
       newReview = { customerName: '', rating: 5, comment: '', bouquetType: 'باقة جاهزة' };
       // refresh reviews
@@ -328,7 +328,7 @@
       await api.submitFeedback(feedback);
       feedbackSent = true;
       feedback = { name: '', phone: '', subject: '', message: '' };
-      showToast('تم إرسال اقتراحك وملاحظتك لإدارة مسكة بنجاح 🌸');
+      showToast('تم إرسال اقتراحك وملاحظتك لإدارة مسكة بنجاح.');
     } catch (err) {
       alert('تعذر إرسال الملاحظة: ' + err.message);
     } finally {
@@ -354,7 +354,7 @@
   <section class="hero-section">
     <div class="hero-container">
       <div class="hero-content">
-        <span class="hero-badge">✨ أتيليه الزهور الطبيعية الأول في ليبيا</span>
+        <span class="hero-badge">أتيليه الزهور الطبيعية الأول في ليبيا</span>
         <h1 class="hero-title">
           زهورٌ طبيعية طازجة،<br />
           <span class="title-highlight">تُنسج بمشاعر وتُختم بالشمع</span>
@@ -365,10 +365,10 @@
 
         <div class="hero-buttons">
           <button type="button" class="btn btn-primary" on:click={() => router.navigate('/studio')}>
-            صمم باقتك في الاستوديو 💐
+            صمم باقتك في الاستوديو
           </button>
           <button type="button" class="btn btn-outline" on:click={() => router.navigate('/designer')}>
-            المصمم التفاعلي 3D ✨
+            المصمم التفاعلي 3D
           </button>
         </div>
 
@@ -528,7 +528,7 @@
 
               {#if b.flowers && b.flowers.length > 0}
                 <div class="card-recipe-box">
-                  <div class="card-recipe-title">🌸 تركيبة الورود ({b.total_stems || b.flowers.reduce((acc, f) => acc + (f.quantity_stems || 0), 0)} زهرة):</div>
+                  <div class="card-recipe-title">تركيبة الورود ({b.total_stems || b.flowers.reduce((acc, f) => acc + (f.quantity_stems || 0), 0)} زهرة):</div>
                   <div class="card-recipe-pills">
                     {#each b.flowers as f}
                       <span class="recipe-pill"><b>{f.quantity_stems}×</b> {f.flower_name}</span>
@@ -544,7 +544,7 @@
                   class="btn btn-sm btn-cart" 
                   on:click={() => addToCart(b)}
                 >
-                  أضف للسلة 🛍️
+                  أضف للسلة
                 </button>
               </div>
             </div>
@@ -563,7 +563,7 @@
           <p class="section-sub">نضمن وصول كل وردة بكامل رونقها وعبيرها الطازج</p>
           
           <div class="feature-item">
-            <div class="feature-icon">⏱️</div>
+            <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
             <div>
               <h4>دقة متناهية في المواعيد</h4>
               <p>اختر اليوم والوقت المناسب لتسليم الباقة، مع توفر خيار التوصيل المستعجل خلال ساعتين.</p>
@@ -571,7 +571,7 @@
           </div>
 
           <div class="feature-item">
-            <div class="feature-icon">🚗</div>
+            <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
             <div>
               <h4>سائقون مدربون وتتبع GPS</h4>
               <p>سيارات مجهزة ومكيفة تحافظ على الزهور، مع إمكانية متابعة خط سير السائق على الخريطة.</p>
@@ -579,7 +579,7 @@
           </div>
 
           <div class="feature-item">
-            <div class="feature-icon">💌</div>
+            <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
             <div>
               <h4>كرت إهداء بختم الشمع مجاناً</h4>
               <p>كل طلب يتضمن بطاقة إهداء مخصصة ومختومة يدوياً بالشمع الأحمر الملكي.</p>
@@ -589,7 +589,7 @@
 
         <div class="card track-box-card">
           <div class="track-box-header">
-            <h3>تتبّع طلبك الآن 📍</h3>
+            <h3>تتبّع طلبك الآن</h3>
             <p>أدخل رقم الطلب المكون من 4 أرقام لمعرفة حالته وموقعه لحظة بلحظة</p>
           </div>
           <form on:submit={handleTrackSubmit} class="track-form">
@@ -628,7 +628,7 @@
           class="btn btn-outline" 
           on:click={() => showReviewModal = true}
         >
-          + أضف تقييمك وملاحظتك ✍️
+          + أضف تقييمك وملاحظتك
         </button>
       </div>
 
@@ -651,7 +651,7 @@
 
             {#if r.admin_reply}
               <div class="admin-reply-box">
-                <span class="reply-tag">رد إدارة مسكة 🌸:</span>
+                <span class="reply-tag">رد إدارة مسكة:</span>
                 <p>{r.admin_reply}</p>
               </div>
             {/if}
@@ -666,7 +666,7 @@
     <div class="modal-backdrop fade-in" on:click|self={() => showReviewModal = false}>
       <div class="modal-card">
         <div class="modal-header">
-          <h3>شاركنا رأيك وملاحظتك 🌸</h3>
+          <h3>شاركنا رأيك وملاحظتك</h3>
           <button type="button" class="close-btn" on:click={() => showReviewModal = false}>✕</button>
         </div>
         <div class="modal-body">
@@ -704,7 +704,7 @@
             disabled={reviewSubmitting}
             on:click={handleReviewSubmit}
           >
-            {reviewSubmitting ? 'جاري الإرسال...' : 'إرسال التقييم 🌸'}
+            {reviewSubmitting ? 'جاري الإرسال...' : 'إرسال التقييم'}
           </button>
         </div>
       </div>
@@ -717,7 +717,7 @@
       <div class="card feedback-card">
         <div class="feedback-info">
           <span class="badge badge-pink">صندوق الاقتراحات</span>
-          <h2>رأيك وملاحظاتك تصنع تميّزنا ✨</h2>
+          <h2>رأيك وملاحظاتك تصنع تميّزنا</h2>
           <p>
             نهتم في مسكة بكل ملاحظة يشاركها عملاؤنا، سواء كان اقتراحاً لنوع زهور جديد، فكرة لتغليف إضافي، أو ملاحظة لتطوير خدمات التوصيل في مدينتك.
           </p>
@@ -725,7 +725,7 @@
         <form class="feedback-form" on:submit={handleFeedbackSubmit}>
           {#if feedbackSent}
             <div class="success-banner">
-              ✅ شكراً لك! تم استلام اقتراحك وسيقوم فريق مسكة بدراسته بعناية.
+              شكراً لك! تم استلام اقتراحك وسيقوم فريق مسكة بدراسته بعناية.
             </div>
           {/if}
           <div class="form-row">
@@ -735,7 +735,7 @@
           <input type="text" class="input-field" placeholder="موضوع الملاحظة أو الاقتراح" bind:value={feedback.subject} required />
           <textarea class="textarea-field" rows="3" placeholder="اكتب ملاحظتك بكل تفصيل..." bind:value={feedback.message} required></textarea>
           <button type="submit" class="btn btn-primary" disabled={feedbackSubmitting}>
-            {feedbackSubmitting ? 'جاري الإرسال...' : 'إرسال الملاحظة للإدارة 📨'}
+            {feedbackSubmitting ? 'جاري الإرسال...' : 'إرسال الملاحظة للإدارة'}
           </button>
         </form>
       </div>
@@ -798,26 +798,26 @@
         <div class="home-ai-header">
           <div class="ai-header-content">
             <div class="ai-badge-top">
-              <span class="ai-icon">🌸</span>
+              <span class="ai-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 9l9 13 9-13-9-7z"/></svg></span>
               <span class="ai-title-tag">مساعد مسكة الذكي | AI Floral Advisor</span>
               <span class="ai-status-dot"></span>
               <span class="ai-status-text">متصل الآن 24/7</span>
             </div>
-            <h2 class="ai-headline">تحدّث مع خبير مسكة للزهور بالذكاء الاصطناعي 💬</h2>
+            <h2 class="ai-headline">تحدّث مع خبير مسكة للزهور بالذكاء الاصطناعي</h2>
             <p class="ai-sub">
               اسأل عن أي نوع ورد، معاني الألوان، تنسيق الباقات للمناسبات الخاصة، أو خطوات العناية بالزهور لتدوم نضرة طويلاً.
             </p>
           </div>
           <div class="ai-header-action">
             <button type="button" class="btn btn-outline" on:click={() => router.navigate('/studio')}>
-              🎨 استوديو تنسيق الباقات ←
+              استوديو تنسيق الباقات ←
             </button>
           </div>
         </div>
 
         <!-- شريط القيود -->
         <div class="ai-guardrail-bar">
-          <span class="shield-icon">🛡️</span>
+          <span class="shield-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
           <span><b>ملاحظة:</b> هذا الشات مخصص حصرياً لعالم الزهور وتنسيق الباقات والعناية بها، ولا يجيب عن أي مواضيع أخرى خارج السياق.</span>
         </div>
 
@@ -826,7 +826,7 @@
           {#each homeChatMessages as msg (msg.id)}
             <div class="home-chat-row" class:user-msg={msg.sender === 'user'} class:ai-msg={msg.sender === 'ai'}>
               {#if msg.sender === 'ai'}
-                <div class="chat-avatar">🌸</div>
+                <div class="chat-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 9l9 13 9-13-9-7z"/></svg></div>
               {/if}
               <div class="chat-bubble-card" class:bubble-user={msg.sender === 'user'} class:bubble-ai={msg.sender === 'ai'} class:bubble-error={msg.error}>
                 <div class="bubble-text-body">{msg.text}</div>
@@ -834,20 +834,20 @@
                 {#if msg.designAction}
                   <div class="home-proposal-box">
                     <div class="h-prop-head">
-                      <span class="h-prop-badge">🎨 باقة مقترحة من المخزون المتوفر</span>
-                      <h4 class="h-prop-title">🌺 {msg.designAction.name}</h4>
+                      <span class="h-prop-badge">باقة مقترحة من المخزون المتوفر</span>
+                      <h4 class="h-prop-title">{msg.designAction.name}</h4>
                     </div>
                     <div class="h-prop-details">
                       <div class="h-prop-row">
-                        <span>📐 التنسيق:</span>
-                        <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي' : msg.designAction.style === 'royal' ? 'هرمي ملكي' : msg.designAction.style === 'heart' ? 'قلب رومانسي' : 'بوهيمي'}</b>
+                        <span>التنسيق:</span>
+                        <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي متناسق' : msg.designAction.style === 'royal' ? 'ملكي متدرج فاخر' : msg.designAction.style === 'heart' ? 'رومانسي مدمج فاخر' : 'بوهيمي عصري'}</b>
                       </div>
                       <div class="h-prop-row">
-                        <span>🎀 التغليف:</span>
+                        <span>التغليف:</span>
                         <b>{msg.designAction.wrapName || msg.designAction.wrap}</b>
                       </div>
                       <div class="h-prop-row">
-                        <span>💰 السعر المقدر:</span>
+                        <span>السعر المقدر:</span>
                         <b class="h-prop-price">{msg.designAction.totalPrice} دينار</b>
                       </div>
                       <div class="h-prop-stems">
@@ -864,7 +864,7 @@
                       class="btn btn-primary h-prop-apply-btn"
                       on:click={() => applyHomeProposalAndGoToStudio(msg.designAction)}
                     >
-                      🌸 تطبيق هذا التصميم في استوديو مسكة فوراً 🎨
+                      تطبيق هذا التصميم في استوديو مسكة فوراً
                     </button>
                   </div>
                 {/if}
@@ -876,7 +876,7 @@
 
           {#if homeChatLoading}
             <div class="home-chat-row ai-msg">
-              <div class="chat-avatar">🌸</div>
+              <div class="chat-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 9l9 13 9-13-9-7z"/></svg></div>
               <div class="chat-bubble-card bubble-ai typing-state">
                 <div class="dots-pulse">
                   <span></span><span></span><span></span>
@@ -889,7 +889,7 @@
 
         <!-- أسئلة سريعة شائعة -->
         <div class="home-quick-wrapper">
-          <span class="quick-title">💡 أسئلة سريعة يمكنك تجربتها:</span>
+          <span class="quick-title">أسئلة سريعة يمكنك تجربتها:</span>
           <div class="quick-pills-row">
             {#each homeQuickQuestions as q}
               <button 
@@ -920,7 +920,7 @@
             disabled={homeChatLoading || !homeChatInput.trim()}
           >
             {#if homeChatLoading}
-              <span>جاري التفكير... ⏳</span>
+              <span>جاري التفكير...</span>
             {:else}
               <span>إرسال الاستفسار ↵</span>
             {/if}

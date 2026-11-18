@@ -124,12 +124,12 @@
       const chosen = matchedZones[0].zone;
       selectedZone = chosen;
       orderForm.city = chosen.city || chosen.city_name || orderForm.city;
-      locationStatus = `✅ تم التعرف على موقعك في نطاق: (${chosen.zone_name}) — رسوم التوصيل المعتمدة: ${chosen.delivery_fee} د.ل 🌸`;
+      locationStatus = `تم التعرف على موقعك في نطاق: (${chosen.zone_name}) — رسوم التوصيل المعتمدة: ${chosen.delivery_fee} د.ل`;
     } else if (nearestZone) {
       selectedZone = nearestZone;
-      locationStatus = `📍 الإحداثيات (${lat.toFixed(4)}, ${lng.toFixed(4)}) — تقع قرب نطاق (${nearestZone.zone_name}) بسعر: ${nearestZone.delivery_fee} د.ل`;
+      locationStatus = `الإحداثيات (${lat.toFixed(4)}, ${lng.toFixed(4)}) — تقع قرب نطاق (${nearestZone.zone_name}) بسعر: ${nearestZone.delivery_fee} د.ل`;
     } else {
-      locationStatus = `تم اختيار الموقع: (${lat.toFixed(4)}, ${lng.toFixed(4)}) 📍`;
+      locationStatus = `تم اختيار الموقع: (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
     }
   }
 
@@ -160,7 +160,7 @@
         justify-content: center;
         box-shadow: 0 4px 14px rgba(94, 107, 44, 0.45);
         border: 2.5px solid #fff;
-      "><span style="transform: rotate(45deg); font-size: 17px;">🌸</span></div>`,
+      "><div style="width: 10px; height: 10px; background: #fff; border-radius: 50%; margin: 6px;"></div></div>`,
       iconSize: [36, 36],
       iconAnchor: [18, 36]
     });
@@ -215,7 +215,7 @@
       },
       (err) => {
         detectingLocation = false;
-        locationStatus = 'تعذر الوصول التلقائي للموقع، يمكنك النقر على الخريطة أو سحب الدبوس 🌸 لتحديده.';
+        locationStatus = 'تعذر الوصول التلقائي للموقع، يمكنك النقر على الخريطة أو سحب الدبوس لتحديده.';
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -328,13 +328,13 @@
 <div class="cart-page fade-in">
   <div class="container">
     <div class="cart-header">
-      <h1 class="page-title">سلة المشتريات والدفع 🛍️</h1>
+      <h1 class="page-title">سلة المشتريات والدفع</h1>
       <p class="page-subtitle">راجع طلبك، اختر منطقة التوصيل وكود الخصم، وأكّد وصول الباقة في موعدها.</p>
     </div>
 
     {#if $cart.length === 0}
       <div class="empty-cart-card">
-        <span class="empty-icon">🌸</span>
+        <span class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
         <h2>سلة المشتريات فارغة حالياً</h2>
         <p>لم تقم بإضافة أي باقة ورد بعد. تفضل بزيارة باقاتنا الجاهزة أو استوديو التصميم المخصص.</p>
         <div class="empty-actions">
@@ -342,7 +342,7 @@
             تصفح الباقات الجاهزة ←
           </button>
           <button type="button" class="btn btn-outline" on:click={() => router.navigate('/studio')}>
-            صمم باقة في الاستوديو 💐
+            صمم باقة في الاستوديو
           </button>
         </div>
       </div>
@@ -398,7 +398,7 @@
 
           <!-- نموذج بيانات المستلم والتوصيل -->
           <div class="card box-card">
-            <h3>بيانات استلام الهدية 📍</h3>
+            <h3>بيانات استلام الهدية</h3>
             <div class="form-grid">
               <div class="form-group">
                 <label>اسم المستلم أو المحتفى به:</label>
@@ -451,7 +451,7 @@
               <div class="form-group full-width map-picker-section">
                 <div class="map-picker-head">
                   <div>
-                    <label class="map-label">📍 تحديد موقع الاستلام بدقة على الخريطة (GPS):</label>
+                    <label class="map-label">تحديد موقع الاستلام بدقة على الخريطة (GPS):</label>
                     <small class="map-desc">يتم تزويد السائق بهذه الإحداثيات لفتح مسار الملاحة المباشر عبر Google Maps</small>
                   </div>
                   <button 
@@ -460,12 +460,12 @@
                     disabled={detectingLocation}
                     on:click={detectCustomerLocation}
                   >
-                    {detectingLocation ? 'جاري الاتصال بالأقمار...' : '📍 موقعي الحالي (GPS)'}
+                    {detectingLocation ? 'جاري الاتصال بالأقمار...' : 'موقعي الحالي (GPS)'}
                   </button>
                 </div>
 
                 {#if locationStatus}
-                  <div class="location-status-bar" class:success={locationStatus.includes('✅')}>
+                  <div class="location-status-bar" class:success={locationStatus.includes('تم التعرف')}>
                     {locationStatus}
                   </div>
                 {/if}
@@ -474,7 +474,7 @@
 
                 <div class="coords-display-bar">
                   <span>الإحداثيات المعتمدة: <strong>{customerLat.toFixed(5)}° N, {customerLng.toFixed(5)}° E</strong></span>
-                  <small>💡 يمكنك سحب الدبوس 🌸 أو النقر على الخريطة لضبط موقع التوصيل</small>
+                  <small>يمكنك سحب الدبوس أو النقر على الخريطة لضبط موقع التوصيل</small>
                 </div>
               </div>
 
@@ -519,7 +519,7 @@
               <label>هل لديك كود تخفيض؟</label>
               {#if appliedCoupon}
                 <div class="applied-coupon-pill">
-                  <span>🏷️ تم تفعيل كود: <b>{appliedCoupon.code}</b> (-{appliedCoupon.discountAmount} د.ل)</span>
+                  <span>تم تفعيل كود: <b>{appliedCoupon.code}</b> (-{appliedCoupon.discountAmount} د.ل)</span>
                   <button type="button" on:click={handleRemoveCoupon}>إلغاء</button>
                 </div>
               {:else}
@@ -581,8 +581,8 @@
             </button>
 
             <div class="security-badges">
-              <span>🔒 ضمان سلامة ونضارة الورد</span>
-              <span>🚚 توصيل مبرد في موعدك</span>
+              <span>ضمان سلامة ونضارة الورد</span>
+              <span>توصيل مبرد في موعدك</span>
             </div>
           </div>
         </aside>

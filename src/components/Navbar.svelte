@@ -24,7 +24,14 @@
     <!-- شعار مسكة الفاخر -->
     {#if $isDriver}
       <a href="/driver" class="brand-logo" on:click|preventDefault={() => go('/driver')}>
-        <span class="logo-symbol">🚗</span>
+        <span class="logo-symbol">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+        </span>
         <div class="logo-text">
           <span class="logo-ar">مَـسْـكَة | كابتن التوصيل</span>
           <span class="logo-en">MASKA FLEET & LOGISTICS</span>
@@ -32,7 +39,12 @@
       </a>
     {:else}
       <a href="/" class="brand-logo" on:click|preventDefault={() => go('/')}>
-        <span class="logo-symbol">🌸</span>
+        <span class="logo-symbol">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+            <path d="M12 6c-2 2-3 4-3 6 0 2.2 1.8 4 4 4 2.5 0 3.5-2 3.5-4 0-3-2.5-4-4.5-6z" fill="currentColor" fill-opacity="0.15"></path>
+          </svg>
+        </span>
         <div class="logo-text">
           <span class="logo-ar">مَـسْـكَة</span>
           <span class="logo-en">MASKA ATELIER</span>
@@ -65,7 +77,7 @@
           class:active={$router.path === '/studio'} 
           on:click={() => go('/studio')}
         >
-          استوديو مسكة 💐
+          استوديو مسكة
         </button>
 
         <button 
@@ -74,7 +86,7 @@
           class:active={$router.path === '/designer'} 
           on:click={() => go('/designer')}
         >
-          المصمم التفاعلي ✨
+          المصمم التفاعلي
         </button>
 
         <button 
@@ -83,7 +95,7 @@
           class:active={$router.path === '/track'} 
           on:click={() => go('/track')}
         >
-          تتبع الطلب 📍
+          تتبع الطلب
         </button>
 
         <!-- زر شات الذكاء الاصطناعي المميز -->
@@ -93,8 +105,7 @@
           on:click={openGlobalChat}
           title="افتح شات خبير مسكة للذكاء الاصطناعي"
         >
-          <span class="sparkle-icon">🌸💬</span>
-          <span>شات الذكاء الاصطناعي</span>
+          <span>مساعد الذكاء الاصطناعي</span>
           <span class="pulse-dot-ai"></span>
         </button>
 
@@ -105,7 +116,7 @@
             class:active={$router.path === '/admin'} 
             on:click={() => go('/admin')}
           >
-            لوحة الإدارة 👑
+            لوحة الإدارة
           </button>
         {/if}
       </nav>
@@ -139,7 +150,12 @@
       <!-- حالة تسجيل الدخول / المستخدم -->
       {#if $isAuthenticated && $auth}
         <div class="user-pill desktop-only">
-          <span class="user-avatar">{#if $isDriver}🚗{:else}👤{/if}</span>
+          <span class="user-avatar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </span>
           <span class="user-name">{$auth.full_name}</span>
           <button type="button" class="logout-btn" on:click={handleLogout} title="تسجيل الخروج">
             خروج
@@ -173,20 +189,20 @@
       {#if $isDriver}
         <div class="driver-mobile-status">
           <span class="pulse-dot"></span>
-          <span>بوابة كابتن التوصيل 🚗</span>
+          <span>بوابة كابتن التوصيل</span>
         </div>
-        <button type="button" class="m-link driver active" on:click={() => go('/driver')}>قائمة مهام التوصيل والمواقع 📍</button>
+        <button type="button" class="m-link driver active" on:click={() => go('/driver')}>قائمة مهام التوصيل والمواقع</button>
       {:else}
         <button type="button" class="m-link" on:click={() => go('/')}>الرئيسية</button>
-        <button type="button" class="m-link" on:click={() => go('/studio')}>استوديو مسكة 💐</button>
-        <button type="button" class="m-link" on:click={() => go('/designer')}>المصمم التفاعلي ✨</button>
-        <button type="button" class="m-link" on:click={() => go('/track')}>تتبع الطلب 📍</button>
+        <button type="button" class="m-link" on:click={() => go('/studio')}>استوديو مسكة</button>
+        <button type="button" class="m-link" on:click={() => go('/designer')}>المصمم التفاعلي</button>
+        <button type="button" class="m-link" on:click={() => go('/track')}>تتبع الطلب</button>
         <button type="button" class="m-link ai-chat" on:click={() => { openGlobalChat(); mobileMenuOpen = false; }}>
-          🌸💬 شات الذكاء الاصطناعي للزهور ✦
+          شات الذكاء الاصطناعي للزهور
         </button>
         
         {#if $isStaff}
-          <button type="button" class="m-link admin" on:click={() => go('/admin')}>لوحة الإدارة 👑</button>
+          <button type="button" class="m-link admin" on:click={() => go('/admin')}>لوحة الإدارة</button>
         {/if}
       {/if}
 

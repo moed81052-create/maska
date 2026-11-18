@@ -110,7 +110,7 @@
             orderId: currentOrderNumber
           });
 
-          locationSuccessMsg = `تم إرسال إحداثياتك الحالية (${lat.toFixed(4)}, ${lng.toFixed(4)}) لنظام التتبع بنجاح 📍`;
+          locationSuccessMsg = `تم إرسال إحداثياتك الحالية (${lat.toFixed(4)}, ${lng.toFixed(4)}) لنظام التتبع بنجاح`;
           setTimeout(() => locationSuccessMsg = '', 4000);
         } catch (e) {
           console.error(e);
@@ -156,9 +156,9 @@
     <!-- 1. شريط ترحيب السائق والملف الشخصي -->
     <div class="driver-header-card card">
       <div class="driver-info-main">
-        <div class="driver-avatar-circle">🚗</div>
+        <div class="driver-avatar-circle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
         <div>
-          <span class="portal-badge">بوابة مهام كابتن التوصيل 🌸</span>
+          <span class="portal-badge">بوابة مهام كابتن التوصيل</span>
           <h1 class="driver-name">
             مرحباً كابتن {$auth?.full_name || 'طارق الزوي'}
           </h1>
@@ -178,7 +178,7 @@
             class:active={driverStatus === 'available'}
             on:click={() => handleToggleStatus('available')}
           >
-            🟢 متاح
+            متاح
           </button>
           <button 
             type="button" 
@@ -186,7 +186,7 @@
             class:active={driverStatus === 'busy'}
             on:click={() => handleToggleStatus('busy')}
           >
-            🟡 في مهمة
+            في مهمة
           </button>
           <button 
             type="button" 
@@ -194,7 +194,7 @@
             class:active={driverStatus === 'offline'}
             on:click={() => handleToggleStatus('offline')}
           >
-            ⚪ غير متصل
+            غير متصل
           </button>
         </div>
       </div>
@@ -210,7 +210,7 @@
     <!-- 2. شريط محفظة العهدة النقدية وأرباح التوصيل اللحظية لكابتن التوصيل -->
     <div class="driver-financial-banner card">
       <div class="fin-banner-item fin-today-highlight">
-        <span class="fin-b-icon">⚡</span>
+        <span class="fin-b-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
         <div>
           <span class="fin-b-title">أرباحك اليومية:</span>
           <b class="fin-b-val text-gold">+{Number(financialSummary.today?.earnings || financialSummary.driver?.today_earnings || 0).toLocaleString()} د.ل</b>
@@ -221,7 +221,7 @@
       <div class="fin-banner-divider"></div>
 
       <div class="fin-banner-item">
-        <span class="fin-b-icon">💵</span>
+        <span class="fin-b-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg></span>
         <div>
           <span class="fin-b-title">العهدة النقدية الحالية:</span>
           <b class="fin-b-val">{Number(financialSummary.driver?.current_custody_amount || 0).toLocaleString()} د.ل</b>
@@ -232,7 +232,7 @@
       <div class="fin-banner-divider"></div>
 
       <div class="fin-banner-item">
-        <span class="fin-b-icon">🌟</span>
+        <span class="fin-b-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
         <div>
           <span class="fin-b-title">إجمالي أرباحك المعلقة:</span>
           <b class="fin-b-val text-green">+{Number(financialSummary.driver?.pending_earnings || 0).toLocaleString()} د.ل</b>
@@ -243,7 +243,7 @@
       <div class="fin-banner-divider"></div>
 
       <div class="fin-banner-item">
-        <span class="fin-b-icon">⚖️</span>
+        <span class="fin-b-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M6 8l6-5 6 5"/><path d="M3 13l3-5 3 5a3 3 0 0 1-6 0z"/><path d="M15 13l3-5 3 5a3 3 0 0 1-6 0z"/></svg></span>
         <div>
           <span class="fin-b-title">الصافي لتوريده للإدارة:</span>
           <b class="fin-b-val text-blue">{Number(financialSummary.net_cash_due_to_admin || 0).toLocaleString()} د.ل</b>
@@ -260,7 +260,7 @@
           class:active={activeTab === 'financials'}
           on:click={() => activeTab = 'financials'}
         >
-          📜 كشف الحساب والعهدة
+          كشف الحساب والعهدة
         </button>
       </div>
     </div>
@@ -286,7 +286,7 @@
           disabled={locationPinging}
           on:click={() => sendCurrentDriverGPS()}
         >
-          {locationPinging ? 'جاري التحديد...' : '📍 إرسال موقعي الحالي (GPS)'}
+          {locationPinging ? 'جاري التحديد...' : 'إرسال موقعي الحالي (GPS)'}
         </button>
       </div>
     </div>
@@ -323,13 +323,13 @@
         class:active={activeTab === 'financials'}
         on:click={() => activeTab = 'financials'}
       >
-        💰 العهدة وكشف الحساب ({financialSummary.driver?.current_custody_amount || 0} د.ل)
+        العهدة وكشف الحساب ({financialSummary.driver?.current_custody_amount || 0} د.ل)
       </button>
     </div>
 
     <!-- 4. قائمة بطاقات الطلبات الموجهة للسائق -->
     {#if loading}
-      <div class="loading-state">جاري تحميل مهام وطلبات التوصيل... 🌸</div>
+      <div class="loading-state">جاري تحميل مهام وطلبات التوصيل...</div>
     {:else if activeTab === 'financials'}
       <!-- كشف الحساب وسجل العهدة والتسويات لكابتن التوصيل -->
       <div class="driver-financial-view fade-in">
@@ -337,32 +337,32 @@
         <div class="card fin-detail-card">
           <div class="fin-card-top">
             <div>
-              <h3>💰 كشف الحساب المالي والعهدة النقدية</h3>
+              <h3>كشف الحساب المالي والعهدة النقدية</h3>
               <p class="fin-sub">توثيق المبالغ المحصلة، أرباح التوصيل المكتسبة، وإيصالات التوريد للإدارة</p>
             </div>
             <button type="button" class="btn btn-outline btn-sm" on:click={loadDriverData}>
-              🔄 تحديث الكشف
+              تحديث الكشف
             </button>
           </div>
 
           <div class="fin-grid-4">
             <div class="fin-stat-box gold">
-              <span class="stat-title">⚡ أرباحك اليومية المحققة</span>
+              <span class="stat-title">أرباحك اليومية المحققة</span>
               <b class="stat-num text-gold">+{Number(financialSummary.today?.earnings || 0).toLocaleString()} د.ل</b>
               <small>{financialSummary.today?.delivered_count || 0} طلبات سُلّمت اليوم | كاش: {Number(financialSummary.today?.cash_collected || 0).toLocaleString()} د.ل</small>
             </div>
             <div class="fin-stat-box red">
-              <span class="stat-title">💵 العهدة النقدية المعلقة (كاش)</span>
+              <span class="stat-title">العهدة النقدية المعلقة (كاش)</span>
               <b class="stat-num">{Number(financialSummary.driver?.current_custody_amount || 0).toLocaleString()} د.ل</b>
               <small>المطلوب تسليمه للإدارة عند تصفية العهدة</small>
             </div>
             <div class="fin-stat-box green">
-              <span class="stat-title">🌟 إجمالي أرباحك المعلقة</span>
+              <span class="stat-title">إجمالي أرباحك المعلقة</span>
               <b class="stat-num">{Number(financialSummary.driver?.pending_earnings || 0).toLocaleString()} د.ل</b>
               <small>عمولات التوصيل المكتسبة التي تخصم لصالحك</small>
             </div>
             <div class="fin-stat-box blue">
-              <span class="stat-title">⚖️ صافي المبلغ المطلوب توريده</span>
+              <span class="stat-title">صافي المبلغ المطلوب توريده</span>
               <b class="stat-num">{Number(financialSummary.net_cash_due_to_admin || 0).toLocaleString()} د.ل</b>
               <small>صافي الكاش الذي تسلمه للإدارة</small>
             </div>
@@ -402,11 +402,11 @@
                       <td>{new Date(tx.created_at).toLocaleString('ar-LY', { dateStyle: 'short', timeStyle: 'short' })}</td>
                       <td>
                         {#if tx.type === 'order_collection'}
-                          <span class="tx-badge collect">تحصيل كاش 💵</span>
+                          <span class="tx-badge collect">تحصيل كاش</span>
                         {:else if tx.type === 'delivery_earning'}
-                          <span class="tx-badge earn">ربح توصيل 🌟</span>
+                          <span class="tx-badge earn">ربح توصيل</span>
                         {:else if tx.type === 'admin_settlement'}
-                          <span class="tx-badge settle">تسوية إدارة 🧾</span>
+                          <span class="tx-badge settle">تسوية إدارة</span>
                         {:else}
                           <span class="tx-badge">حركة مالية</span>
                         {/if}
@@ -487,7 +487,7 @@
       </div>
     {:else if displayedOrders.length === 0}
       <div class="card empty-state">
-        <span class="empty-icon">🎉</span>
+        <span class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="20 6 9 17 4 12"/></svg></span>
         <h3>لا توجد طلبات في هذا القسم حالياً</h3>
         <p>جميع الطلبات مسندة ومسلمة بأمان. ستصلك إشعارات بالطلبات الجديدة فور تجهيزها في الأتيليه.</p>
       </div>
@@ -505,13 +505,13 @@
               <div class="dispatch-badge-group">
                 <span class="status-badge status-{order.status}">
                   {#if order.status === 'out_for_delivery'}
-                    🚗 جاري التوصيل الآن
+                    جاري التوصيل الآن
                   {:else if order.status === 'preparing'}
-                    💐 قيد التنسيق بالأتيليه
+                    قيد التنسيق بالأتيليه
                   {:else if order.status === 'delivered'}
-                    ✅ تم التسليم بنجاح
+                    تم التسليم بنجاح
                   {:else}
-                    📋 مؤكد
+                    مؤكد
                   {/if}
                 </span>
 
@@ -525,7 +525,7 @@
             <div class="dispatch-content-grid">
               <!-- أ. مكان الطلبية والموقع الجغرافي وخريطة قوقل -->
               <div class="dispatch-section location-box">
-                <h4 class="section-title">📍 مكان ووجهة الطلبية</h4>
+                <h4 class="section-title">مكان ووجهة الطلبية</h4>
                 
                 <div class="location-details">
                   <p class="loc-line">
@@ -565,12 +565,12 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                     </svg>
-                    <span>فتح الوجهة في خرائط Google (ملاحة GPS) 🗺️</span>
+                    <span>فتح الوجهة في خرائط Google (ملاحة GPS)</span>
                   </a>
 
                   {#if order.recipient_phone}
                     <a href="tel:{order.recipient_phone}" class="btn btn-call-client">
-                      📞 اتصال بالزبون ({order.recipient_phone})
+                      اتصال بالزبون ({order.recipient_phone})
                     </a>
                   {/if}
                 </div>
@@ -578,14 +578,14 @@
 
               <!-- ب. ماهية الطلبية ومحتويات الزهور وبطاقة الإهداء -->
               <div class="dispatch-section contents-box">
-                <h4 class="section-title">💐 ماهية ومحتويات الطلبية</h4>
+                <h4 class="section-title">ماهية ومحتويات الطلبية</h4>
 
                 <div class="items-list-compact">
                   {#if order.items && order.items.length > 0}
                     {#each order.items as item (item.id)}
                       <div class="item-mini-card">
                         <div class="item-mini-head">
-                          <span class="flower-symbol">🌸</span>
+                          <span class="flower-symbol"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 9l9 13 9-13-9-7z"/></svg></span>
                           <strong>{item.item_title}</strong>
                           <span class="item-qty">({item.quantity} باقة)</span>
                         </div>
@@ -600,7 +600,7 @@
                         {#if item.wax_seal_text}
                           <div class="wax-seal-note-box">
                             <span class="wax-badge" style="background: {item.seal_color || '#851b2f'};">
-                              {item.seal_stamp || 'MASKA 🌸'}
+                              {item.seal_stamp || 'MASKA'}
                             </span>
                             <div class="note-text-area">
                               <small>كرت الإهداء المكتوب:</small>
@@ -625,7 +625,7 @@
 
               <!-- ج. التحصيل المالي وأزرار تحديث حالة التوصيل -->
               <div class="dispatch-section actions-box">
-                <h4 class="section-title">💵 التحصيل المالي والتسليم</h4>
+                <h4 class="section-title">التحصيل المالي والتسليم</h4>
 
                 <div class="collection-summary">
                   <div class="col-line">
@@ -642,8 +642,8 @@
                   </div>
                   <small class="collect-hint">
                     {order.payment_method === 'cash_on_delivery' 
-                      ? '⚠️ يرجى استلام المبلغ نقداً من المستلم' 
-                      : '✅ تم الدفع مسبقاً، فقط سلّم الباقة'}
+                      ? 'يرجى استلام المبلغ نقداً من المستلم' 
+                      : 'تم الدفع مسبقاً، فقط سلّم الباقة'}
                   </small>
                 </div>
 
@@ -655,7 +655,7 @@
                       class="btn btn-primary btn-block btn-start-delivery" 
                       on:click={() => handleUpdateOrderStatus(order.order_number, 'out_for_delivery')}
                     >
-                      بدء التوصيل الآن 🚗
+                      بدء التوصيل الآن
                     </button>
                   {/if}
 
@@ -665,13 +665,13 @@
                       class="btn btn-delivered btn-block" 
                       on:click={() => handleUpdateOrderStatus(order.order_number, 'delivered')}
                     >
-                      ✅ تم التسليم بنجاح للزبون
+                      تم التسليم بنجاح للزبون
                     </button>
                   {/if}
 
                   {#if order.status === 'delivered'}
                     <div class="delivered-confirmed-banner">
-                      🎉 تم تسليم هذا الطلب بنجاح وإغلاقه
+                      تم تسليم هذا الطلب بنجاح وإغلاقه
                     </div>
                   {/if}
                 </div>

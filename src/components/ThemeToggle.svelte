@@ -6,7 +6,7 @@
   type="button"
   class="theme-toggle-btn"
   on:click={(e) => theme.toggle(e)}
-  title={$theme === 'dark' ? 'التبديل إلى الوضع النهاري ☀️' : 'التبديل إلى الوضع الليلي 🌙'}
+  title={$theme === 'dark' ? 'التبديل إلى الوضع النهاري' : 'التبديل إلى الوضع الليلي'}
   aria-label="تبديل الثيم"
 >
   {#if $theme === 'dark'}

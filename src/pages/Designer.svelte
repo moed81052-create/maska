@@ -5,14 +5,14 @@
   let budget = 120;
   let selectedOccasion = 'عيد ميلاد';
   let selectedPalette = 'وردي باستيل';
-  let noteText = 'أتمنى لك عاماً مليئاً بالبهجة والزهور الجميلة مثلك 🌸';
+  let noteText = 'أتمنى لك عاماً مليئاً بالبهجة والسرور.';
 
   const occasions = [
-    { name: 'عيد ميلاد', icon: '🎂', defaultNote: 'أتمنى لك عاماً مليئاً بالبهجة والزهور الجميلة مثلك 🌸' },
-    { name: 'زفاف وخطوبة', icon: '💍', defaultNote: 'بارك الله لكما وبارك عليكما وجمع بينكما في خير 🤍' },
-    { name: 'تخرج ونجاح', icon: '🎓', defaultNote: 'مبارك التخرج وجعل الله أيامك القادمة نجاحاً وتألقاً 👑' },
-    { name: 'اعتذار ومودة', icon: '🕊️', defaultNote: 'مكانتك في القلب لا يعوضها أحد، أرجو قبول هذا الورد بكل ود ❤️' },
-    { name: 'شكر وامتنان', icon: '✨', defaultNote: 'شكراً من أعماق القلب على كل ما قدمته، وردة لا تفي حقك 🌿' }
+    { name: 'عيد ميلاد', defaultNote: 'أتمنى لك عاماً مليئاً بالبهجة والسرور.' },
+    { name: 'زفاف وخطوبة', defaultNote: 'بارك الله لكما وبارك عليكما وجمع بينكما في خير.' },
+    { name: 'تخرج ونجاح', defaultNote: 'مبارك التخرج وجعل الله أيامك القادمة نجاحاً وتألقاً.' },
+    { name: 'اعتذار ومودة', defaultNote: 'مكانتك في القلب لا يعوضها أحد، أرجو قبول هذا الورد بكل ود.' },
+    { name: 'شكر وامتنان', defaultNote: 'شكراً من أعماق القلب على كل ما قدمته، وردة لا تفي حقك.' }
   ];
 
   const palettes = [
@@ -81,7 +81,7 @@
 <div class="designer-page fade-in">
   <div class="container">
     <div class="designer-header">
-      <span class="badge badge-pink">المصمم الذكي التفاعلي ✨</span>
+      <span class="badge badge-pink">المصمم التفاعلي الذكي</span>
       <h1 class="page-title">دع الذكاء الفني يقترح باقتك المثالية</h1>
       <p class="page-subtitle">
         حدد ميزانيتك، مناسبتك، وتدرجات الألوان المفضلة، وسيقوم المصمم الذكي بتوليف باقة فريدة متوازنة هندسياً ولونياً.
@@ -90,7 +90,7 @@
 
     {#if toast}
       <div class="designer-toast fade-in">
-        🌸 تمت إضافة التصميم المقترح إلى سلتك بنجاح!
+        تمت إضافة التصميم المقترح إلى سلتك بنجاح!
       </div>
     {/if}
 
@@ -135,7 +135,6 @@
                 class:active={selectedOccasion === occ.name}
                 on:click={() => handleOccasionChange(occ)}
               >
-                <span class="occ-icon">{occ.icon}</span>
                 <span>{occ.name}</span>
               </button>
             {/each}
@@ -179,7 +178,7 @@
       <aside class="designer-result-col">
         <div class="card result-card">
           <div class="result-badge-row">
-            <span class="badge badge-lime">اقتراح ذكي متكامل 🌸</span>
+            <span class="badge badge-lime">اقتراح متكامل</span>
             <span class="stems-badge">
               {generatedResult.stems.reduce((a, b) => a + b.count, 0)} ساق
             </span>
@@ -228,7 +227,7 @@
               class="btn btn-primary btn-block btn-lg" 
               on:click={addProposedToCart}
             >
-              أضف التصميم الذكي للسلة 🛍️
+              أضف التصميم الذكي للسلة
             </button>
           </div>
         </div>

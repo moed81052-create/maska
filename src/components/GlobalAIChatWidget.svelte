@@ -8,7 +8,7 @@
     {
       id: 1,
       sender: 'ai',
-      text: 'مرحباً بك في مسكة 🌸! أنا خبير ومستشار الزهور الذكي.\n\nيسعدني جداً مساعدتك في اختيار أفضل أنواع الورد لمناسبتك من مخزوننا الحي، معاني ألوان الزهور، نصائح العناية، أو تصميم باقة مخصصة لك وتطبيقها فوراً في استوديو مسكة! كيف يمكنني مساعدتك اليوم؟',
+      text: 'مرحباً بك في مسكة! أنا خبير ومستشار الزهور الذكي.\n\nيسعدني جداً مساعدتك في اختيار أفضل أنواع الورد لمناسبتك من مخزوننا الحي، معاني ألوان الزهور، نصائح العناية، أو تصميم باقة مخصصة لك وتطبيقها فوراً في استوديو مسكة! كيف يمكنني مساعدتك اليوم؟',
       time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
     }
   ];
@@ -24,11 +24,11 @@
   let aiConfigured = false;
 
   const quickQuestions = [
-    '💖 صمملي باقة رومانسية فخمة',
-    '🎓 صمملي باقة تخرج بالورد المتاح',
-    '💍 صمملي باقة زفاف ملكية ناصعة',
-    '🌹 ما هي معاني ألوان الجوري والتوليب؟',
-    '💧 كيف أعتني بالورد الطبيعي ليدوم 14 يوماً؟'
+    'صمملي باقة رومانسية فخمة',
+    'صمملي باقة تخرج بالورد المتاح',
+    'صمملي باقة زفاف ملكية ناصعة',
+    'ما هي معاني ألوان الجوري والتوليب؟',
+    'كيف أعتني بالورد الطبيعي ليدوم 14 يوماً؟'
   ];
 
   onMount(async () => {
@@ -53,14 +53,14 @@
     keyStatusMessage = '';
     try {
       const res = await api.saveAiKey(userApiKey.trim());
-      keyStatusMessage = '✅ تم حفظ وتفعيل مفتاح Gemini API بنجاح!';
+      keyStatusMessage = 'تم حفظ وتفعيل مفتاح Gemini API بنجاح!';
       aiConfigured = true;
       setTimeout(() => {
         showKeySettings = false;
         keyStatusMessage = '';
       }, 1500);
     } catch (err) {
-      keyStatusMessage = '❌ فشل في حفظ المفتاح: ' + (err.message || 'خطأ غير معروف');
+      keyStatusMessage = 'فشل في حفظ المفتاح: ' + (err.message || 'خطأ غير معروف');
     } finally {
       isSavingKey = false;
     }
@@ -108,7 +108,7 @@
         {
           id: Date.now() + 1,
           sender: 'ai',
-          text: 'عذراً، حدث خطأ مؤقت في الاتصال بمستشار الذكاء الاصطناعي. تفضل بإعادة المحاولة وسأكون سعيداً بالإجابة عن استفساراتك الزهرية! 🌸',
+          text: 'عذراً، حدث خطأ مؤقت في الاتصال بمستشار الذكاء الاصطناعي. تفضل بإعادة المحاولة وسأكون سعيداً بالإجابة عن استفساراتك الزهرية.',
           time: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' }),
           error: true
         }
@@ -150,9 +150,13 @@
       title="محادثة خبير مسكة للذكاء الاصطناعي"
     >
       <div class="bubble-pulse"></div>
-      <div class="bubble-icon">💬</div>
+      <div class="bubble-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
       <div class="bubble-text">
-        <span class="bubble-title">شات الذكاء الاصطناعي ✦</span>
+        <span class="bubble-title">شات الذكاء الاصطناعي</span>
         <span class="bubble-status"><span class="dot"></span> متاح الآن للإجابة عن الزهور</span>
       </div>
     </button>
@@ -164,11 +168,17 @@
       <!-- ترويسة الشات -->
       <div class="chat-window-header">
         <div class="header-info">
-          <div class="header-avatar">🌸</div>
+          <div class="header-avatar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+              <path d="M2.5 9h19"/>
+              <path d="M12 22V9"/>
+            </svg>
+          </div>
           <div>
             <div class="header-title">
               <span>خبير مسكة للزهور</span>
-              <span class="ai-badge">AI ✦ فوري</span>
+              <span class="ai-badge">مساعد ذكي</span>
             </div>
             <div class="header-sub">
               <span class="online-dot"></span>
@@ -184,7 +194,7 @@
             on:click={() => showKeySettings = !showKeySettings}
             title="إعدادات مفتاح الذكاء الاصطناعي (Gemini API)"
           >
-            ⚙️
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
           <button 
             type="button" 
@@ -209,7 +219,7 @@
         {#if showKeySettings}
           <div class="key-settings-panel">
             <div class="key-panel-title">
-              <span>🔑 إعداد مفتاح Google Gemini API:</span>
+              <span>إعداد مفتاح Google Gemini API:</span>
               <button type="button" class="close-panel-btn" on:click={() => showKeySettings = false}>✕</button>
             </div>
             <p class="key-panel-desc">
@@ -234,9 +244,9 @@
 
         <!-- تنبيه القيود والسياق -->
         <div class="guardrail-strip">
-          <span>🌿 متخصص حصرياً في الزهور، معانيها، وتنسيق الباقات</span>
+          <span>متخصص حصرياً في الزهور، معانيها، وتنسيق الباقات</span>
           <button type="button" class="studio-link-btn" on:click={goToStudio}>
-            💐 الذهاب للاستوديو
+            الذهاب للاستوديو
           </button>
         </div>
 
@@ -245,7 +255,11 @@
           {#each messages as msg (msg.id)}
             <div class="chat-message-row" class:user-row={msg.sender === 'user'} class:ai-row={msg.sender === 'ai'}>
               {#if msg.sender === 'ai'}
-                <div class="sender-avatar">🌸</div>
+                <div class="sender-avatar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+                  </svg>
+                </div>
               {/if}
               <div class="message-bubble" class:user-bubble={msg.sender === 'user'} class:ai-bubble={msg.sender === 'ai'} class:is-error={msg.error}>
                 <div class="bubble-content">{msg.text}</div>
@@ -253,8 +267,8 @@
                 {#if msg.designAction}
                   <div class="widget-proposal-card">
                     <div class="w-head">
-                      <span class="w-badge">🎨 باقة مقترحة من المخزون المتوفر</span>
-                      <h5 class="w-title">🌺 {msg.designAction.name}</h5>
+                      <span class="w-badge">باقة مقترحة من المخزون المتوفر</span>
+                      <h5 class="w-title">{msg.designAction.name}</h5>
                     </div>
                     <div class="w-stems">
                       {#each msg.designAction.stems as s}
@@ -265,7 +279,7 @@
                       {/each}
                     </div>
                     <div class="w-meta">
-                      <span>🎀 {msg.designAction.wrapName || msg.designAction.wrap}</span>
+                      <span>تغليف: {msg.designAction.wrapName || msg.designAction.wrap}</span>
                       <b class="w-price">{msg.designAction.totalPrice} د.ل</b>
                     </div>
                     <button 
@@ -273,7 +287,7 @@
                       class="w-apply-btn" 
                       on:click={() => applyProposalAndGoToStudio(msg.designAction)}
                     >
-                      🌸 تطبيق هذا التصميم في استوديو مسكة 🎨
+                      تطبيق هذا التصميم في استوديو مسكة
                     </button>
                   </div>
                 {/if}
@@ -285,7 +299,11 @@
 
           {#if isLoading}
             <div class="chat-message-row ai-row">
-              <div class="sender-avatar">🌸</div>
+              <div class="sender-avatar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+                </svg>
+              </div>
               <div class="message-bubble ai-bubble typing-bubble">
                 <div class="typing-indicator">
                   <span></span>
@@ -300,7 +318,7 @@
 
         <!-- أسئلة سريعة مقترحة -->
         <div class="quick-chips-wrapper">
-          <div class="chips-label">💡 أسئلة شائعة:</div>
+          <div class="chips-label">أسئلة شائعة:</div>
           <div class="quick-chips-scroll">
             {#each quickQuestions as q}
               <button 
@@ -331,7 +349,7 @@
             disabled={isLoading || !inputMessage.trim()}
           >
             {#if isLoading}
-              ⏳
+              ...
             {:else}
               إرسال ↵
             {/if}

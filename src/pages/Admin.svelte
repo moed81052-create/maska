@@ -19,25 +19,82 @@
 
   function getActiveTabLabel(tab) {
     switch (tab) {
-      case 'orders': return 'الطلبات والتسليم 📦';
-      case 'drivers': return 'السائقون والتتبع 🚗';
-      case 'financials': return 'العهد والمالية 💰';
-      case 'users': return 'الطاقم والمستخدمون 👥';
-      case 'inventory': return 'مخزون الورود والزوايا 🌸';
-      case 'bouquets': return 'كتالوج الباقات 💐';
-      case 'coupons': return 'الكوبونات والخصومات 🏷️';
+      case 'orders': return 'الطلبات والتسليم';
+      case 'drivers': return 'السائقون والتتبع';
+      case 'financials': return 'العهد والمالية';
+      case 'users': return 'الطاقم والمستخدمون';
+      case 'inventory': return 'مخزون الورود والزوايا';
+      case 'bouquets': return 'كتالوج الباقات';
+      case 'coupons': return 'الكوبونات والخصومات';
       case 'reviews': return 'التقييمات والملاحظات ⭐';
-      case 'pricing': return 'أسعار التوصيل والرقابة 📍';
-      default: return 'لوحة التحكم 👑';
+      case 'pricing': return 'أسعار التوصيل والرقابة';
+      default: return 'لوحة التحكم';
     }
   }
 
   let loading = true;
   let stats = null;
 
-  // الطلبات
+  // الطلبات ومسار المراحل
   let orders = [];
-  let filterStatus = 'all';
+  let filterStatus = 'all'; // 'all' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered'
+  let orderSearchQuery = '';
+  let ordersViewMode = 'pipeline'; // 'pipeline' | 'table'
+
+  const orderStages = [
+    { key: 'confirmed', label: 'طلبات جديدة ومؤكدة', shortLabel: 'جديدة', step: 1, icon: '🌸', color: '#e11d48' },
+    { key: 'preparing', label: 'جاري التنسيق في الأتيليه', shortLabel: 'تنسيق', step: 2, icon: '🌿', color: '#d97706' },
+    { key: 'out_for_delivery', label: 'قيد التوصيل مع الكابتن', shortLabel: 'توصيل', step: 3, icon: '🚗', color: '#2563eb' },
+    { key: 'delivered', label: 'مكتملة ومسلّمة بنجاح', shortLabel: 'مكتملة', step: 4, icon: '✨', color: '#16a34a' }
+  ];
+
+  function getStageIndex(status) {
+    switch (status) {
+      case 'confirmed': return 0;
+      case 'preparing': return 1;
+      case 'out_for_delivery': return 2;
+      case 'delivered': return 3;
+      default: return 0;
+    }
+  }
+
+  function getStageLabel(status) {
+    const s = orderStages.find(x => x.key === status);
+    return s ? s.label : 'مؤكد';
+  }
+
+  function getNextStage(status) {
+    switch (status) {
+      case 'confirmed': return 'preparing';
+      case 'preparing': return 'out_for_delivery';
+      case 'out_for_delivery': return 'delivered';
+      default: return null;
+    }
+  }
+
+  function getNextStageLabel(status) {
+    switch (status) {
+      case 'confirmed': return 'بدء التنسيق 🌿';
+      case 'preparing': return 'تسليم للسائق 🚗';
+      case 'out_for_delivery': return 'تأكيد التسليم ✨';
+      default: return null;
+    }
+  }
+
+  async function handleAdvanceStage(order) {
+    const next = getNextStage(order.status);
+    if (!next) return;
+    await handleStatusChange(order.order_number, next);
+    if (orderTrackingModal.open && orderTrackingModal.order?.order_number === order.order_number) {
+      orderTrackingModal.order.status = next;
+    }
+  }
+
+  $: countAll = orders.length;
+  $: countNew = orders.filter(o => o.status === 'confirmed').length;
+  $: countPreparing = orders.filter(o => o.status === 'preparing').length;
+  $: countDelivery = orders.filter(o => o.status === 'out_for_delivery').length;
+  $: countDelivered = orders.filter(o => o.status === 'delivered').length;
 
   // السائقون ومنسقو الورد
   let drivers = [];
@@ -97,7 +154,7 @@
         notes: settleModal.notes
       });
 
-      settleModal.successMsg = `تمت التسوية بنجاح واستلام المبلغ برقم إيصال ${res.receipt?.settlement_number || ''} 🌸`;
+      settleModal.successMsg = `تمت التسوية بنجاح واستلام المبلغ برقم إيصال ${res.receipt?.settlement_number || ''}`;
       await reloadFinancials();
       const dRes = await api.getDrivers();
       if (dRes && dRes.data) drivers = dRes.data;
@@ -206,13 +263,13 @@
       });
 
       const roleLabels = {
-        driver: 'كابتن توصيل 🚗',
-        florist: 'منسق زهور 💐',
-        admin: 'مدير نظام 👑',
-        customer: 'زبون 👥'
+        driver: 'كابتن توصيل',
+        florist: 'منسق زهور',
+        admin: 'مدير نظام',
+        customer: 'زبون'
       };
 
-      userModal.successMsg = `تمت إضافة ${userModal.fullName} بنجاح كـ ${roleLabels[userModal.role] || 'مستخدم'} 🌸`;
+      userModal.successMsg = `تمت إضافة ${userModal.fullName} بنجاح كـ ${roleLabels[userModal.role] || 'مستخدم'}`;
       
       await reloadUsers();
       const [dRes, flRes] = await Promise.allSettled([api.getDrivers(), api.getFlorists()]);
@@ -343,7 +400,7 @@
           return o;
         });
 
-        assignModal.successMsg = `تم توجيه وإسناد الطلب #${assignModal.order.order_number} بنجاح! 🌸`;
+        assignModal.successMsg = `تم توجيه وإسناد الطلب #${assignModal.order.order_number} بنجاح!`;
         setTimeout(() => {
           closeAssignModal();
         }, 1200);
@@ -356,6 +413,155 @@
       assignModal.errorMsg = err.message || 'حدث خطأ أثناء حفظ التوجيه والإسناد';
     } finally {
       assignModal.saving = false;
+    }
+  }
+
+  // مودال التتبع المباشر للطلب بالخريطة ومسار المراحل
+  let orderTrackingModal = {
+    open: false,
+    orderNumber: null,
+    loading: false,
+    order: null,
+    items: [],
+    history: [],
+    mapInstance: null,
+    errorMsg: ''
+  };
+
+  async function openOrderTracking(orderOrNum) {
+    const num = typeof orderOrNum === 'object' ? orderOrNum.order_number : orderOrNum;
+    orderTrackingModal.open = true;
+    orderTrackingModal.orderNumber = num;
+    orderTrackingModal.loading = true;
+    orderTrackingModal.errorMsg = '';
+    orderTrackingModal.order = typeof orderOrNum === 'object' ? { ...orderOrNum } : null;
+    orderTrackingModal.items = [];
+    orderTrackingModal.history = [];
+
+    await tick();
+
+    try {
+      const res = await api.getOrderDetails(num);
+      if (res && res.success && res.data) {
+        orderTrackingModal.order = res.data.order;
+        orderTrackingModal.items = res.data.items || [];
+        orderTrackingModal.history = res.data.history || [];
+      }
+    } catch (err) {
+      console.error('Error fetching order details:', err);
+      orderTrackingModal.errorMsg = 'تعذر تحميل بيانات التتبع الكاملة للطلب';
+    } finally {
+      orderTrackingModal.loading = false;
+      await tick();
+      initOrderTrackingMap();
+    }
+  }
+
+  function closeOrderTracking() {
+    if (orderTrackingModal.mapInstance) {
+      try {
+        orderTrackingModal.mapInstance.remove();
+      } catch (e) {}
+      orderTrackingModal.mapInstance = null;
+    }
+    orderTrackingModal.open = false;
+    orderTrackingModal.order = null;
+  }
+
+  function initOrderTrackingMap() {
+    if (!orderTrackingModal.open || !orderTrackingModal.order) return;
+    const mapContainer = document.getElementById('order-tracking-live-map');
+    if (!mapContainer) return;
+
+    if (orderTrackingModal.mapInstance) {
+      try {
+        orderTrackingModal.mapInstance.remove();
+      } catch (e) {}
+      orderTrackingModal.mapInstance = null;
+    }
+
+    const ord = orderTrackingModal.order;
+
+    // موقع الأتيليه الرئيسي
+    let atelierCoord = [32.8872, 13.1913]; // طرابلس المركز
+    if (ord.delivery_city === 'بنغازي') atelierCoord = [32.1167, 20.0667];
+    else if (ord.delivery_city === 'مصراتة') atelierCoord = [32.3754, 15.0925];
+
+    // موقع المستلم / الوجهة
+    let destCoord = [
+      Number(ord.delivery_lat) || (atelierCoord[0] + 0.025),
+      Number(ord.delivery_lng) || (atelierCoord[1] + 0.035)
+    ];
+
+    // موقع السائق
+    let driverCoord = null;
+    if (ord.driver_lat && ord.driver_lng) {
+      driverCoord = [Number(ord.driver_lat), Number(ord.driver_lng)];
+    } else {
+      driverCoord = [
+        atelierCoord[0] + (destCoord[0] - atelierCoord[0]) * 0.65,
+        atelierCoord[1] + (destCoord[1] - atelierCoord[1]) * 0.65
+      ];
+    }
+
+    try {
+      const map = L.map('order-tracking-live-map', {
+        attributionControl: false
+      }).setView(driverCoord || atelierCoord, 13);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(map);
+
+      // ماركر الأتيليه
+      const atelierIcon = L.divIcon({
+        className: 'custom-map-marker-atelier',
+        html: '<div style="background:#2e4432;color:#d4af37;padding:5px 9px;border-radius:18px;font-size:11px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,0.3);white-space:nowrap;border:1px solid #d4af37;">🌿 أتيليه مسكة</div>',
+        iconSize: [100, 28],
+        iconAnchor: [50, 14]
+      });
+      L.marker(atelierCoord, { icon: atelierIcon }).addTo(map)
+        .bindPopup(`<b>أتيليه مسكة للزهور</b><br>${ord.delivery_city || 'طرابلس'}`);
+
+      // ماركر المستلم
+      const destIcon = L.divIcon({
+        className: 'custom-map-marker-dest',
+        html: `<div style="background:#b91c1c;color:#fff;padding:5px 9px;border-radius:18px;font-size:11px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,0.3);white-space:nowrap;">📍 ${ord.recipient_name || 'وجهة التسليم'}</div>`,
+        iconSize: [110, 28],
+        iconAnchor: [55, 14]
+      });
+      L.marker(destCoord, { icon: destIcon }).addTo(map)
+        .bindPopup(`<b>وجهة الاستلام:</b><br>${ord.recipient_name} (${ord.recipient_phone})<br>${ord.delivery_city} - ${ord.delivery_zone || ''}`);
+
+      // ماركر السائق
+      if (ord.driver_name || ord.status === 'out_for_delivery') {
+        const driverIcon = L.divIcon({
+          className: 'custom-map-marker-driver',
+          html: `<div style="background:#1d4ed8;color:#fff;padding:5px 9px;border-radius:18px;font-size:11px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,0.3);white-space:nowrap;border:2px solid #93c5fd;">🚗 ${ord.driver_name || 'الكابتن'}</div>`,
+          iconSize: [110, 28],
+          iconAnchor: [55, 14]
+        });
+        L.marker(driverCoord, { icon: driverIcon }).addTo(map)
+          .bindPopup(`<b>كابتن التوصيل:</b> ${ord.driver_name || 'مسند'}<br>هاتف: ${ord.driver_phone || '—'}<br>مركبة: ${ord.vehicle_type || 'سيارة مبردة'}`);
+      }
+
+      // رسم مسار التوصيل
+      const routePoints = [atelierCoord];
+      if (driverCoord) routePoints.push(driverCoord);
+      routePoints.push(destCoord);
+
+      L.polyline(routePoints, {
+        color: '#2563eb',
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '8, 8'
+      }).addTo(map);
+
+      map.fitBounds(L.latLngBounds(routePoints).pad(0.2));
+
+      orderTrackingModal.mapInstance = map;
+    } catch (e) {
+      console.error('Error rendering tracking map:', e);
     }
   }
 
@@ -423,14 +629,14 @@
 
       flowerModal['image_' + angle] = fileUrl;
       flowerModal.activeAnglePreview = angle;
-      flowerModal.successMsg = `تم رفع وتعيين صورة (${getAngleLabel(angle)}) بنجاح 🌸`;
+      flowerModal.successMsg = `تم رفع وتعيين صورة (${getAngleLabel(angle)}) بنجاح`;
     } catch (err) {
       console.error('Upload error:', err);
       try {
         const base64 = await fileToBase64(file);
         flowerModal['image_' + angle] = base64;
         flowerModal.activeAnglePreview = angle;
-        flowerModal.successMsg = `تم اعتماد صورة (${getAngleLabel(angle)}) بنجاح 🌸`;
+        flowerModal.successMsg = `تم اعتماد صورة (${getAngleLabel(angle)}) بنجاح`;
       } catch (e) {
         flowerModal.errorMsg = 'تعذر قراءة ملف الصورة: ' + (err.message || 'خطأ');
       }
@@ -467,7 +673,7 @@
     }
 
     flowerModal.uploadingAngle = '';
-    flowerModal.successMsg = `تم بنجاح رفع وتعيين ${count} صور لزوايا الوردة 🌸`;
+    flowerModal.successMsg = `تم بنجاح رفع وتعيين ${count} صور لزوايا الوردة`;
     flowerModal.activeAnglePreview = 'front';
     if (event.target) event.target.value = '';
   }
@@ -538,7 +744,7 @@
       }
       inventory = inventory.map(f => f.id === flower.id ? { ...f, [col]: fileUrl, ...(angle === 'front' ? { image_url: fileUrl } : {}) } : f);
       flowerAnglesViewer.flower = { ...flower, [col]: fileUrl, ...(angle === 'front' ? { image_url: fileUrl } : {}) };
-      quickFlowerAngleMsg = `تم رفع وتحديث صورة (${getAngleLabel(angle)}) بنجاح 🌸`;
+      quickFlowerAngleMsg = `تم رفع وتحديث صورة (${getAngleLabel(angle)}) بنجاح`;
     } catch (err) {
       console.error('Quick flower angle upload failed:', err);
       alert('تعذر رفع صورة الزاوية: ' + (err.message || 'خطأ'));
@@ -643,7 +849,7 @@
         await api.addFlower(payload);
       }
 
-      flowerModal.successMsg = 'تم حفظ صنف الورد وصور زواياه بنجاح 🌸';
+      flowerModal.successMsg = 'تم حفظ صنف الورد وصور زواياه بنجاح';
       const invRes = await api.getInventory();
       if (invRes && invRes.data) inventory = invRes.data;
 
@@ -831,7 +1037,7 @@
         await api.createBouquet(payload);
       }
 
-      bouquetModal.successMsg = 'تم حفظ الباقة وتركيبة الورود بنجاح 💐';
+      bouquetModal.successMsg = 'تم حفظ الباقة وتركيبة الورود بنجاح';
       const bRes = await api.getBouquets();
       if (bRes && bRes.data) bouquets = bRes.data;
 
@@ -867,13 +1073,13 @@
       const base64 = await fileToBase64(file);
       const res = await api.uploadImage(base64, 'bouquets', file.name);
       bouquetModal.image_svg_path = res.url || base64;
-      bouquetModal.successMsg = 'تم رفع واختيار صورة الباقة بنجاح من جهازك 🌸';
+      bouquetModal.successMsg = 'تم رفع واختيار صورة الباقة بنجاح من جهازك';
     } catch (err) {
       console.error('Bouquet upload error:', err);
       try {
         const base64 = await fileToBase64(file);
         bouquetModal.image_svg_path = base64;
-        bouquetModal.successMsg = 'تم اعتماد صورة الباقة محلياً بنجاح 🌸';
+        bouquetModal.successMsg = 'تم اعتماد صورة الباقة محلياً بنجاح';
       } catch (e) {
         bouquetModal.errorMsg = 'تعذر قراءة ملف الصورة: ' + (err.message || 'خطأ');
       }
@@ -895,7 +1101,7 @@
 
       bouquet.image_svg_path = newUrl;
       bouquets = bouquets.map(b => b.id === bouquet.id ? { ...b, image_svg_path: newUrl } : b);
-      alert(`تم بنجاح رفع وتحديث صورة باقة "${bouquet.title}" من جهازك 🌸`);
+      alert(`تم بنجاح رفع وتحديث صورة باقة "${bouquet.title}" من جهازك`);
     } catch (err) {
       console.error('Quick bouquet upload failed:', err);
       alert('تعذر تحديث صورة الباقة: ' + (err.message || 'خطأ'));
@@ -1101,6 +1307,12 @@
       adminGeoMapInstance.remove();
       adminGeoMapInstance = null;
     }
+    if (orderTrackingModal.mapInstance) {
+      try {
+        orderTrackingModal.mapInstance.remove();
+      } catch (e) {}
+      orderTrackingModal.mapInstance = null;
+    }
   });
 
   // الانتقال إلى وضع التشكيل والتأكيد المباشر على الخريطة
@@ -1201,7 +1413,7 @@
         }
 
         editingZoneModal.coordsConfirmed = true;
-        editingZoneModal.coordsConfirmedMsg = `✓ تم تأكيد واعتماد الإحداثيات يدوياً: (${clickLat.toFixed(4)}°, ${clickLng.toFixed(4)}°) 📍`;
+        editingZoneModal.coordsConfirmedMsg = `✓ تم تأكيد واعتماد الإحداثيات يدوياً: (${clickLat.toFixed(4)}°, ${clickLng.toFixed(4)}°)`;
         updateModalPreviewLayer(true);
       }
     });
@@ -1309,7 +1521,7 @@
             <span>الشكل: <b>${shapeText}</b></span><br>
             <span>رسوم التوصيل: <b style="color: #5e6b2c;">${z.delivery_fee} د.ل</b></span><br>
             <small style="color: #888;">(Lat: ${centerLatVal.toFixed(4)}, Lng: ${centerLngVal.toFixed(4)})</small><br>
-            <button style="margin-top: 8px; width: 100%; padding: 5px 10px; background: #5e6b2c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 700;" onclick="window.editZoneFromMap(${z.id})">تعديل وتشكيل النطاق ✏️</button>
+            <button style="margin-top: 8px; width: 100%; padding: 5px 10px; background: #5e6b2c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 700;" onclick="window.editZoneFromMap(${z.id})">تعديل وتشكيل النطاق</button>
           </div>
         `);
 
@@ -1472,7 +1684,7 @@
       // مقبض المركز الذهبي (سحب كامل الشكل)
       const centerMarker = L.marker([cLat, cLng], {
         draggable: true,
-        icon: createHandleIcon('🎯', '#b45309', 28)
+        icon: createHandleIcon('●', '#b45309', 24)
       }).addTo(adminGeoMapInstance);
 
       centerMarker.bindTooltip('المركز: اسحب لنقل كامل النطاق الجغرافي', { permanent: false, direction: 'top' });
@@ -1703,7 +1915,7 @@
       editingZoneModal.coordsConfirmed = false;
       editingZoneModal.coordsConfirmedMsg = '';
       renderAdminZoneLayers();
-      alert(`تم بنجاح حفظ وتحديث نطاق "${payload.zone_name}" وتشكيل حدوده الجغرافية 📍`);
+      alert(`تم بنجاح حفظ وتحديث نطاق "${payload.zone_name}" وتشكيل حدوده الجغرافية`);
     } catch (err) {
       editingZoneModal.errorMsg = err.message || 'فشل حفظ المنطقة';
     } finally {
@@ -1748,9 +1960,21 @@
     }
   }
 
-  $: filteredOrders = filterStatus === 'all' 
-    ? orders 
-    : orders.filter(o => o.status === filterStatus);
+  $: filteredOrders = orders.filter(o => {
+    const matchStatus = (filterStatus === 'all') || (o.status === filterStatus);
+    if (!matchStatus) return false;
+    if (!orderSearchQuery.trim()) return true;
+    const q = orderSearchQuery.trim().toLowerCase();
+    return (
+      (o.order_number && String(o.order_number).toLowerCase().includes(q)) ||
+      (o.recipient_name && o.recipient_name.toLowerCase().includes(q)) ||
+      (o.recipient_phone && o.recipient_phone.toLowerCase().includes(q)) ||
+      (o.delivery_city && o.delivery_city.toLowerCase().includes(q)) ||
+      (o.delivery_zone && o.delivery_zone.toLowerCase().includes(q)) ||
+      (o.driver_name && o.driver_name.toLowerCase().includes(q)) ||
+      (o.florist_name && o.florist_name.toLowerCase().includes(q))
+    );
+  });
 </script>
 
 <div class="admin-dashboard-page">
@@ -1763,7 +1987,7 @@
       <aside class="admin-sidebar" class:mobile-open={mobileSidebarOpen}>
         <div class="sidebar-brand-box">
           <div class="brand-top-row">
-            <span class="sidebar-brand-badge">👑 لوحة الإدارة</span>
+            <span class="sidebar-brand-badge">لوحة الإدارة</span>
             <button type="button" class="btn-close-sidebar-mobile" on:click={() => mobileSidebarOpen = false}>✕</button>
           </div>
           <h2 class="sidebar-title">أتيليه مسكة</h2>
@@ -1786,7 +2010,7 @@
 
         <!-- قائمة التبويبات العمودية (Sidebar Navigation Menu) -->
         <nav class="sidebar-nav-menu">
-          <div class="nav-group-header">⚡ العمليات والمالية</div>
+          <div class="nav-group-header">العمليات والمالية</div>
 
           <button 
             type="button" 
@@ -1794,7 +2018,7 @@
             class:active={currentTab === 'orders'}
             on:click={() => { currentTab = 'orders'; mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">📦</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
             <span class="nav-btn-title">الطلبات والتسليم</span>
             <span class="nav-btn-badge">{orders.length}</span>
           </button>
@@ -1805,7 +2029,7 @@
             class:active={currentTab === 'drivers'}
             on:click={() => { currentTab = 'drivers'; mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">🚗</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
             <span class="nav-btn-title">السائقون والتتبع</span>
             <span class="nav-btn-badge">{drivers.length}</span>
           </button>
@@ -1816,7 +2040,7 @@
             class:active={currentTab === 'financials'}
             on:click={() => { currentTab = 'financials'; reloadFinancials(); mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">💰</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
             <span class="nav-btn-title">العهد والمالية</span>
             <span class="nav-btn-badge badge-gold">{driversFinancials.drivers?.length || 0}</span>
           </button>
@@ -1827,12 +2051,12 @@
             class:active={currentTab === 'users'}
             on:click={() => { currentTab = 'users'; reloadUsers(); mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">👥</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
             <span class="nav-btn-title">الطاقم والمستخدمون</span>
             <span class="nav-btn-badge badge-teal">{allUsers.length}</span>
           </button>
 
-          <div class="nav-group-header">🌸 المخزون والمنتجات</div>
+          <div class="nav-group-header">المخزون والمنتجات</div>
 
           <button 
             type="button" 
@@ -1840,7 +2064,7 @@
             class:active={currentTab === 'inventory'}
             on:click={() => { currentTab = 'inventory'; mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">🌸</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L3 9l9 13 9-13-9-7z"/><path d="M2.5 9h19"/><path d="M12 22V9"/></svg></span>
             <span class="nav-btn-title">مخزون الورود والزوايا</span>
             <span class="nav-btn-badge">{inventory.length}</span>
           </button>
@@ -1851,12 +2075,12 @@
             class:active={currentTab === 'bouquets'}
             on:click={() => { currentTab = 'bouquets'; mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">💐</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L3 9l9 13 9-13-9-7z"/></svg></span>
             <span class="nav-btn-title">كتالوج الباقات والتركيبات</span>
             <span class="nav-btn-badge">{bouquets.length}</span>
           </button>
 
-          <div class="nav-group-header">⚙️ التسويق والإعدادات</div>
+          <div class="nav-group-header">التسويق والإعدادات</div>
 
           <button 
             type="button" 
@@ -1864,7 +2088,7 @@
             class:active={currentTab === 'coupons'}
             on:click={() => { currentTab = 'coupons'; mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">🏷️</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
             <span class="nav-btn-title">الكوبونات والخصومات</span>
             <span class="nav-btn-badge">{coupons.length}</span>
           </button>
@@ -1875,7 +2099,7 @@
             class:active={currentTab === 'reviews'}
             on:click={() => { currentTab = 'reviews'; mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">⭐</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
             <span class="nav-btn-title">التقييمات والملاحظات</span>
             <span class="nav-btn-badge">{reviews.length}</span>
           </button>
@@ -1886,7 +2110,7 @@
             class:active={currentTab === 'pricing'}
             on:click={() => { currentTab = 'pricing'; mobileSidebarOpen = false; }}
           >
-            <span class="nav-btn-icon">📍</span>
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
             <span class="nav-btn-title">أسعار التوصيل والرقابة</span>
             <span class="nav-btn-badge">{zones.length}</span>
           </button>
@@ -1895,7 +2119,7 @@
         <!-- أسفل القائمة الجانبية -->
         <div class="sidebar-bottom-actions">
           <button type="button" class="btn-sidebar-sync" on:click={loadAllAdminData}>
-            <span>🔄</span>
+            <span></span>
             <span>تحديث البيانات الحية</span>
           </button>
         </div>
@@ -1917,7 +2141,7 @@
             <span>القائمة: {getActiveTabLabel(currentTab)}</span>
           </button>
           <button type="button" class="btn-mobile-sync-icon" title="تحديث البيانات" on:click={loadAllAdminData}>
-            🔄
+            
           </button>
         </div>
 
@@ -1934,7 +2158,7 @@
           </div>
 
           <button type="button" class="btn btn-outline desk-sync-btn" on:click={loadAllAdminData}>
-            تحديث البيانات 🔄
+            تحديث البيانات
           </button>
         </div>
 
@@ -1942,7 +2166,7 @@
         {#if stats}
           <div class="kpi-grid">
             <div class="kpi-card">
-              <span class="kpi-icon">📦</span>
+              <span class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
               <div>
                 <span class="kpi-label">طلبات اليوم</span>
                 <b class="kpi-value">{stats.todayOrders} طلب</b>
@@ -1950,7 +2174,7 @@
             </div>
 
             <div class="kpi-card">
-              <span class="kpi-icon">💰</span>
+              <span class="kpi-icon"></span>
               <div>
                 <span class="kpi-label">مبيعات اليوم</span>
                 <b class="kpi-value">{stats.todaySales} د.ل</b>
@@ -1958,7 +2182,7 @@
             </div>
 
             <div class="kpi-card highlight-profit-card">
-              <span class="kpi-icon">💎</span>
+              <span class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
               <div>
                 <span class="kpi-label">أرباح المتجر اليومية</span>
                 <b class="kpi-value profit-color">{stats.todayStoreProfit !== undefined ? stats.todayStoreProfit : stats.todaySales} د.ل</b>
@@ -1966,7 +2190,7 @@
             </div>
 
             <div class="kpi-card">
-              <span class="kpi-icon">💐</span>
+              <span class="kpi-icon"></span>
               <div>
                 <span class="kpi-label">قيد التنسيق</span>
                 <b class="kpi-value">{stats.preparingCount} باقة</b>
@@ -1974,7 +2198,7 @@
             </div>
 
             <div class="kpi-card">
-              <span class="kpi-icon">🚗</span>
+              <span class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
               <div>
                 <span class="kpi-label">السائقون النشطون</span>
                 <b class="kpi-value">{stats.activeDrivers} سائقين</b>
@@ -1985,109 +2209,403 @@
 
         <!-- محتوى التبويبات -->
         <div class="tab-content-area">
-      <!-- 1. تبويب الطلبات -->
+      <!-- 1. تبويب الطلبات ومسار المراحل -->
       {#if currentTab === 'orders'}
-        <div class="card table-card">
-          <div class="table-head-flex">
-            <h3>سجل الطلبات وإسناد الطاقم</h3>
-            <div class="filter-actions">
-              <select class="input-field-sm" bind:value={filterStatus}>
-                <option value="all">كل الحالات ({orders.length})</option>
-                <option value="confirmed">مؤكد</option>
-                <option value="preparing">جاري التنسيق</option>
-                <option value="out_for_delivery">في الطريق</option>
-                <option value="delivered">تم التسليم</option>
-              </select>
+        <div class="orders-section-wrap">
+
+          <!-- أ. شريط مسار المراحل التفاعلي الرئيسي -->
+          <div class="card pipeline-summary-bar">
+            <div class="pipeline-summary-header">
+              <div class="p-head-titles">
+                <span class="p-pre-badge">دورة حياة الطلبات واللوجستيات</span>
+                <h3 class="pipeline-main-title">مسار مراحل الطلبات والتسليم</h3>
+                <p class="pipeline-subtitle">متابعة فورية للباقات من لحظة التثبيت، التنسيق في الأتيليه، خروج السائق، حتى التسليم الموثق للزبون</p>
+              </div>
+
+              <!-- أزرار التبديل بين نمط مسار المراحل وجدول البيانات -->
+              <div class="view-switch-group">
+                <button 
+                  type="button" 
+                  class="view-switch-btn" 
+                  class:active={ordersViewMode === 'pipeline'} 
+                  on:click={() => ordersViewMode = 'pipeline'}
+                  title="عرض مسار المراحل وأعمدة التدفق"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="10" rx="1"/></svg>
+                  مسار المراحل
+                </button>
+                <button 
+                  type="button" 
+                  class="view-switch-btn" 
+                  class:active={ordersViewMode === 'table'} 
+                  on:click={() => ordersViewMode = 'table'}
+                  title="عرض جدول البيانات التفصيلي"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                  جدول تفصيلي
+                </button>
+              </div>
+            </div>
+
+            <!-- خط التدفق التفاعلي للمراحل الأربعة -->
+            <div class="pipeline-flow-track">
+              <!-- مرحلة 1: جديدة -->
+              <button 
+                type="button" 
+                class="pipeline-flow-step" 
+                class:active={filterStatus === 'confirmed'}
+                on:click={() => filterStatus = filterStatus === 'confirmed' ? 'all' : 'confirmed'}
+              >
+                <div class="step-num-badge stage-confirmed">1</div>
+                <div class="step-content-box">
+                  <span class="step-name">طلبات جديدة</span>
+                  <b class="step-count">{countNew} طلب</b>
+                </div>
+              </button>
+
+              <div class="pipeline-flow-connector">
+                <span class="connector-arrow">←</span>
+              </div>
+
+              <!-- مرحلة 2: جاري التنسيق -->
+              <button 
+                type="button" 
+                class="pipeline-flow-step" 
+                class:active={filterStatus === 'preparing'}
+                on:click={() => filterStatus = filterStatus === 'preparing' ? 'all' : 'preparing'}
+              >
+                <div class="step-num-badge stage-preparing">2</div>
+                <div class="step-content-box">
+                  <span class="step-name">جاري التنسيق</span>
+                  <b class="step-count">{countPreparing} طلب</b>
+                </div>
+              </button>
+
+              <div class="pipeline-flow-connector">
+                <span class="connector-arrow">←</span>
+              </div>
+
+              <!-- مرحلة 3: قيد التوصيل -->
+              <button 
+                type="button" 
+                class="pipeline-flow-step" 
+                class:active={filterStatus === 'out_for_delivery'}
+                on:click={() => filterStatus = filterStatus === 'out_for_delivery' ? 'all' : 'out_for_delivery'}
+              >
+                <div class="step-num-badge stage-delivery">3</div>
+                <div class="step-content-box">
+                  <span class="step-name">قيد التوصيل</span>
+                  <b class="step-count">{countDelivery} طلب</b>
+                </div>
+              </button>
+
+              <div class="pipeline-flow-connector">
+                <span class="connector-arrow">←</span>
+              </div>
+
+              <!-- مرحلة 4: مكتملة -->
+              <button 
+                type="button" 
+                class="pipeline-flow-step" 
+                class:active={filterStatus === 'delivered'}
+                on:click={() => filterStatus = filterStatus === 'delivered' ? 'all' : 'delivered'}
+              >
+                <div class="step-num-badge stage-delivered">4</div>
+                <div class="step-content-box">
+                  <span class="step-name">المكتملة والمسلّمة</span>
+                  <b class="step-count">{countDelivered} طلب</b>
+                </div>
+              </button>
             </div>
           </div>
 
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>رقم الطلب</th>
-                  <th>المستلم والهاتف</th>
-                  <th>الوجهة والمدينة</th>
-                  <th>المبلغ</th>
-                  <th>توجيه الطاقم (المنسقة والسائق) 🎯</th>
-                  <th>حالة الطلب</th>
-                  <th>إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each filteredOrders as o (o.id || o.order_number)}
-                  <tr>
-                    <td><b class="order-id-badge">#{o.order_number}</b></td>
-                    <td>
-                      <strong>{o.recipient_name}</strong>
-                      <small class="cell-sub">{o.recipient_phone}</small>
-                    </td>
-                    <td>
-                      <span>{o.delivery_city}</span>
-                      <small class="cell-sub">{o.delivery_zone}</small>
-                    </td>
-                    <td><b class="cell-price">{o.total_amount} د.ل</b></td>
-                    <td>
-                      <div class="staff-cell">
-                        <div class="staff-line">
-                          <span class="staff-badge florist">💐 منسقة:</span>
-                          <span class="staff-name" class:unassigned={!o.florist_name}>
-                            {o.florist_name || 'غير مسندة'}
-                          </span>
-                        </div>
-                        <div class="staff-line">
-                          <span class="staff-badge driver">🚗 سائق:</span>
-                          <span class="staff-name" class:unassigned={!o.driver_name}>
-                            {o.driver_name || 'غير مسند'}
-                          </span>
-                        </div>
-                        <button 
-                          type="button" 
-                          class="btn-assign-trigger"
-                          on:click={() => openAssignModal(o)}
-                          title="توجيه الطلب لمنسقة الزهور أو سائق التوصيل"
-                        >
-                          توجيه الطاقم 🎯
-                        </button>
-                      </div>
-                    </td>
-                    <td>
-                      <select 
-                        class="status-select status-select-{o.status}"
-                        value={o.status}
-                        on:change={(e) => handleStatusChange(o.order_number, e.target.value)}
-                      >
-                        <option value="confirmed">مؤكد</option>
-                        <option value="preparing">جاري التنسيق 💐</option>
-                        <option value="out_for_delivery">في الطريق للتوصيل 🚗</option>
-                        <option value="delivered">تم التسليم 🌸</option>
-                      </select>
-                    </td>
-                    <td>
-                      <div class="actions-cell">
-                        <button 
-                          type="button" 
-                          class="btn-icon-assign" 
-                          on:click={() => openAssignModal(o)}
-                          title="توجيه وإسناد الطلب"
-                        >
-                          🎯
-                        </button>
-                        <button 
-                          type="button" 
-                          class="btn-icon" 
-                          on:click={() => router.navigate('/track', { order: o.order_number })}
-                          title="فتح شاشة التتبع بالخريطة"
-                        >
-                          📍
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+          <!-- ب. شريط أزرار الفلاتر السريعة والبحث -->
+          <div class="card orders-controls-bar">
+            <div class="filter-pills-row">
+              <button 
+                type="button" 
+                class="filter-pill-btn" 
+                class:active={filterStatus === 'all'}
+                on:click={() => filterStatus = 'all'}
+              >
+                كل الطلبات ({countAll})
+              </button>
+              <button 
+                type="button" 
+                class="filter-pill-btn pill-new" 
+                class:active={filterStatus === 'confirmed'}
+                on:click={() => filterStatus = 'confirmed'}
+              >
+                الطلبات الجديدة ({countNew})
+              </button>
+              <button 
+                type="button" 
+                class="filter-pill-btn pill-prep" 
+                class:active={filterStatus === 'preparing'}
+                on:click={() => filterStatus = 'preparing'}
+              >
+                قيد التنسيق ({countPreparing})
+              </button>
+              <button 
+                type="button" 
+                class="filter-pill-btn pill-deliv" 
+                class:active={filterStatus === 'out_for_delivery'}
+                on:click={() => filterStatus = 'out_for_delivery'}
+              >
+                قيد التوصيل ({countDelivery})
+              </button>
+              <button 
+                type="button" 
+                class="filter-pill-btn pill-done" 
+                class:active={filterStatus === 'delivered'}
+                on:click={() => filterStatus = 'delivered'}
+              >
+                المكتملة ({countDelivered})
+              </button>
+            </div>
+
+            <div class="orders-search-box">
+              <span class="search-icon">🔍</span>
+              <input 
+                type="text" 
+                class="orders-search-input" 
+                placeholder="بحث برقم الطلب، اسم المستلم، الهاتف، المدينة أو السائق..." 
+                bind:value={orderSearchQuery}
+              />
+              {#if orderSearchQuery}
+                <button type="button" class="btn-clear-search" on:click={() => orderSearchQuery = ''}>✕</button>
+              {/if}
+            </div>
           </div>
+
+          <!-- ج. المحتوى حسب نمط العرض المحدد -->
+          {#if ordersViewMode === 'pipeline'}
+            <!-- عرض أعمدة مسار المراحل (Pipeline Kanban Board) -->
+            <div class="pipeline-columns-grid">
+              {#each orderStages as stage}
+                {@const stageOrders = filteredOrders.filter(o => o.status === stage.key)}
+                <div class="pipeline-stage-col stage-col-{stage.key}">
+                  <div class="pipeline-col-header">
+                    <div class="col-title-wrap">
+                      <span class="stage-dot" style="background: {stage.color}"></span>
+                      <h4 class="col-stage-title">{stage.label}</h4>
+                    </div>
+                    <span class="col-count-badge">{stageOrders.length}</span>
+                  </div>
+
+                  <div class="pipeline-cards-list">
+                    {#if stageOrders.length === 0}
+                      <div class="pipeline-empty-col">
+                        <p>لا توجد طلبات في هذه المرحلة حالياً</p>
+                      </div>
+                    {:else}
+                      {#each stageOrders as o (o.id || o.order_number)}
+                        {@const currentStageIdx = getStageIndex(o.status)}
+                        <div class="pipeline-order-card fade-in">
+                          <div class="p-card-header">
+                            <span class="p-order-num">#{o.order_number}</span>
+                            <span class="p-order-price">{o.total_amount} د.ل</span>
+                          </div>
+
+                          <div class="p-card-body">
+                            <div class="p-recipient-name">{o.recipient_name}</div>
+                            <div class="p-recipient-meta">
+                              <span>📞 {o.recipient_phone}</span>
+                              <span>•</span>
+                              <span>📍 {o.delivery_city} ({o.delivery_zone || 'المركز'})</span>
+                            </div>
+
+                            {#if o.delivery_window}
+                              <div class="p-window-pill">
+                                <span>🕒 {o.delivery_window}</span>
+                              </div>
+                            {/if}
+
+                            <!-- طاقم العمل المسند -->
+                            <div class="p-staff-chips">
+                              <span class="p-chip" class:assigned={o.florist_name}>
+                                🌿 منسقة: {o.florist_name || 'غير مسندة'}
+                              </span>
+                              <span class="p-chip" class:assigned={o.driver_name}>
+                                🚗 سائق: {o.driver_name || 'غير مسند'}
+                              </span>
+                            </div>
+
+                            <!-- مسار المراحل المصغر التفاعلي للطلب -->
+                            <div class="p-card-stepper">
+                              {#each orderStages as s, sIdx}
+                                <div 
+                                  class="p-stepper-dot" 
+                                  class:completed={sIdx < currentStageIdx} 
+                                  class:active={sIdx === currentStageIdx}
+                                  title="{s.shortLabel}"
+                                >
+                                  <span class="dot-inner"></span>
+                                </div>
+                                {#if sIdx < orderStages.length - 1}
+                                  <div class="p-stepper-line" class:completed={sIdx < currentStageIdx}></div>
+                                {/if}
+                              {/each}
+                            </div>
+                          </div>
+
+                          <!-- أزرار الإجراءات داخل بطاقة مسار المرحلة -->
+                          <div class="p-card-actions">
+                            <button 
+                              type="button" 
+                              class="btn-p-track"
+                              on:click={() => openOrderTracking(o)}
+                              title="تتبع مسار الطلب لحظة بلحظة على الخريطة"
+                            >
+                              📍 تتبع المسار
+                            </button>
+                            <button 
+                              type="button" 
+                              class="btn-p-assign"
+                              on:click={() => openAssignModal(o)}
+                              title="إسناد وتوجيه الطلب للمنسقة أو السائق"
+                            >
+                              👤 إسناد
+                            </button>
+
+                            {#if getNextStage(o.status)}
+                              <button 
+                                type="button" 
+                                class="btn-p-advance"
+                                on:click={() => handleAdvanceStage(o)}
+                                title="تقديم الطلب للمرحلة التالية في المسار"
+                              >
+                                {getNextStageLabel(o.status)}
+                              </button>
+                            {/if}
+                          </div>
+                        </div>
+                      {/each}
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+
+          {:else}
+            <!-- عرض الجدول المطور مع مسار المراحل (Detailed Table View) -->
+            <div class="card table-card">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>رقم الطلب</th>
+                      <th>المستلم والهاتف</th>
+                      <th>الوجهة والمدينة</th>
+                      <th>المبلغ</th>
+                      <th>توجيه الطاقم (المنسقة والسائق)</th>
+                      <th>مسار مرحلة الطلب</th>
+                      <th>إجراءات والتتبع</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#if filteredOrders.length === 0}
+                      <tr>
+                        <td colspan="7" class="text-center py-6">لا توجد طلبات تطابق الفلتر أو البحث الحالي</td>
+                      </tr>
+                    {:else}
+                      {#each filteredOrders as o (o.id || o.order_number)}
+                        {@const currentStageIdx = getStageIndex(o.status)}
+                        <tr>
+                          <td><b class="order-id-badge">#{o.order_number}</b></td>
+                          <td>
+                            <strong>{o.recipient_name}</strong>
+                            <small class="cell-sub">📞 {o.recipient_phone}</small>
+                          </td>
+                          <td>
+                            <span>{o.delivery_city}</span>
+                            <small class="cell-sub">{o.delivery_zone || 'المركز'}</small>
+                          </td>
+                          <td><b class="cell-price">{o.total_amount} د.ل</b></td>
+                          <td>
+                            <div class="staff-cell">
+                              <div class="staff-line">
+                                <span class="staff-badge florist">منسقة:</span>
+                                <span class="staff-name" class:unassigned={!o.florist_name}>
+                                  {o.florist_name || 'غير مسندة'}
+                                </span>
+                              </div>
+                              <div class="staff-line">
+                                <span class="staff-badge driver">سائق:</span>
+                                <span class="staff-name" class:unassigned={!o.driver_name}>
+                                  {o.driver_name || 'غير مسند'}
+                                </span>
+                              </div>
+                              <button 
+                                type="button" 
+                                class="btn-assign-trigger"
+                                on:click={() => openAssignModal(o)}
+                                title="توجيه الطلب لمنسقة الزهور أو سائق التوصيل"
+                              >
+                                👤 توجيه الطاقم
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <!-- مسار المرحلة التفاعلي في الجدول -->
+                            <div class="table-stage-stepper-cell">
+                              <div class="t-stepper-track">
+                                {#each orderStages as s, sIdx}
+                                  <button 
+                                    type="button" 
+                                    class="t-step-chip" 
+                                    class:completed={sIdx < currentStageIdx}
+                                    class:active={sIdx === currentStageIdx}
+                                    on:click={() => handleStatusChange(o.order_number, s.key)}
+                                    title="تغيير المرحلة مباشرة إلى: {s.label}"
+                                  >
+                                    {#if sIdx < currentStageIdx}✓{:else}{sIdx + 1}{/if} {s.shortLabel}
+                                  </button>
+                                  {#if sIdx < orderStages.length - 1}
+                                    <span class="t-step-arrow">←</span>
+                                  {/if}
+                                {/each}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="actions-cell">
+                              <button 
+                                type="button" 
+                                class="btn-table-track" 
+                                on:click={() => openOrderTracking(o)}
+                                title="فتح نافذة التتبع المباشر بالخريطة"
+                              >
+                                📍 تتبع
+                              </button>
+                              <button 
+                                type="button" 
+                                class="btn-icon-assign" 
+                                on:click={() => openAssignModal(o)}
+                                title="توجيه وإسناد الطلب"
+                              >
+                                👤 إسناد
+                              </button>
+                              {#if getNextStage(o.status)}
+                                <button 
+                                  type="button" 
+                                  class="btn-table-advance" 
+                                  on:click={() => handleAdvanceStage(o)}
+                                  title="تقديم الطلب للمرحلة التالية: {getNextStageLabel(o.status)}"
+                                >
+                                  ⏩
+                                </button>
+                              {/if}
+                            </div>
+                          </td>
+                        </tr>
+                      {/each}
+                    {/if}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -2100,14 +2618,14 @@
               <p class="tab-subtext">متابعة موقع وحالة كباتن التوصيل مع إمكانية إضافة كابتن جديد للأسطول</p>
             </div>
             <button type="button" class="btn btn-primary" on:click={() => openCreateUserModal('driver')}>
-              + إضافة كابتن توصيل جديد 🚗
+              + إضافة كابتن توصيل جديد
             </button>
           </div>
           <div class="drivers-cards-grid">
             {#each drivers as d (d.id || d.user_id)}
               <div class="driver-profile-card">
                 <div class="driver-top">
-                  <div class="driver-avatar">🚗</div>
+                  <div class="driver-avatar"></div>
                   <div>
                     <h4>{d.full_name}</h4>
                     <span class="driver-phone">{d.phone}</span>
@@ -2118,7 +2636,7 @@
                   <p>المركبة: <b>{d.vehicle_type}</b></p>
                   <p>رقم اللوحة: <b>{d.plate_number}</b></p>
                   <p>التوصيلات المنجزة: <b>{d.total_deliveries} باقة</b></p>
-                  <p>التقييم: <b>{d.rating} ★</b></p>
+                  <p>التقييم: <b>{d.rating} </b></p>
                   <p>الإحداثيات الحالية: <b>{Number(d.current_lat).toFixed(4)}, {Number(d.current_lng).toFixed(4)}</b></p>
                 </div>
               </div>
@@ -2136,7 +2654,7 @@
               <p class="tab-subtext">عرض وإدارة أصناف الزهور مع صورها من زوايا متعددة (أمامية، جانبية، علوية، وتفاصيل الساق)</p>
             </div>
             <button type="button" class="btn btn-primary" on:click={openAddFlowerModal}>
-              + إضافة صنف ورد جديد بزواياه 🌸
+              + إضافة صنف ورد جديد بزواياه
             </button>
           </div>
 
@@ -2219,10 +2737,10 @@
                     <td>
                       <div class="actions-cell-flex">
                         <button type="button" class="btn-sm-action" on:click={() => openEditFlowerModal(item)}>
-                          تعديل ✏️
+                          تعديل
                         </button>
                         <button type="button" class="btn-sm-action danger" on:click={() => handleDeleteFlower(item.id)}>
-                          حذف 🗑️
+                          حذف
                         </button>
                       </div>
                     </td>
@@ -2243,7 +2761,7 @@
               <p class="tab-subtext">تحديد مكونات كل باقة بعدد الورود من كل نوع بناءً على قائمة مخزون الورود المعتمدة</p>
             </div>
             <button type="button" class="btn btn-primary" on:click={openAddBouquetModal}>
-              + إضافة باقة جديدة بتوليفة مخصصة 💐
+              + إضافة باقة جديدة بتوليفة مخصصة
             </button>
           </div>
 
@@ -2257,7 +2775,7 @@
                       <span class="custom-photo-badge" title="صورة خاصة تم رفعها من جهازك">✓ خاصة</span>
                     {/if}
                     <label class="thumb-upload-overlay" title="انقر لتغيير صورة الباقة من جهازك مباشرة">
-                      <span>{quickBouquetUploadingId === b.id ? '⏳' : '📷'}</span>
+                      <span>{quickBouquetUploadingId === b.id ? '...' : 'تغيير'}</span>
                       <input type="file" accept="image/*" on:change={(e) => handleQuickBouquetPhotoUpload(e, b)} hidden />
                     </label>
                   </div>
@@ -2270,7 +2788,7 @@
 
                 <div class="bouquet-recipe-section">
                   <div class="recipe-header-row">
-                    <span class="recipe-label">🌸 تركيبة وعدد الورود:</span>
+                    <span class="recipe-label"> تركيبة وعدد الورود:</span>
                     <span class="recipe-total-stems">إجمالي {b.total_stems || 0} زهرة</span>
                   </div>
                   <div class="recipe-chips-list">
@@ -2297,21 +2815,21 @@
                 <div class="bouquet-card-actions">
                   <label class="btn-sm-action upload-btn-card" title="تحميل صورة من جهازك لهذه الباقة">
                     {#if quickBouquetUploadingId === b.id}
-                      <span>⏳ جاري الرفع...</span>
+                      <span>جاري الرفع...</span>
                     {:else}
-                      <span>📷 تغيير الصورة من جهازك</span>
+                      <span>تغيير الصورة من جهازك</span>
                     {/if}
                     <input type="file" accept="image/*" on:change={(e) => handleQuickBouquetPhotoUpload(e, b)} hidden />
                   </label>
                   <label class="btn-sm-action cam-btn-card" title="التقاط صورة بالكاميرا">
-                    📱 كاميرا
+                    كاميرا
                     <input type="file" accept="image/*" capture="environment" on:change={(e) => handleQuickBouquetPhotoUpload(e, b)} hidden />
                   </label>
                   <button type="button" class="btn-sm-action" on:click={() => openEditBouquetModal(b)}>
-                    تعديل ✏️
+                    تعديل
                   </button>
                   <button type="button" class="btn-sm-action danger" on:click={() => handleDeleteBouquet(b.id)}>
-                    حذف 🗑️
+                    حذف
                   </button>
                 </div>
               </div>
@@ -2326,7 +2844,7 @@
           <div class="table-head-flex">
             <h3>كوبونات التخفيض والعروض الترويجية</h3>
             <button type="button" class="btn btn-primary btn-sm" on:click={() => showNewCouponModal = true}>
-              + إنشاء كوبون جديد 🏷️
+              + إنشاء كوبون جديد ️
             </button>
           </div>
 
@@ -2368,7 +2886,7 @@
                 <div class="rev-header">
                   <div>
                     <strong>{r.customer_name}</strong> ({r.bouquet_type || 'باقة مسكة'})
-                    <span class="stars">{'★'.repeat(r.rating || 5)}</span>
+                    <span class="stars">{''.repeat(r.rating || 5)}</span>
                   </div>
                   <button 
                     type="button" 
@@ -2391,7 +2909,7 @@
                     class="btn btn-outline btn-sm"
                     on:click={() => replyModal = { open: true, reviewId: r.id, text: '' }}
                   >
-                    إرسال رد رسمي من الإدارة ✍️
+                    إرسال رد رسمي من الإدارة
                   </button>
                 {/if}
               </div>
@@ -2406,11 +2924,11 @@
           <!-- ترويسة إدارة النطاقات الجغرافية -->
           <div class="table-head-flex">
             <div>
-              <h3>🗺️ خريطة وتقسيم نطاقات التوصيل والدوائر الجغرافية</h3>
+              <h3>خريطة وتقسيم نطاقات التوصيل والدوائر الجغرافية</h3>
               <p class="tab-subtext">تقسيم المدن والمناطق إلى دوائر ومربعات جغرافية (Lat / Lng) وتعديل الأسماء ورسوم التوصيل لكل نطاق</p>
             </div>
             <button type="button" class="btn btn-primary" on:click={openCreateZoneModal}>
-              ➕ إضافة نطاق / دائرة جغرافية جديدة 📍
+              إضافة نطاق جغرافي جديد
             </button>
           </div>
 
@@ -2424,7 +2942,7 @@
                 class:active={selectedCityFilter === 'طرابلس'}
                 on:click={() => handleCityFilterChange('طرابلس')}
               >
-                📍 طرابلس ({zones.filter(z => (z.city || z.city_name) === 'طرابلس').length})
+                 طرابلس ({zones.filter(z => (z.city || z.city_name) === 'طرابلس').length})
               </button>
               <button 
                 type="button" 
@@ -2432,7 +2950,7 @@
                 class:active={selectedCityFilter === 'بنغازي'}
                 on:click={() => handleCityFilterChange('بنغازي')}
               >
-                📍 بنغازي ({zones.filter(z => (z.city || z.city_name) === 'بنغازي').length})
+                 بنغازي ({zones.filter(z => (z.city || z.city_name) === 'بنغازي').length})
               </button>
               <button 
                 type="button" 
@@ -2440,7 +2958,7 @@
                 class:active={selectedCityFilter === 'مصراتة'}
                 on:click={() => handleCityFilterChange('مصراتة')}
               >
-                📍 مصراتة ({zones.filter(z => (z.city || z.city_name) === 'مصراتة').length})
+                 مصراتة ({zones.filter(z => (z.city || z.city_name) === 'مصراتة').length})
               </button>
               <button 
                 type="button" 
@@ -2448,7 +2966,7 @@
                 class:active={selectedCityFilter === 'all'}
                 on:click={() => handleCityFilterChange('all')}
               >
-                🌍 كافة المناطق ({zones.length})
+                كافة المناطق ({zones.length})
               </button>
             </div>
           </div>
@@ -2459,7 +2977,7 @@
               <div class="geo-map-floating-dock fade-in">
                 <div class="dock-header-row">
                   <div class="dock-title-flex">
-                    <span class="dock-badge-icon">📍</span>
+                    <span class="dock-badge-icon"></span>
                     <div>
                       <b class="dock-title">
                         {editingZoneModal.isEdit ? `تعديل نطاق: ${editingZoneModal.zone_name || 'بدون اسم'}` : 'تشكيل نطاق توصيل جديد'}
@@ -2469,10 +2987,10 @@
                   </div>
                   <div class="dock-actions-flex">
                     <button type="button" class="btn btn-sm btn-primary" on:click={handleSaveZone} disabled={editingZoneModal.saving}>
-                      {editingZoneModal.saving ? 'جاري الحفظ...' : '💾 حفظ وتثبيت النطاق'}
+                      {editingZoneModal.saving ? 'جاري الحفظ...' : 'حفظ وتثبيت النطاق'}
                     </button>
                     <button type="button" class="btn btn-sm btn-secondary" on:click={switchToFullModal}>
-                      ⚙️ تفاصيل المنطقة (النافذة الكاملة)
+                      تفاصيل المنطقة (النافذة الكاملة)
                     </button>
                     <button type="button" class="btn btn-sm btn-outline danger" on:click={closeEditingZoneModal}>
                       ✕ إلغاء
@@ -2483,29 +3001,29 @@
                 <!-- شريط الإحداثيات والتأكيد اليدوي -->
                 <div class="dock-coords-bar">
                   <div class="dock-coords-text">
-                    <span>📍 المركز المعتمد:</span>
+                    <span> المركز المعتمد:</span>
                     <b class="dock-coord-val">{Number(editingZoneModal.center_lat).toFixed(4)}°, {Number(editingZoneModal.center_lng).toFixed(4)}°</b>
-                    <span class="dock-shape-val">الشكل: {editingZoneModal.shape_type === 'box' ? '🔲 مربع حر' : (editingZoneModal.shape_type === 'ellipse' ? '🥚 بيضاوية' : (editingZoneModal.shape_type === 'polygon' ? '🔷 مضلع حر' : '⭕ دائرة'))}</span>
+                    <span class="dock-shape-val">الشكل: {editingZoneModal.shape_type === 'box' ? 'مربع حر' : (editingZoneModal.shape_type === 'ellipse' ? 'بيضاوية' : (editingZoneModal.shape_type === 'polygon' ? 'مضلع حر' : 'دائرة'))}</span>
                   </div>
                   {#if editingZoneModal.coordsConfirmed}
                     <span class="dock-confirmed-pill">{editingZoneModal.coordsConfirmedMsg}</span>
                   {:else}
-                    <span class="dock-click-hint">🎯 بعد ضبط أو سحب الدائرة / المربع، انقر في أي مكان على الخريطة لتأكيد واعتماد الإحداثيات يدوياً!</span>
+                    <span class="dock-click-hint"> بعد ضبط أو سحب الدائرة / المربع، انقر في أي مكان على الخريطة لتأكيد واعتماد الإحداثيات يدوياً!</span>
                   {/if}
                 </div>
 
                 <!-- أزرار تبديل الشكل السريعة أثناء المشاهدة على الخريطة -->
                 <div class="dock-quick-tools">
                   <div class="dock-shape-pills">
-                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'circle'} on:click={() => { editingZoneModal.shape_type = 'circle'; handleShapeTypeChange(); }}>⭕ دائرة</button>
-                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'ellipse'} on:click={() => { editingZoneModal.shape_type = 'ellipse'; handleShapeTypeChange(); }}>🥚 بيضاوية</button>
-                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'box'} on:click={() => { editingZoneModal.shape_type = 'box'; handleShapeTypeChange(); }}>🔲 مربع حر</button>
-                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'polygon'} on:click={() => { editingZoneModal.shape_type = 'polygon'; handleShapeTypeChange(); }}>🔷 مضلع حر</button>
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'circle'} on:click={() => { editingZoneModal.shape_type = 'circle'; handleShapeTypeChange(); }}>دائرة</button>
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'ellipse'} on:click={() => { editingZoneModal.shape_type = 'ellipse'; handleShapeTypeChange(); }}>بيضاوية</button>
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'box'} on:click={() => { editingZoneModal.shape_type = 'box'; handleShapeTypeChange(); }}>مربع حر</button>
+                    <button type="button" class="dock-pill" class:active={editingZoneModal.shape_type === 'polygon'} on:click={() => { editingZoneModal.shape_type = 'polygon'; handleShapeTypeChange(); }}>مضلع حر</button>
                   </div>
                   {#if editingZoneModal.shape_type === 'box' || editingZoneModal.shape_type === 'polygon'}
                     <div class="dock-poly-tools">
                       <button type="button" class="dock-btn-xs" on:click={removeLastVertex}>↩️ حذف آخر زاوية</button>
-                      <button type="button" class="dock-btn-xs" on:click={resetShapeVertices}>🔄 إعادة ضبط الأركان</button>
+                      <button type="button" class="dock-btn-xs" on:click={resetShapeVertices}> إعادة ضبط الأركان</button>
                     </div>
                   {/if}
                 </div>
@@ -2514,7 +3032,7 @@
 
             <div id="admin-geo-map" class="admin-geo-map-canvas"></div>
             <div class="geo-map-legend-bar">
-              <span class="legend-bar-title">🌸 النطاقات المعروضة على الخريطة:</span>
+              <span class="legend-bar-title"> النطاقات المعروضة على الخريطة:</span>
               <div class="legend-pills-wrap">
                 {#each filteredZonesForCity as z}
                   <span class="legend-badge-item" style="border-right-color: {z.zone_color || '#5e6b2c'};">
@@ -2552,20 +3070,20 @@
                       <div class="zone-name-cell">
                         <b>{z.zone_name}</b>
                         {#if z.estimated_minutes}
-                          <small class="zone-time-sub">⏱️ متوقع {z.estimated_minutes} دقيقة</small>
+                          <small class="zone-time-sub">متوقع {z.estimated_minutes} دقيقة</small>
                         {/if}
                       </div>
                     </td>
                     <td>
                       <span class="badge-shape-type">
                         {#if z.shape_type === 'polygon' || (z.polygon_geojson && z.shape_type !== 'box' && z.shape_type !== 'ellipse')}
-                          🔷 مضلع حر مخصص
+                          مضلع حر مخصص
                         {:else if z.shape_type === 'ellipse'}
-                          🥚 دائرة غير متناسقة (بيضاوية)
+                           دائرة غير متناسقة (بيضاوية)
                         {:else if z.shape_type === 'box'}
-                          🔲 مربع / مستطيل حر
+                           مربع / مستطيل حر
                         {:else}
-                          ⭕ دائرة جغرافية
+                          دائرة جغرافية
                         {/if}
                       </span>
                     </td>
@@ -2587,13 +3105,13 @@
                     <td>
                       <div class="actions-cell-flex">
                         <button type="button" class="btn-sm-action" on:click={() => openEditZoneModal(z)}>
-                          تعديل البيانات ✏️
+                          تعديل البيانات ️
                         </button>
                         <button type="button" class="btn-sm-action map-btn-highlight" on:click={() => { openEditZoneModal(z); switchToMapEditing(); }}>
-                          تشكيل عالخريطة 🗺️
+                          تشكيل عالخريطة
                         </button>
                         <button type="button" class="btn-sm-action danger" on:click={() => handleDeleteZone(z.id)}>
-                          حذف 🗑️
+                          حذف
                         </button>
                       </div>
                     </td>
@@ -2621,11 +3139,11 @@
         <div class="financials-management-container fade-in">
           <div class="section-top-header">
             <div>
-              <h3>💰 الإدارة المالية للعهد النقدية وأرباح التوصيل</h3>
+              <h3> الإدارة المالية للعهد النقدية وأرباح التوصيل</h3>
               <p class="subtitle">متابعة المبالغ النقدية المحصلة في عهدة الكباتن، أرباح التوصيل المستحقة، وتوريد واستلام صافي المبالغ إلى خزينة الإدارة.</p>
             </div>
             <button type="button" class="btn btn-outline btn-refresh-fin" on:click={reloadFinancials}>
-              🔄 تحديث البيانات المالية
+               تحديث البيانات المالية
             </button>
           </div>
 
@@ -2634,36 +3152,36 @@
             <div class="today-banner-header">
               <div class="today-title-row">
                 <span class="live-pulse-dot"></span>
-                <span class="today-icon">⚡</span>
+                
                 <div>
                   <h4>ملخص الأرباح والتدفق المالي لليوم</h4>
                   <p class="today-subtitle">متابعة فورية للأرباح الصافية اليومية للمتجر، عوائد التوصيل للكباتن، والنقدية المحصلة في الميدان.</p>
                 </div>
               </div>
-              <span class="badge-today-orders">📦 {driversFinancials.totals?.today?.todayDeliveredOrders || stats.todayOrders || 0} طلبات مسلمة اليوم</span>
+              <span class="badge-today-orders"> {driversFinancials.totals?.today?.todayDeliveredOrders || stats.todayOrders || 0} طلبات مسلمة اليوم</span>
             </div>
 
             <div class="today-metrics-row">
               <div class="today-metric-box store-profit-box">
-                <span class="tm-label">🌸 أرباح المتجر الصافية اليوم</span>
+                <span class="tm-label"> أرباح المتجر الصافية اليوم</span>
                 <strong class="tm-value text-emerald">{(driversFinancials.totals?.today?.todayStoreProfit !== undefined ? driversFinancials.totals.today.todayStoreProfit : (stats.todayStoreProfit || 0)).toLocaleString()} د.ل</strong>
                 <span class="tm-hint">صافي مبيعات الباقات بدون التوصيل</span>
               </div>
 
               <div class="today-metric-box driver-profit-box">
-                <span class="tm-label">🚗 أرباح التوصيل للكباتن اليوم</span>
+                <span class="tm-label"> أرباح التوصيل للكباتن اليوم</span>
                 <strong class="tm-value text-amber">{(driversFinancials.totals?.today?.todayDriverEarnings !== undefined ? driversFinancials.totals.today.todayDriverEarnings : (stats.todayDriverEarnings || 0)).toLocaleString()} د.ل</strong>
                 <span class="tm-hint">عمولات التوصيل المكتسبة للكباتن اليوم</span>
               </div>
 
               <div class="today-metric-box cash-collected-box">
-                <span class="tm-label">💼 كاش العهدة المحصل اليوم</span>
+                <span class="tm-label">كاش العهدة المحصل اليوم</span>
                 <strong class="tm-value text-gold">{(driversFinancials.totals?.today?.todayCashCollected !== undefined ? driversFinancials.totals.today.todayCashCollected : (stats.todayCashCollected || 0)).toLocaleString()} د.ل</strong>
                 <span class="tm-hint">كاش الطلبات المسلمة نقداً اليوم</span>
               </div>
 
               <div class="today-metric-box cash-settled-box">
-                <span class="tm-label">🏦 التوريدات المستلمة بالخزينة اليوم</span>
+                <span class="tm-label">التوريدات المستلمة بالخزينة اليوم</span>
                 <strong class="tm-value text-blue">{(driversFinancials.totals?.today?.todayCashSettled !== undefined ? driversFinancials.totals.today.todayCashSettled : (stats.todayCashSettled || 0)).toLocaleString()} د.ل</strong>
                 <span class="tm-hint">التسويات المودعة بالخزينة اليوم</span>
               </div>
@@ -2673,7 +3191,7 @@
           <!-- بطاقات المؤشرات المالية العامة -->
           <div class="fin-kpi-grid">
             <div class="fin-kpi-card fin-card-custody">
-              <div class="fin-kpi-icon">💼</div>
+              <div class="fin-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
               <div class="fin-kpi-info">
                 <span class="fin-kpi-label">إجمالي العهد في الميدان (كاش بحوزة الكباتن)</span>
                 <strong class="fin-kpi-value custody-val">{(driversFinancials.totals?.totalCustody || 0).toLocaleString()} د.ل</strong>
@@ -2682,7 +3200,7 @@
             </div>
 
             <div class="fin-kpi-card fin-card-earnings">
-              <div class="fin-kpi-icon">🚗</div>
+              <div class="fin-kpi-icon"></div>
               <div class="fin-kpi-info">
                 <span class="fin-kpi-label">أرباح التوصيل المستحقة للكباتن</span>
                 <strong class="fin-kpi-value profit-val">{(driversFinancials.totals?.totalDriverEarnings || 0).toLocaleString()} د.ل</strong>
@@ -2691,7 +3209,7 @@
             </div>
 
             <div class="fin-kpi-card fin-card-net">
-              <div class="fin-kpi-icon">🏦</div>
+              <div class="fin-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
               <div class="fin-kpi-info">
                 <span class="fin-kpi-label">صافي المبالغ المستحقة لخزينة الإدارة</span>
                 <strong class="fin-kpi-value net-val">{(driversFinancials.totals?.totalNetDue || 0).toLocaleString()} د.ل</strong>
@@ -2700,7 +3218,7 @@
             </div>
 
             <div class="fin-kpi-card fin-card-settled">
-              <div class="fin-kpi-icon">📜</div>
+              <div class="fin-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
               <div class="fin-kpi-info">
                 <span class="fin-kpi-label">إجمالي ما تم استلامه وتوريده سابقاً</span>
                 <strong class="fin-kpi-value settled-val">{(driversFinancials.totals?.totalSettled || 0).toLocaleString()} د.ل</strong>
@@ -2713,7 +3231,7 @@
           <div class="table-card" style="margin-top: 30px;">
             <div class="table-card-header">
               <div class="card-header-title">
-                <span class="header-icon">👥</span>
+                <span class="header-icon"></span>
                 <h4>كشف عهد الكباتن وأرباحهم الحالية</h4>
               </div>
               <span class="badge-count">{driversFinancials.drivers?.length || 0} كابتن مسجل</span>
@@ -2725,7 +3243,7 @@
                   <tr>
                     <th>الكابتن</th>
                     <th>حالة العمل</th>
-                    <th>أرباح اليوم ⚡</th>
+                    <th>أرباح اليوم </th>
                     <th>الطلبات المسلمة</th>
                     <th>العهدة الحالية (كاش)</th>
                     <th>أرباح التوصيل المستحقة</th>
@@ -2739,23 +3257,23 @@
                     <tr class:has-pending-custody={Number(d.current_custody_amount) > 0}>
                       <td>
                         <div class="driver-cell-box">
-                          <span class="driver-avatar-icon">🚗</span>
+                          <span class="driver-avatar-icon"></span>
                           <div>
                             <strong>{d.full_name}</strong>
                             <div class="driver-sub-meta">
-                              <span>📞 {d.phone || 'بدون هاتف'}</span>
-                              <span>🚘 {d.vehicle_type || 'سيارة'} {d.vehicle_plate ? `(${d.vehicle_plate})` : ''}</span>
+                              <span>هاتف: {d.phone || 'بدون هاتف'}</span>
+                              <span>مركبة: {d.vehicle_type || 'سيارة'} {d.vehicle_plate ? `(${d.vehicle_plate})` : ''}</span>
                             </div>
                           </div>
                         </div>
                       </td>
                       <td>
                         {#if d.current_status === 'available'}
-                          <span class="badge badge-success">🟢 متاح للطلبات</span>
+                          <span class="badge badge-success">متاح للطلبات</span>
                         {:else if d.current_status === 'busy'}
-                          <span class="badge badge-warning">🟡 في مهمة توصيل</span>
+                          <span class="badge badge-warning">في مهمة توصيل</span>
                         {:else}
-                          <span class="badge badge-secondary">⚪ غير متصل</span>
+                          <span class="badge badge-secondary">غير متصل</span>
                         {/if}
                       </td>
                       <td>
@@ -2765,7 +3283,7 @@
                         </div>
                       </td>
                       <td>
-                        <span class="orders-count-badge">📦 {d.delivered_count || 0} طلب</span>
+                        <span class="orders-count-badge"> {d.delivered_count || 0} طلب</span>
                       </td>
                       <td>
                         <span class="financial-val-badge custody-badge">
@@ -2793,7 +3311,7 @@
                             title="استلام النقدية وتصفية العهدة"
                             on:click={() => openSettleModal(d)}
                           >
-                            💵 استلام وتسوية
+                            استلام وتسوية
                           </button>
                           <button 
                             type="button" 
@@ -2801,7 +3319,7 @@
                             title="عرض كشف الحساب والحركات"
                             on:click={() => openDriverStatement(d.id)}
                           >
-                            📜 كشف الحساب
+                            كشف الحساب
                           </button>
                         </div>
                       </td>
@@ -2822,7 +3340,7 @@
           <div class="table-card" style="margin-top: 36px;">
             <div class="table-card-header">
               <div class="card-header-title">
-                <span class="header-icon">📑</span>
+                
                 <h4>سجل إيصالات استلام العهد والتسويات المعتمدة</h4>
               </div>
               <span class="badge-count">{settlementsHistory.length} تسوية مسجلة</span>
@@ -2859,7 +3377,7 @@
                         {#if s.driver_phone}<div class="driver-sub-meta">{s.driver_phone}</div>{/if}
                       </td>
                       <td>
-                        <span class="admin-badge">👤 {s.admin_name || 'مدير النظام'}</span>
+                        <span class="admin-badge">{s.admin_name || 'مدير النظام'}</span>
                       </td>
                       <td>
                         <span class="text-custody-cleared">{Number(s.custody_cleared || 0).toLocaleString()} د.ل</span>
@@ -2893,15 +3411,15 @@
         <div class="users-management-container fade-in">
           <div class="section-top-header">
             <div>
-              <h3>👥 إدارة الطاقم والمستخدمين</h3>
+              <h3> إدارة الطاقم والمستخدمين</h3>
               <p class="subtitle">إضافة وإدارة حسابات كباتن التوصيل، منسقي الزهور، مدراء النظام، وزبائن المتجر.</p>
             </div>
             <div class="header-btns-row">
               <button type="button" class="btn btn-outline" on:click={reloadUsers}>
-                🔄 تحديث القائمة
+                 تحديث القائمة
               </button>
               <button type="button" class="btn btn-primary" on:click={() => openCreateUserModal('driver')}>
-                + إضافة عضو طاقم / مستخدم جديد 🌸
+                + إضافة عضو طاقم / مستخدم جديد
               </button>
             </div>
           </div>
@@ -2923,7 +3441,7 @@
                 class:active={userFilterRole === 'driver'} 
                 on:click={() => userFilterRole = 'driver'}
               >
-                🚗 كباتن التوصيل ({allUsers.filter(u => u.role_name === 'driver').length})
+                 كباتن التوصيل ({allUsers.filter(u => u.role_name === 'driver').length})
               </button>
               <button 
                 type="button" 
@@ -2931,7 +3449,7 @@
                 class:active={userFilterRole === 'florist'} 
                 on:click={() => userFilterRole = 'florist'}
               >
-                💐 منسقو الورد ({allUsers.filter(u => u.role_name === 'florist').length})
+                 منسقو الورد ({allUsers.filter(u => u.role_name === 'florist').length})
               </button>
               <button 
                 type="button" 
@@ -2939,7 +3457,7 @@
                 class:active={userFilterRole === 'admin'} 
                 on:click={() => userFilterRole = 'admin'}
               >
-                👑 إدارة النظام ({allUsers.filter(u => u.role_name === 'admin').length})
+                 إدارة النظام ({allUsers.filter(u => u.role_name === 'admin').length})
               </button>
               <button 
                 type="button" 
@@ -2947,7 +3465,7 @@
                 class:active={userFilterRole === 'customer'} 
                 on:click={() => userFilterRole = 'customer'}
               >
-                👥 الزبائن ({allUsers.filter(u => u.role_name === 'customer').length})
+                 الزبائن ({allUsers.filter(u => u.role_name === 'customer').length})
               </button>
             </div>
 
@@ -2955,7 +3473,7 @@
               <input 
                 type="text" 
                 class="input-field" 
-                placeholder="🔍 بحث بالاسم، رقم الهاتف، أو البريد..." 
+                placeholder="بحث بالاسم، رقم الهاتف، أو البريد..." 
                 bind:value={userSearchQuery} 
               />
               {#if userSearchQuery}
@@ -2984,46 +3502,46 @@
                       <td>
                         <div class="user-row-box">
                           <span class="user-avatar-tag">
-                            {#if u.role_name === 'driver'}🚗
-                            {:else if u.role_name === 'florist'}💐
-                            {:else if u.role_name === 'admin'}👑
-                            {:else}👤{/if}
+                            {#if u.role_name === 'driver'}
+                            {:else if u.role_name === 'florist'}
+                            {:else if u.role_name === 'admin'}
+                            {:else}{/if}
                           </span>
                           <div>
                             <strong>{u.full_name}</strong>
                             <div class="user-sub-info">
-                              <span>📞 {u.phone}</span>
-                              {#if u.email}<span>✉️ {u.email}</span>{/if}
+                              <span>هاتف: {u.phone}</span>
+                              {#if u.email}<span>بريد: {u.email}</span>{/if}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td>
                         {#if u.role_name === 'driver'}
-                          <span class="user-role-badge role-badge-driver">🚗 كابتن توصيل</span>
+                          <span class="user-role-badge role-badge-driver"> كابتن توصيل</span>
                         {:else if u.role_name === 'florist'}
-                          <span class="user-role-badge role-badge-florist">💐 منسق زهور</span>
+                          <span class="user-role-badge role-badge-florist"> منسق زهور</span>
                         {:else if u.role_name === 'admin'}
-                          <span class="user-role-badge role-badge-admin">👑 مدير نظام</span>
+                          <span class="user-role-badge role-badge-admin"> مدير نظام</span>
                         {:else}
-                          <span class="user-role-badge role-badge-customer">👥 زبون متجر</span>
+                          <span class="user-role-badge role-badge-customer"> زبون متجر</span>
                         {/if}
                       </td>
                       <td>
                         {#if u.role_name === 'driver'}
                           <div class="work-meta-box">
-                            <span>🚘 {u.vehicle_type || 'سيارة'} {u.plate_number ? `(${u.plate_number})` : ''}</span>
-                            <small>📦 {u.driver_delivered_orders || 0} طلب مسلم | تقييم {u.driver_rating || 5}★</small>
+                            <span>مركبة: {u.vehicle_type || 'سيارة'} {u.plate_number ? `(${u.plate_number})` : ''}</span>
+                            <small> {u.driver_delivered_orders || 0} طلب مسلم | تقييم {u.driver_rating || 5}</small>
                           </div>
                         {:else if u.role_name === 'florist'}
                           <div class="work-meta-box">
-                            <span>🌸 الأتيليه واستوديو التنسيق</span>
-                            <small>💐 {u.florist_active_tasks || 0} مهام نشطة حالياً</small>
+                            <span> الأتيليه واستوديو التنسيق</span>
+                            <small> {u.florist_active_tasks || 0} مهام نشطة حالياً</small>
                           </div>
                         {:else if u.role_name === 'admin'}
                           <span class="text-muted-meta">صلاحيات إدارة شاملة</span>
                         {:else}
-                          <span class="text-muted-meta">📦 {u.customer_orders_count || 0} طلبات مؤكدة</span>
+                          <span class="text-muted-meta"> {u.customer_orders_count || 0} طلبات مؤكدة</span>
                         {/if}
                       </td>
                       <td>
@@ -3034,7 +3552,7 @@
                           title="انقر لتغيير حالة الحساب (تفعيل / إيقاف)"
                           on:click={() => handleToggleUserStatus(u)}
                         >
-                          {u.status === 'active' ? '🟢 نشط' : '⚪ موقوف'}
+                          {u.status === 'active' ? 'نشط' : 'موقوف'}
                         </button>
                       </td>
                       <td>
@@ -3049,7 +3567,7 @@
                               title="عرض العهدة وكشف الحساب المالي"
                               on:click={() => openDriverStatement(u.id)}
                             >
-                              💰 العهدة
+                               العهدة
                             </button>
                           {/if}
                           <button 
@@ -3058,7 +3576,7 @@
                             title="حذف الحساب"
                             on:click={() => handleDeleteUser(u)}
                           >
-                            🗑️
+                            ️
                           </button>
                         </div>
                       </td>
@@ -3087,7 +3605,7 @@
       <div class="modal-card geo-zone-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">📍</span>
+            <span class="modal-icon-badge"></span>
             <div>
               <h3>{editingZoneModal.isEdit ? 'تعديل وتشكيل النطاق الجغرافي والاسم والسعر' : 'إضافة وتشكيل نطاق توصيل جغرافي جديد'}</h3>
               <p class="modal-subtitle">تشكيل أطراف المربع أو الدائرة أو المضلع بحرية تامة وبدون قيود تناسق</p>
@@ -3104,14 +3622,14 @@
           <!-- بنر الانتقال السريع للتشكيل والتأكيد المباشر على الخريطة -->
           <div class="map-direct-switch-banner">
             <div class="banner-text-box">
-              <span class="banner-pin-icon">🗺️</span>
+              <span class="banner-pin-icon">️</span>
               <div>
                 <b>التشكيل اليدوي المباشر على الخريطة:</b>
                 <p>يمكنك التشكيل بالماوس على الخريطة وسحب الأركان والدوائر، ثم النقر على أي مكان في الخريطة لتأكيد واعتماد الإحداثيات يدوياً.</p>
               </div>
             </div>
             <button type="button" class="btn btn-secondary btn-sm" on:click={switchToMapEditing}>
-              انتقل للخريطة لتأكيد الإحداثيات 🎯
+              انتقل للخريطة لتأكيد الإحداثيات
             </button>
           </div>
 
@@ -3142,10 +3660,10 @@
             <div class="form-group">
               <label>نوع وتشكيل الشكل على الخريطة: *</label>
               <select class="input-field styled-select" bind:value={editingZoneModal.shape_type} on:change={handleShapeTypeChange}>
-                <option value="circle">⭕ دائرة جغرافية متناسقة (منتظمة)</option>
-                <option value="ellipse">🥚 دائرة غير متناسقة / بيضاوية (أبعاد حرة وميلان)</option>
-                <option value="box">🔲 مربع / مستطيل حر بأطراف وزوايا قابلة للسحب</option>
-                <option value="polygon">🔷 مضلع حر مخصص بأي عدد من الزوايا</option>
+                <option value="circle">دائرة جغرافية متناسقة (منتظمة)</option>
+                <option value="ellipse"> دائرة غير متناسقة / بيضاوية (أبعاد حرة وميلان)</option>
+                <option value="box"> مربع / مستطيل حر بأطراف وزوايا قابلة للسحب</option>
+                <option value="polygon">مضلع حر مخصص بأي عدد من الزوايا</option>
               </select>
             </div>
 
@@ -3176,7 +3694,7 @@
                 />
                 <div class="shape-actions-bar" style="margin-top: 8px;">
                   <button type="button" class="btn-sub-tool" on:click={convertShapeToFreeformPolygon}>
-                    📐 تحويل الدائرة إلى مضلع حر لتعديل أطرافها نقطة بنقطة بالماوس
+                    تحويل الدائرة إلى مضلع حر لتعديل أطرافها
                   </button>
                 </div>
               </div>
@@ -3216,7 +3734,7 @@
 
               <div class="form-group full-width">
                 <div class="range-header-row">
-                  <label>🔄 زاوية الميلان / الدوران: <b>{editingZoneModal.rotation_deg || 0}°</b></label>
+                  <label> زاوية الميلان / الدوران: <b>{editingZoneModal.rotation_deg || 0}°</b></label>
                 </div>
                 <input 
                   type="range" 
@@ -3229,7 +3747,7 @@
                 />
                 <div class="shape-actions-bar" style="margin-top: 8px;">
                   <button type="button" class="btn-sub-tool" on:click={convertShapeToFreeformPolygon}>
-                    📐 تحويل إلى مضلع حر لتعديل أطرافها نقطة بنقطة بالماوس
+                    تحويل إلى مضلع حر لتعديل أطرافها
                   </button>
                 </div>
               </div>
@@ -3241,7 +3759,7 @@
                 <div class="polygon-toolbar-box">
                   <div class="polygon-toolbar-head">
                     <span class="polygon-pts-badge">
-                      🔷 عدد الزوايا والأركان: <b>{editingZoneModal.points ? editingZoneModal.points.length : 0}</b>
+                       عدد الزوايا والأركان: <b>{editingZoneModal.points ? editingZoneModal.points.length : 0}</b>
                     </span>
                     <div class="polygon-mode-pills">
                       <button 
@@ -3250,7 +3768,7 @@
                         class:active={editingZoneModal.interaction_mode === 'handles'}
                         on:click={() => { editingZoneModal.interaction_mode = 'handles'; }}
                       >
-                        🎯 سحب الزوايا بالماوس
+                         سحب الزوايا بالماوس
                       </button>
                       <button 
                         type="button" 
@@ -3258,7 +3776,7 @@
                         class:active={editingZoneModal.interaction_mode === 'add_point'}
                         on:click={() => { editingZoneModal.interaction_mode = 'add_point'; }}
                       >
-                        ➕ إضافة زاوية بالنقر على الخريطة
+                        إضافة زاوية بالنقر على الخريطة
                       </button>
                     </div>
                   </div>
@@ -3268,11 +3786,11 @@
                       ↩️ تراجع عن آخر زاوية
                     </button>
                     <button type="button" class="btn-sub-tool" on:click={resetShapeVertices}>
-                      🔄 إعادة ضبط الأركان حول المركز
+                       إعادة ضبط الأركان حول المركز
                     </button>
                     {#if editingZoneModal.shape_type === 'box'}
                       <button type="button" class="btn-sub-tool" on:click={convertShapeToFreeformPolygon}>
-                        📐 تحويل إلى مضلع حر غير مقيد بـ 4 أركان
+                         تحويل إلى مضلع حر غير مقيد بـ 4 أركان
                       </button>
                     {/if}
                   </div>
@@ -3295,7 +3813,7 @@
           </div>
 
           <div class="map-helper-banner">
-            <span>✨ <b>حرية التشكيل:</b> اسحب أي مقبض أو زاوية مرقمة (1، 2، 3، 4...) على الخريطة بالماوس لتشكيل حدود المنطقة كما تشاء تماماً بدون أي قيود تناسق، واسحب مقبض المركز 🎯 لتحريك النطاق بالكامل!</span>
+            <span><b>حرية التشكيل:</b> اسحب أي مقبض أو زاوية مرقمة (1، 2، 3، 4...) على الخريطة بالماوس لتشكيل حدود المنطقة كما تشاء تماماً بدون أي قيود تناسق، واسحب مقبض المركز لتحريك النطاق بالكامل!</span>
           </div>
         </div>
 
@@ -3306,7 +3824,7 @@
             disabled={editingZoneModal.saving}
             on:click={handleSaveZone}
           >
-            {editingZoneModal.saving ? 'جاري الحفظ...' : 'حفظ النطاق الجغرافي والأسعار 💾'}
+            {editingZoneModal.saving ? 'جاري الحفظ...' : 'حفظ النطاق الجغرافي والأسعار'}
           </button>
           <button type="button" class="btn btn-outline" on:click={closeEditingZoneModal}>
             إلغاء
@@ -3322,7 +3840,7 @@
       <div class="modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">🏷️</span>
+            <span class="modal-icon-badge">️</span>
             <div>
               <h3>إنشاء كود تخفيض جديد</h3>
               <p class="modal-subtitle">إضافة كوبون ترويجي لخصومات زبائن مسكة</p>
@@ -3352,7 +3870,7 @@
             <input type="number" class="input-field" bind:value={newCoupon.minOrderAmount} />
           </div>
           <div class="modal-actions-styled">
-            <button type="button" class="btn btn-primary" on:click={handleCreateCoupon}>إنشاء وتفعيل الكوبون 🌸</button>
+            <button type="button" class="btn btn-primary" on:click={handleCreateCoupon}>إنشاء وتفعيل الكوبون </button>
             <button type="button" class="btn btn-outline" on:click={() => showNewCouponModal = false}>إلغاء</button>
           </div>
         </div>
@@ -3366,7 +3884,7 @@
       <div class="modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">✍️</span>
+            
             <div>
               <h3>رد الإدارة على تقييم الزبون</h3>
               <p class="modal-subtitle">سيظهر الرد المعتمد علناً في المتجر والصفحة الرئيسية</p>
@@ -3382,9 +3900,179 @@
           placeholder="اكتب ردك اللطيف والمشجع للزبون..."
         ></textarea>
         <div class="modal-actions-styled">
-          <button type="button" class="btn btn-primary" on:click={handleReplyReview}>إرسال الرد المعتمد ✨</button>
+          <button type="button" class="btn btn-primary" on:click={handleReplyReview}>إرسال الرد المعتمد</button>
           <button type="button" class="btn btn-outline" on:click={() => replyModal.open = false}>إلغاء</button>
         </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- مودال التتبع المباشر للطلب بالخريطة ومسار المراحل -->
+  {#if orderTrackingModal.open && orderTrackingModal.order}
+    {@const ord = orderTrackingModal.order}
+    {@const curIdx = getStageIndex(ord.status)}
+    <div class="modal-backdrop fade-in" on:click|self={closeOrderTracking}>
+      <div class="modal-card tracking-modal-card">
+        <div class="modal-header-styled">
+          <div class="modal-title-box">
+            <span class="modal-icon-badge">📍</span>
+            <div>
+              <h3>تتبع مسار الطلب #{ord.order_number}</h3>
+              <p class="modal-subtitle">المستلم: {ord.recipient_name} | {ord.delivery_city} - {ord.delivery_zone || 'المركز'}</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" on:click={closeOrderTracking}>✕</button>
+        </div>
+
+        {#if orderTrackingModal.loading}
+          <div class="tracking-loading-state">
+            <div class="tracking-spinner"></div>
+            <p>جاري استرجاع إحداثيات السائق ومسار التوصيل المباشر...</p>
+          </div>
+        {:else}
+          <!-- شريط مسار المراحل داخل مودال التتبع -->
+          <div class="modal-timeline-stepper">
+            {#each orderStages as stg, idx}
+              <div class="m-step-node" class:completed={idx <= curIdx} class:active={idx === curIdx}>
+                <div class="m-marker">
+                  {#if idx < curIdx}✓{:else}{idx + 1}{/if}
+                </div>
+                <div class="m-meta">
+                  <b class="m-label">{stg.label}</b>
+                </div>
+              </div>
+              {#if idx < orderStages.length - 1}
+                <div class="m-stepper-line" class:completed={idx < curIdx}></div>
+              {/if}
+            {/each}
+          </div>
+
+          <div class="tracking-modal-grid">
+            <!-- الخريطة التفاعلية الحية -->
+            <div class="tracking-map-col">
+              <div class="map-card-container">
+                <div id="order-tracking-live-map" class="order-live-map-canvas"></div>
+                <div class="map-badges-overlay">
+                  <span class="map-stat-badge">🚗 {ord.status === 'out_for_delivery' ? 'في الطريق للمستلم' : ord.status === 'delivered' ? 'تم التسليم بنجاح' : 'قيد التجهيز بالأوركيد'}</span>
+                  <span class="map-stat-badge">🕒 {ord.delivery_window || 'توصيل فوري'}</span>
+                </div>
+              </div>
+
+              <!-- بطاقة السائق المباشرة -->
+              <div class="tracking-driver-card">
+                <div class="d-avatar-box">🚗</div>
+                <div class="d-info-box">
+                  <h4 class="d-name">{ord.driver_name || 'الكابتن غير مسند حالياً'}</h4>
+                  <p class="d-sub">{ord.vehicle_type || 'سيارة مسكة المبردة'} {ord.plate_number ? `(${ord.plate_number})` : ''}</p>
+                </div>
+                <div class="d-actions">
+                  {#if ord.driver_phone}
+                    <a href="tel:{ord.driver_phone}" class="btn-call-driver">
+                      📞 اتصال ({ord.driver_phone})
+                    </a>
+                  {/if}
+                </div>
+              </div>
+            </div>
+
+            <!-- العمود الجانبي: سجل التحركات وتفاصيل الباقة -->
+            <div class="tracking-details-col">
+              <!-- معلومات المستلم والعنوان -->
+              <div class="track-info-section">
+                <h4 class="t-sec-title">بيانات التسليم والمستلم</h4>
+                <div class="t-info-row">
+                  <span>المستلم:</span>
+                  <b>{ord.recipient_name} ({ord.recipient_phone})</b>
+                </div>
+                <div class="t-info-row">
+                  <span>الوجهة:</span>
+                  <span>{ord.delivery_city} - {ord.delivery_zone || ''} {ord.delivery_address_details || ''}</span>
+                </div>
+                {#if ord.delivery_lat && ord.delivery_lng}
+                  <div class="t-info-row">
+                    <span>الملاحة:</span>
+                    <a 
+                      href="https://www.google.com/maps?q={ord.delivery_lat},{ord.delivery_lng}" 
+                      target="_blank" 
+                      rel="noopener"
+                      class="link-maps-nav"
+                    >
+                      فتح في خرائط Google Maps ↗
+                    </a>
+                  </div>
+                {/if}
+                {#if ord.customer_notes}
+                  <div class="t-notes-box">
+                    <small>ملاحظات الزبون: "{ord.customer_notes}"</small>
+                  </div>
+                {/if}
+              </div>
+
+              <!-- تفاصيل عناصر الطلب -->
+              {#if orderTrackingModal.items && orderTrackingModal.items.length > 0}
+                <div class="track-info-section">
+                  <h4 class="t-sec-title">محتويات الباقة ({orderTrackingModal.items.length})</h4>
+                  <div class="t-items-mini-list">
+                    {#each orderTrackingModal.items as itm}
+                      <div class="t-item-mini-row">
+                        <span>{itm.item_name || itm.name || 'باقة مسكة'}</span>
+                        <b>× {itm.quantity}</b>
+                        <span>{(Number(itm.unit_price) * itm.quantity).toFixed(0)} د.ل</span>
+                      </div>
+                    {/each}
+                    <div class="t-total-row">
+                      <span>المجموع الكلي:</span>
+                      <b class="t-total-price">{ord.total_amount} دينار ليبي</b>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+
+              <!-- سجل مراحل وتحديثات الطلب -->
+              {#if orderTrackingModal.history && orderTrackingModal.history.length > 0}
+                <div class="track-info-section">
+                  <h4 class="t-sec-title">سجل مراحل وتحديثات الطلب</h4>
+                  <div class="t-history-timeline">
+                    {#each orderTrackingModal.history as h}
+                      <div class="h-step-item">
+                        <span class="h-step-dot"></span>
+                        <div class="h-step-content">
+                          <b>{getStageLabel(h.status)}</b>
+                          <small class="h-step-time">{new Date(h.created_at).toLocaleString('ar-LY')}</small>
+                          {#if h.comment}
+                            <p class="h-step-comment">{h.comment}</p>
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              <!-- إجراءات التحكم الفوري للمدير -->
+              <div class="track-actions-bar">
+                <button 
+                  type="button" 
+                  class="btn-track-action-assign"
+                  on:click={() => {
+                    const o = ord;
+                    closeOrderTracking();
+                    openAssignModal(o);
+                  }}
+                >
+                  👤 توجيه / تغيير الطاقم
+                </button>
+                <button 
+                  type="button" 
+                  class="btn-track-action-public"
+                  on:click={() => router.navigate('/track', { order: ord.order_number })}
+                >
+                  🌐 فتح شاشة التتبع العامة ↗
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
@@ -3395,7 +4083,7 @@
       <div class="modal-card assign-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">🎯</span>
+            <span class="modal-icon-badge"></span>
             <div>
               <h3>توجيه الطلب #{assignModal.order.order_number} للطاقم</h3>
               <p class="modal-subtitle">إسناد وتوجيه لمسؤول التنسيق وسائق التوصيل الميداني</p>
@@ -3438,7 +4126,7 @@
           <!-- 1. توجيه منسقة الورد -->
           <div class="assign-field-group">
             <label class="assign-label">
-              <span class="label-icon">💐</span>
+              <span class="label-icon"></span>
               <b>توجيه إلى منسقة الورد:</b>
             </label>
             <p class="assign-help">تتولى قص وتنسيق الورود وإعداد كرت الإهداء وختم الشمع الملكي</p>
@@ -3446,7 +4134,7 @@
               <option value="">-- بدون إسناد (بانتظار التنسيق) --</option>
               {#each florists as f (f.id)}
                 <option value={f.id}>
-                  🌸 {f.full_name} ({f.phone}) — {f.active_tasks_count ? `مهام نشطة: ${f.active_tasks_count}` : 'متفرغة للعمل'}
+                   {f.full_name} ({f.phone}) — {f.active_tasks_count ? `مهام نشطة: ${f.active_tasks_count}` : 'متفرغة للعمل'}
                 </option>
               {/each}
             </select>
@@ -3455,7 +4143,7 @@
           <!-- 2. توجيه سائق التوصيل -->
           <div class="assign-field-group">
             <label class="assign-label">
-              <span class="label-icon">🚗</span>
+              <span class="label-icon"></span>
               <b>توجيه إلى سائق التوصيل:</b>
             </label>
             <p class="assign-help">يستلم الباقة ويبدأ رحلة التوصيل مع فتح الموقع عبر GPS في Google Maps</p>
@@ -3463,7 +4151,7 @@
               <option value="">-- بدون سائق (متاح للسائقين) --</option>
               {#each drivers as d (d.id || d.user_id)}
                 <option value={d.id || d.user_id}>
-                  🚗 {d.full_name} ({d.vehicle_type || 'سيارة تبريد'}) — {d.current_status === 'available' ? '🟢 متاح' : (d.current_status === 'busy' ? '🟡 في مهمة' : '⚪ غير متصل')} (تقييم {d.rating || 4.9}★)
+                  {d.full_name} ({d.vehicle_type || 'سيارة تبريد'}) — {d.current_status === 'available' ? 'متاح' : (d.current_status === 'busy' ? 'في مهمة' : 'غير متصل')} (تقييم {d.rating || 4.9})
                 </option>
               {/each}
             </select>
@@ -3472,7 +4160,7 @@
           <!-- 3. مسار حالة الطلب -->
           <div class="assign-field-group full-width">
             <label class="assign-label">
-              <span class="label-icon">🔄</span>
+              <span class="label-icon"></span>
               <b>تحديث حالة مسار الطلب:</b>
             </label>
             <div class="status-radio-group">
@@ -3482,15 +4170,15 @@
               </label>
               <label class="status-radio-card" class:selected={assignModal.targetStatus === 'preparing'}>
                 <input type="radio" bind:group={assignModal.targetStatus} value="preparing" />
-                <span>جاري التنسيق (عند المنسقة) 💐</span>
+                <span>جاري التنسيق (عند المنسقة) </span>
               </label>
               <label class="status-radio-card" class:selected={assignModal.targetStatus === 'out_for_delivery'}>
                 <input type="radio" bind:group={assignModal.targetStatus} value="out_for_delivery" />
-                <span>في الطريق (مع السائق) 🚗</span>
+                <span>في الطريق (مع السائق) </span>
               </label>
               <label class="status-radio-card" class:selected={assignModal.targetStatus === 'delivered'}>
                 <input type="radio" bind:group={assignModal.targetStatus} value="delivered" />
-                <span>تم التسليم بنجاح 🌸</span>
+                <span>تم التسليم بنجاح </span>
               </label>
             </div>
           </div>
@@ -3504,7 +4192,7 @@
             disabled={assignModal.saving}
             on:click={handleSaveAssignment}
           >
-            {assignModal.saving ? 'جاري توجيه الطلب...' : 'تأكيد التوجيه والإسناد 🎯'}
+            {assignModal.saving ? 'جاري توجيه الطلب...' : 'تأكيد التوجيه والإسناد '}
           </button>
           <button type="button" class="btn btn-outline" on:click={closeAssignModal}>
             إلغاء
@@ -3520,7 +4208,7 @@
       <div class="modal-card flower-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">🌸</span>
+            <span class="modal-icon-badge"></span>
             <div>
               <h3>{flowerModal.isEdit ? 'تعديل صنف الورد وصور زواياه' : 'إضافة صنف ورد جديد مع صوره من كل الزوايا'}</h3>
               <p class="modal-subtitle">إدخال الزهرة مع توثيق شكلها من الزاوية الأمامية والجانبية والعلوية وتفاصيل الساق</p>
@@ -3539,7 +4227,7 @@
         <div class="modal-body-scroll">
           <!-- نماذج سريعة للورود -->
           <div class="presets-box">
-            <label class="presets-label">⚡ نماذج جاهزة من ورود الأتيليه (انقر لتعبئة الزوايا والصور تلقائياً):</label>
+            <label class="presets-label"> نماذج جاهزة من ورود الأتيليه (انقر لتعبئة الزوايا والصور تلقائياً):</label>
             <div class="presets-chips-row">
               {#each flowerPresets as p}
                 <button type="button" class="preset-chip" on:click={() => applyFlowerPreset(p)}>
@@ -3586,14 +4274,14 @@
           <div class="angles-config-section">
             <div class="angles-header-flex">
               <div>
-                <h4 class="angles-section-title">📷 صور الزهرة من كافة الزوايا الأربعة (Front / Side / Top / Stem)</h4>
+                <h4 class="angles-section-title"> صور الزهرة من كافة الزوايا الأربعة (Front / Side / Top / Stem)</h4>
                 <p class="angles-section-desc">يمكنك رفع صور حقيقية من جهازك أو التقاطها بالكاميرا لكل زاوية، أو اختيار توليفة جاهزة أدناه</p>
               </div>
 
               <!-- زر الرفع الجماعي للأربع زوايا معاً -->
               <div class="bulk-upload-wrapper">
                 <label class="btn-bulk-upload">
-                  <span>⚡ رفع الـ 4 زوايا دفعة واحدة</span>
+                  <span> رفع الـ 4 زوايا دفعة واحدة</span>
                   <input type="file" accept="image/*" multiple on:change={handleBulkAngleUpload} hidden />
                 </label>
               </div>
@@ -3608,7 +4296,7 @@
                   class:active={flowerModal.activeAnglePreview === 'front'} 
                   on:click={() => flowerModal.activeAnglePreview = 'front'}
                 >
-                  📷 1. أمامية
+                   1. أمامية
                 </button>
                 <button 
                   type="button" 
@@ -3616,7 +4304,7 @@
                   class:active={flowerModal.activeAnglePreview === 'side'} 
                   on:click={() => flowerModal.activeAnglePreview = 'side'}
                 >
-                  📐 2. جانبية
+                   2. جانبية
                 </button>
                 <button 
                   type="button" 
@@ -3624,7 +4312,7 @@
                   class:active={flowerModal.activeAnglePreview === 'top'} 
                   on:click={() => flowerModal.activeAnglePreview = 'top'}
                 >
-                  🔍 3. علوية (ماكرو)
+                  3. علوية (ماكرو)
                 </button>
                 <button 
                   type="button" 
@@ -3632,7 +4320,7 @@
                   class:active={flowerModal.activeAnglePreview === 'stem'} 
                   on:click={() => flowerModal.activeAnglePreview = 'stem'}
                 >
-                  🌿 4. الساق
+                  4. الساق
                 </button>
               </div>
 
@@ -3656,7 +4344,7 @@
                   <!-- أزرار العمليات السريعة فوق المعاينة المباشرة -->
                   <div class="stage-actions-bar">
                     <label class="btn-stage-action" title="تحميل صورة من جهازك">
-                      📁 رفع من الجهاز
+                      رفع من الجهاز
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -3666,7 +4354,7 @@
                     </label>
 
                     <label class="btn-stage-action" title="التقاط صورة بالكاميرا">
-                      📷 كاميرا
+                       كاميرا
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -3710,11 +4398,11 @@
                   <div class="card-angle-controls">
                     <div class="angle-btn-row">
                       <label class="btn-angle-upload" title="تحميل صورة من الملفات">
-                        📁 اختر صورة
+                        اختر صورة
                         <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'front')} hidden />
                       </label>
                       <label class="btn-angle-cam" title="التقاط بالكاميرا">
-                        📷
+                        
                         <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'front')} hidden />
                       </label>
                       {#if flowerModal.image_front}
@@ -3745,11 +4433,11 @@
                   <div class="card-angle-controls">
                     <div class="angle-btn-row">
                       <label class="btn-angle-upload" title="تحميل صورة من الملفات">
-                        📁 اختر صورة
+                        اختر صورة
                         <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'side')} hidden />
                       </label>
                       <label class="btn-angle-cam" title="التقاط بالكاميرا">
-                        📷
+                        
                         <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'side')} hidden />
                       </label>
                       {#if flowerModal.image_side}
@@ -3780,11 +4468,11 @@
                   <div class="card-angle-controls">
                     <div class="angle-btn-row">
                       <label class="btn-angle-upload" title="تحميل صورة من الملفات">
-                        📁 اختر صورة
+                        اختر صورة
                         <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'top')} hidden />
                       </label>
                       <label class="btn-angle-cam" title="التقاط بالكاميرا">
-                        📷
+                        
                         <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'top')} hidden />
                       </label>
                       {#if flowerModal.image_top}
@@ -3815,11 +4503,11 @@
                   <div class="card-angle-controls">
                     <div class="angle-btn-row">
                       <label class="btn-angle-upload" title="تحميل صورة من الملفات">
-                        📁 اختر صورة
+                        اختر صورة
                         <input type="file" accept="image/*" on:change={(e) => handleAngleFileUpload(e, 'stem')} hidden />
                       </label>
                       <label class="btn-angle-cam" title="التقاط بالكاميرا">
-                        📷
+                        
                         <input type="file" accept="image/*" capture="environment" on:change={(e) => handleAngleFileUpload(e, 'stem')} hidden />
                       </label>
                       {#if flowerModal.image_stem}
@@ -3838,7 +4526,7 @@
 
         <div class="modal-actions-styled">
           <button type="button" class="btn btn-primary" disabled={flowerModal.saving} on:click={handleSaveFlower}>
-            {flowerModal.saving ? 'جاري الحفظ...' : (flowerModal.isEdit ? 'حفظ التعديلات 🌸' : 'إضافة الوردة واعتماد الزوايا 🌸')}
+            {flowerModal.saving ? 'جاري الحفظ...' : (flowerModal.isEdit ? 'حفظ التعديلات ' : 'إضافة الوردة واعتماد الزوايا ')}
           </button>
           <button type="button" class="btn btn-outline" on:click={() => flowerModal.open = false}>إلغاء</button>
         </div>
@@ -3852,7 +4540,7 @@
       <div class="modal-card bouquet-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">💐</span>
+            <span class="modal-icon-badge"></span>
             <div>
               <h3>{bouquetModal.isEdit ? 'تعديل الباقة وتركيبة الورود' : 'إضافة باقة جديدة بتوليفة ورود محددة'}</h3>
               <p class="modal-subtitle">حدد عدد الورود من كل نوع حصراً من قائمة الورود المسجلة بالمخزون</p>
@@ -3879,13 +4567,13 @@
             <div class="form-group">
               <label>المناسبة الموصى بها: *</label>
               <select class="input-field styled-select" bind:value={bouquetModal.occasion_tag}>
-                <option value="عيد ميلاد">🎂 عيد ميلاد</option>
-                <option value="زفاف">💍 زفاف وخطوبة</option>
-                <option value="تخرج">🎓 تخرج ونجاح</option>
-                <option value="حب وغرام">❤️ حب ورومانسية</option>
-                <option value="شكر">🌿 شكر وامتنان</option>
-                <option value="اعتذار">🕊️ اعتذار ومودة</option>
-                <option value="عام">🌸 مناسبات عامة</option>
+                <option value="عيد ميلاد">عيد ميلاد</option>
+                <option value="زفاف">زفاف وخطوبة</option>
+                <option value="تخرج">تخرج ونجاح</option>
+                <option value="حب وغرام">حب ورومانسية</option>
+                <option value="شكر">شكر وامتنان</option>
+                <option value="اعتذار">اعتذار ومودة</option>
+                <option value="عام"> مناسبات عامة</option>
               </select>
             </div>
 
@@ -3915,12 +4603,12 @@
                 <div class="bouquet-img-controls">
                   <div class="bouquet-upload-btns-row">
                     <label class="btn btn-primary btn-sm btn-upload-device">
-                      📁 رفع صورة من جهازك (كمبيوتر / هاتف)
+                       رفع صورة من جهازك (كمبيوتر / هاتف)
                       <input type="file" accept="image/*" on:change={handleBouquetImageUpload} hidden />
                     </label>
 
                     <label class="btn btn-outline btn-sm btn-cam-device">
-                      📷 التقاط بالكاميرا
+                       التقاط بالكاميرا
                       <input type="file" accept="image/*" capture="environment" on:change={handleBouquetImageUpload} hidden />
                     </label>
                   </div>
@@ -3947,17 +4635,17 @@
           <div class="recipe-builder-section">
             <div class="recipe-builder-header">
               <div>
-                <h4 class="recipe-builder-title">🌸 تركيبة وعدد الورود من قائمة الورود المسجلة</h4>
+                <h4 class="recipe-builder-title"> تركيبة وعدد الورود من قائمة الورود المسجلة</h4>
                 <p class="recipe-builder-desc">حدد كم وردة من كل نوع تدخل في تكوين هذه الباقة (لا يمكن إدخال وردة خارج القائمة)</p>
               </div>
               <button type="button" class="btn btn-outline btn-sm" on:click={openAddFlowerModal}>
-                ➕ الوردة غير موجودة؟ أضفها أولاً للمخزون
+                 الوردة غير موجودة؟ أضفها أولاً للمخزون
               </button>
             </div>
 
             <!-- تنبيه قيود الورد المعتمد -->
             <div class="strict-rule-banner">
-              <span class="rule-icon">🔒</span>
+              
               <p>
                 <strong>قاعدة النظام المعتمدة:</strong> لا يمكن إدراج أي وردة في الباقة إلا إذا كانت مسجلة مسبقاً في قائمة مخزون الورود بزواياها. إذا لم تجد الصنف المطلوب في القائمة أدناه، اضغط على زر الإضافة أعلاه لإدراجها أولاً.
               </p>
@@ -3976,7 +4664,7 @@
                     <select class="input-field styled-select" bind:value={row.flower_id}>
                       {#each inventory as f}
                         <option value={f.id}>
-                          🌸 {f.name_ar} ({f.color}) — سعر الساق: {f.unit_price} د.ل (المتوفر: {f.stock_quantity})
+                           {f.name_ar} ({f.color}) — سعر الساق: {f.unit_price} د.ل (المتوفر: {f.stock_quantity})
                         </option>
                       {/each}
                     </select>
@@ -4009,7 +4697,7 @@
                   <!-- زر حذف السطر -->
                   <div class="row-remove-box">
                     <button type="button" class="btn-remove-row" title="إزالة هذا الصنف من الباقة" on:click={() => removeBouquetFlowerRow(idx)}>
-                      🗑️
+                      ️
                     </button>
                   </div>
                 </div>
@@ -4018,26 +4706,26 @@
 
             <div class="add-recipe-row-btn-box">
               <button type="button" class="btn btn-outline btn-sm" on:click={addBouquetFlowerRow}>
-                ➕ إضافة صنف ورد آخر للباقة
+                 إضافة صنف ورد آخر للباقة
               </button>
             </div>
 
             <!-- شريط ملخص تركيبة الباقة -->
             <div class="recipe-summary-bar">
               <div class="summary-metric">
-                <span class="metric-title">🌸 إجمالي عدد الورود بالباقة:</span>
+                <span class="metric-title"> إجمالي عدد الورود بالباقة:</span>
                 <b class="metric-val highlight">{bouquetTotalStems} زهرة</b>
               </div>
               <div class="summary-metric">
-                <span class="metric-title">💰 تكلفة الورود الأصلية من المخزون:</span>
+                <span class="metric-title"> تكلفة الورود الأصلية من المخزون:</span>
                 <b class="metric-val">{bouquetEstimatedCost.toFixed(1)} د.ل</b>
               </div>
               <div class="summary-metric">
-                <span class="metric-title">🏷️ سعر بيع الباقة المقترح:</span>
+                <span class="metric-title">️ سعر بيع الباقة المقترح:</span>
                 <b class="metric-val price">{bouquetModal.price} د.ل</b>
               </div>
               <div class="summary-metric">
-                <span class="metric-title">📈 هامش الربح التقديري:</span>
+                <span class="metric-title">هامش الربح التقديري:</span>
                 <b class="metric-val profit">{(Number(bouquetModal.price) - bouquetEstimatedCost).toFixed(1)} د.ل</b>
               </div>
             </div>
@@ -4046,7 +4734,7 @@
 
         <div class="modal-actions-styled">
           <button type="button" class="btn btn-primary" disabled={bouquetModal.saving} on:click={handleSaveBouquet}>
-            {bouquetModal.saving ? 'جاري الحفظ...' : (bouquetModal.isEdit ? 'تحديث الباقة والتركيبة 💐' : 'اعتماد وإنشاء الباقة 💐')}
+            {bouquetModal.saving ? 'جاري الحفظ...' : (bouquetModal.isEdit ? 'تحديث الباقة والتركيبة ' : 'اعتماد وإنشاء الباقة ')}
           </button>
           <button type="button" class="btn btn-outline" on:click={() => bouquetModal.open = false}>إلغاء</button>
         </div>
@@ -4060,7 +4748,7 @@
       <div class="modal-card viewer-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">🔄</span>
+            <span class="modal-icon-badge"></span>
             <div>
               <h3>استعراض زوايا {flowerAnglesViewer.flower.name_ar}</h3>
               <p class="modal-subtitle">عرض بصري شامل للأصناف المعتمدة بجميع الزوايا الأربعة</p>
@@ -4077,7 +4765,7 @@
             class:active={flowerAnglesViewer.activeAngle === 'front'}
             on:click={() => flowerAnglesViewer.activeAngle = 'front'}
           >
-            📷 زاوية أمامية
+             زاوية أمامية
           </button>
           <button 
             type="button" 
@@ -4085,7 +4773,7 @@
             class:active={flowerAnglesViewer.activeAngle === 'side'}
             on:click={() => flowerAnglesViewer.activeAngle = 'side'}
           >
-            📐 زاوية جانبية
+             زاوية جانبية
           </button>
           <button 
             type="button" 
@@ -4093,7 +4781,7 @@
             class:active={flowerAnglesViewer.activeAngle === 'top'}
             on:click={() => flowerAnglesViewer.activeAngle = 'top'}
           >
-            🔍 زاوية علوية (ماكرو)
+             زاوية علوية (ماكرو)
           </button>
           <button 
             type="button" 
@@ -4101,7 +4789,7 @@
             class:active={flowerAnglesViewer.activeAngle === 'stem'}
             on:click={() => flowerAnglesViewer.activeAngle = 'stem'}
           >
-            🌿 تفاصيل الساق
+             تفاصيل الساق
           </button>
         </div>
 
@@ -4129,9 +4817,9 @@
         <div class="viewer-upload-toolbar">
           <label class="btn btn-primary btn-sm btn-upload-angle" title="رفع صورة جديدة لهذه الزاوية من جهازك">
             {#if quickFlowerAngleUploading}
-              <span>⏳ جاري الرفع والتحديث...</span>
+              <span>جاري الرفع والتحديث...</span>
             {:else}
-              <span>📁 رفع وتعيين صورة من جهازك ({getAngleLabel(flowerAnglesViewer.activeAngle)})</span>
+              <span> رفع وتعيين صورة من جهازك ({getAngleLabel(flowerAnglesViewer.activeAngle)})</span>
             {/if}
             <input 
               type="file" 
@@ -4142,7 +4830,7 @@
           </label>
 
           <label class="btn btn-outline btn-sm btn-cam-angle" title="التقاط صورة بالكاميرا لهذه الزاوية">
-            <span>📷 التقاط بالكاميرا</span>
+            <span> التقاط بالكاميرا</span>
             <input 
               type="file" 
               accept="image/*" 
@@ -4170,7 +4858,7 @@
             title="تنزيل جميع صور الزوايا الأربعة معاً"
             on:click={() => downloadAllFlowerAngles(flowerAnglesViewer.flower)}
           >
-            📦 تنزيل جميع الزوايا الـ 4 معاً
+             تنزيل جميع الزوايا الـ 4 معاً
           </button>
         </div>
 
@@ -4195,7 +4883,7 @@
       <div class="modal-card settle-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">💵</span>
+            
             <div>
               <h3>استلام وتوريد العهدة النقدية</h3>
               <p class="modal-subtitle">توريد النقدية المحصلة من الكابتن: {settleModal.driver.full_name} وتصفية مستحقاته</p>
@@ -4293,7 +4981,7 @@
             disabled={settleModal.saving} 
             on:click={handleConfirmSettlement}
           >
-            {settleModal.saving ? 'جاري توثيق التسوية...' : 'تأكيد استلام المبلغ وتصفية العهدة 🌸'}
+            {settleModal.saving ? 'جاري توثيق التسوية...' : 'تأكيد استلام المبلغ وتصفية العهدة '}
           </button>
           <button type="button" class="btn btn-outline" on:click={() => settleModal.open = false}>
             إلغاء
@@ -4309,7 +4997,7 @@
       <div class="modal-card statement-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">📜</span>
+            <span class="modal-icon-badge"></span>
             <div>
               <h3>كشف الحساب والعهدة المالية للكابتن</h3>
               <p class="modal-subtitle">
@@ -4332,7 +5020,7 @@
             <!-- بطاقة الموقف المالي -->
             <div class="statement-profile-banner">
               <div class="stmt-col stmt-today-box">
-                <span class="stmt-lbl">أرباح اليوم ⚡:</span>
+                <span class="stmt-lbl">أرباح اليوم :</span>
                 <strong class="stmt-val text-amber">+{Number(driverStatementModal.data.today?.earnings || driverStatementModal.data.profile.today_earnings || 0).toLocaleString()} د.ل</strong>
               </div>
               <div class="stmt-col">
@@ -4358,7 +5046,7 @@
             </div>
 
             <!-- جدول الحركات المالية الأخيرة -->
-            <h4 style="margin: 24px 0 12px; color: var(--olive); font-size: 1.05rem;">📋 سجل حركات العهدة والأرباح الأخيرة:</h4>
+            <h4 style="margin: 24px 0 12px; color: var(--olive); font-size: 1.05rem;">سجل حركات العهدة والأرباح الأخيرة:</h4>
             <div class="table-responsive">
               <table class="data-table">
                 <thead>
@@ -4381,11 +5069,11 @@
                       </td>
                       <td>
                         {#if tx.type === 'order_collection'}
-                          <span class="tx-badge tx-in">📥 تحصيل كاش طلب</span>
+                          <span class="tx-badge tx-in">تحصيل كاش طلب</span>
                         {:else if tx.type === 'delivery_earning'}
-                          <span class="tx-badge tx-in">🚗 ربح توصيل</span>
+                          <span class="tx-badge tx-in"> ربح توصيل</span>
                         {:else if tx.type === 'admin_settlement'}
-                          <span class="tx-badge tx-out">📤 توريد وتسوية للإدارة</span>
+                          <span class="tx-badge tx-out">توريد وتسوية للإدارة</span>
                         {:else}
                           <span class="tx-badge tx-other">{tx.type}</span>
                         {/if}
@@ -4427,7 +5115,7 @@
 
             <!-- جدول التسويات السابقة -->
             {#if driverStatementModal.data.recent_settlements?.length > 0}
-              <h4 style="margin: 28px 0 12px; color: var(--olive); font-size: 1.05rem;">📑 إيصالات التوريد والتسوية السابقة للكابتن:</h4>
+              <h4 style="margin: 28px 0 12px; color: var(--olive); font-size: 1.05rem;">إيصالات التوريد والتسوية السابقة للكابتن:</h4>
               <div class="table-responsive">
                 <table class="data-table">
                   <thead>
@@ -4469,7 +5157,7 @@
                 openSettleModal(p);
               }}
             >
-              💵 توريد واستلام عهدة الكابتن الآن
+               توريد واستلام عهدة الكابتن الآن
             </button>
           {/if}
           <button type="button" class="btn btn-outline" on:click={() => driverStatementModal.open = false}>
@@ -4486,7 +5174,7 @@
       <div class="modal-card user-modal-card">
         <div class="modal-header-styled">
           <div class="modal-title-box">
-            <span class="modal-icon-badge">👤</span>
+            <span class="modal-icon-badge"></span>
             <div>
               <h3>إضافة مستخدم أو عضو طاقم جديد</h3>
               <p class="modal-subtitle">تسجيل حساب كابتن توصيل، منسق زهور، مدير، أو زبون</p>
@@ -4509,7 +5197,7 @@
             <div class="role-cards-grid">
               <label class="role-select-card" class:selected={userModal.role === 'driver'}>
                 <input type="radio" bind:group={userModal.role} value="driver" />
-                <span class="rc-icon">🚗</span>
+                <span class="rc-icon"></span>
                 <div class="rc-info">
                   <strong>كابتن توصيل</strong>
                   <small>استلام الطلبات، إدارة العهدة، والتتبع</small>
@@ -4518,7 +5206,7 @@
 
               <label class="role-select-card" class:selected={userModal.role === 'florist'}>
                 <input type="radio" bind:group={userModal.role} value="florist" />
-                <span class="rc-icon">💐</span>
+                <span class="rc-icon"></span>
                 <div class="rc-info">
                   <strong>منسّق زهور</strong>
                   <small>استلام وتجهيز باقات الأتيليه</small>
@@ -4527,7 +5215,7 @@
 
               <label class="role-select-card" class:selected={userModal.role === 'admin'}>
                 <input type="radio" bind:group={userModal.role} value="admin" />
-                <span class="rc-icon">👑</span>
+                <span class="rc-icon"></span>
                 <div class="rc-info">
                   <strong>مدير نظام</strong>
                   <small>إدارة كاملة للمتجر والأسعار والتقارير</small>
@@ -4536,7 +5224,7 @@
 
               <label class="role-select-card" class:selected={userModal.role === 'customer'}>
                 <input type="radio" bind:group={userModal.role} value="customer" />
-                <span class="rc-icon">👥</span>
+                <span class="rc-icon"></span>
                 <div class="rc-info">
                   <strong>زبون متجر</strong>
                   <small>حساب عميل لطلب وتصميم الباقات</small>
@@ -4580,7 +5268,7 @@
             <div class="form-group">
               <div class="label-with-action">
                 <label>كلمة المرور الأولية: *</label>
-                <button type="button" class="btn-text-sm" on:click={generateRandomPassword}>⚡ توليد تلقائي</button>
+                <button type="button" class="btn-text-sm" on:click={generateRandomPassword}> توليد تلقائي</button>
               </div>
               <input 
                 type="text" 
@@ -4626,7 +5314,7 @@
             {#if userModal.role === 'florist'}
               <div class="form-group full-width">
                 <div class="florist-notice-box">
-                  🌸 <b>ملاحظة منسق الورد:</b> سيتمكن المنسق من تسجيل الدخول إلى بوابته الخاصة واستلام باقات الزهور وتجهيز كروت الإهداء والختم الشمعي.
+                   <b>ملاحظة منسق الورد:</b> سيتمكن المنسق من تسجيل الدخول إلى بوابته الخاصة واستلام باقات الزهور وتجهيز كروت الإهداء والختم الشمعي.
                 </div>
               </div>
             {/if}
@@ -4640,7 +5328,7 @@
             disabled={userModal.saving} 
             on:click={handleSaveUser}
           >
-            {userModal.saving ? 'جاري الحفظ...' : 'إضافة وتفعيل الحساب 🌸'}
+            {userModal.saving ? 'جاري الحفظ...' : 'إضافة وتفعيل الحساب '}
           </button>
           <button type="button" class="btn btn-outline" on:click={() => userModal.open = false}>
             إلغاء
@@ -7953,6 +8641,886 @@
   }
   .map-btn-highlight:hover {
     background: #dcfce7 !important;
+  }
+
+  /* =========================================================================
+     مسار مراحل الطلبات والتتبع اللحظي (Orders Pipeline & Live Tracking)
+     ========================================================================= */
+  .orders-section-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* أ. شريط ملخص مسار المراحل */
+  .pipeline-summary-bar {
+    background: var(--card-solid);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+  }
+  .pipeline-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .p-pre-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--olive);
+    background: var(--lime);
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    margin-bottom: 4px;
+  }
+  .pipeline-main-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+  }
+  .pipeline-subtitle {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 4px 0 0;
+  }
+  .view-switch-group {
+    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-full);
+    padding: 4px;
+    gap: 4px;
+  }
+  .view-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    background: transparent;
+    padding: 7px 16px;
+    border-radius: var(--radius-full);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .view-switch-btn.active {
+    background: var(--card-solid);
+    color: var(--olive);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  /* خط خطوات المسار */
+  .pipeline-flow-track {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pipeline-flow-step {
+    flex: 1;
+    min-width: 160px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-align: right;
+  }
+  .pipeline-flow-step:hover {
+    border-color: var(--line-strong);
+    transform: translateY(-2px);
+  }
+  .pipeline-flow-step.active {
+    border-color: var(--olive);
+    background: rgba(46, 68, 50, 0.04);
+    box-shadow: 0 4px 14px rgba(46, 68, 50, 0.08);
+  }
+  .step-num-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+  .step-num-badge.stage-confirmed { background: #ffe4e6; color: #e11d48; }
+  .step-num-badge.stage-preparing { background: #fef3c7; color: #d97706; }
+  .step-num-badge.stage-delivery { background: #dbeafe; color: #2563eb; }
+  .step-num-badge.stage-delivered { background: #dcfce7; color: #16a34a; }
+  .step-content-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .step-name {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .step-count {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .pipeline-flow-connector {
+    color: var(--muted);
+    font-size: 1.1rem;
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  /* ب. شريط التحكم والبحث */
+  .orders-controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 14px 18px;
+    background: var(--card-solid);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+  }
+  .filter-pills-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-pill-btn {
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: var(--radius-full);
+    font-size: 0.83rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-pill-btn:hover {
+    border-color: var(--olive);
+  }
+  .filter-pill-btn.active {
+    background: var(--olive);
+    color: #fff;
+    border-color: var(--olive);
+    box-shadow: 0 3px 10px rgba(46, 68, 50, 0.25);
+  }
+  .filter-pill-btn.pill-new.active { background: #e11d48; border-color: #e11d48; }
+  .filter-pill-btn.pill-prep.active { background: #d97706; border-color: #d97706; }
+  .filter-pill-btn.pill-deliv.active { background: #2563eb; border-color: #2563eb; }
+  .filter-pill-btn.pill-done.active { background: #16a34a; border-color: #16a34a; }
+
+  .orders-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 280px;
+    flex: 1;
+    max-width: 440px;
+  }
+  .search-icon {
+    position: absolute;
+    right: 12px;
+    font-size: 0.9rem;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+  .orders-search-input {
+    width: 100%;
+    padding: 8px 36px 8px 30px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    font-size: 0.84rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .orders-search-input:focus {
+    border-color: var(--olive);
+  }
+  .btn-clear-search {
+    position: absolute;
+    left: 10px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 4px;
+  }
+
+  /* ج. أعمدة مسار المراحل (Pipeline Kanban Board) */
+  .pipeline-columns-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 1200px) {
+    .pipeline-columns-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 700px) {
+    .pipeline-columns-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .pipeline-stage-col {
+    background: var(--card-solid);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    min-height: 480px;
+  }
+  .stage-col-confirmed { border-top: 4px solid #e11d48; }
+  .stage-col-preparing { border-top: 4px solid #d97706; }
+  .stage-col-out_for_delivery { border-top: 4px solid #2563eb; }
+  .stage-col-delivered { border-top: 4px solid #16a34a; }
+
+  .pipeline-col-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .col-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stage-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .col-stage-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+  }
+  .col-count-badge {
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+  }
+  .pipeline-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .pipeline-empty-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    padding: 20px;
+  }
+
+  /* بطاقة الطلب في مسار المراحل */
+  .pipeline-order-card {
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s ease;
+  }
+  .pipeline-order-card:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    border-color: var(--olive);
+  }
+  .p-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .p-order-num {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--olive);
+    background: var(--lime);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .p-order-price {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .p-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .p-recipient-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .p-recipient-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .p-window-pill {
+    font-size: 0.72rem;
+    background: rgba(0, 0, 0, 0.04);
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: var(--text);
+    width: fit-content;
+  }
+  .p-staff-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .p-chip {
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--card-solid);
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
+  }
+  .p-chip.assigned {
+    color: var(--olive);
+    border-color: var(--olive);
+    background: rgba(46, 68, 50, 0.05);
+    font-weight: 600;
+  }
+
+  /* مؤشر مسار المراحل داخل البطاقة */
+  .p-card-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .p-stepper-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .p-stepper-dot.completed {
+    background: #16a34a;
+  }
+  .p-stepper-dot.active {
+    background: var(--olive);
+    box-shadow: 0 0 0 3px rgba(46, 68, 50, 0.2);
+  }
+  .dot-inner {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
+  }
+  .p-stepper-line {
+    flex: 1;
+    height: 3px;
+    background: var(--line-strong);
+    margin: 0 4px;
+  }
+  .p-stepper-line.completed {
+    background: #16a34a;
+  }
+
+  /* أزرار الإجراءات داخل البطاقة */
+  .p-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .btn-p-track {
+    flex: 1;
+    min-width: 90px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .btn-p-track:hover {
+    background: #bae6fd;
+  }
+  .btn-p-assign {
+    background: #f1f5f9;
+    color: var(--text);
+    border: 1px solid #cbd5e1;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-p-assign:hover {
+    background: #e2e8f0;
+  }
+  .btn-p-advance {
+    width: 100%;
+    background: var(--olive);
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 4px;
+    text-align: center;
+  }
+  .btn-p-advance:hover {
+    background: #1b2b1f;
+  }
+
+  /* مسار المراحل داخل خلايا الجدول */
+  .table-stage-stepper-cell {
+    min-width: 280px;
+  }
+  .t-stepper-track {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .t-step-chip {
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--muted);
+    padding: 4px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .t-step-chip:hover {
+    border-color: var(--olive);
+    color: var(--text);
+  }
+  .t-step-chip.completed {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+  }
+  .t-step-chip.active {
+    background: var(--olive);
+    color: #fff;
+    border-color: var(--olive);
+    box-shadow: 0 2px 6px rgba(46, 68, 50, 0.25);
+  }
+  .t-step-arrow {
+    color: var(--muted);
+    font-size: 0.75rem;
+    opacity: 0.5;
+  }
+
+  .btn-table-track {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-table-track:hover {
+    background: #bae6fd;
+  }
+  .btn-table-advance {
+    background: var(--lime);
+    color: var(--olive);
+    border: 1px solid rgba(46, 68, 50, 0.2);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-table-advance:hover {
+    background: var(--olive);
+    color: #fff;
+  }
+
+  /* د. نافذة التتبع اللحظي الشامل (Order Live Tracking Modal) */
+  .tracking-modal-card {
+    max-width: 960px;
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-timeline-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 14px 18px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--line-strong);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .m-step-node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .m-marker {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+  .m-step-node.completed .m-marker {
+    background: #16a34a;
+    color: #fff;
+  }
+  .m-step-node.active .m-marker {
+    background: var(--olive);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(46, 68, 50, 0.2);
+  }
+  .m-label {
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  .m-stepper-line {
+    flex: 1;
+    height: 3px;
+    background: var(--line-strong);
+    margin: 0 10px;
+    min-width: 20px;
+  }
+  .m-stepper-line.completed {
+    background: #16a34a;
+  }
+
+  .tracking-modal-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 20px;
+  }
+  @media (max-width: 850px) {
+    .tracking-modal-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .map-card-container {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+  }
+  .order-live-map-canvas {
+    width: 100%;
+    height: 320px;
+    background: #e2e8f0;
+  }
+  .map-badges-overlay {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    z-index: 999;
+    flex-wrap: wrap;
+    pointer-events: none;
+  }
+  .map-stat-badge {
+    background: rgba(255, 255, 255, 0.95);
+    color: #1e293b;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(4px);
+  }
+
+  .tracking-driver-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    margin-top: 14px;
+  }
+  .d-avatar-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #dbeafe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+  .d-info-box {
+    flex: 1;
+  }
+  .d-name {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .d-sub {
+    margin: 2px 0 0;
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+  .btn-call-driver {
+    display: inline-block;
+    background: #16a34a;
+    color: #fff;
+    padding: 7px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .btn-call-driver:hover {
+    opacity: 0.9;
+  }
+
+  .tracking-details-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .track-info-section {
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .t-sec-title {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--olive);
+    margin: 0 0 4px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .t-info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    gap: 8px;
+  }
+  .t-info-row span:first-child {
+    color: var(--muted);
+  }
+  .link-maps-nav {
+    color: #2563eb;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .link-maps-nav:hover {
+    text-decoration: underline;
+  }
+  .t-notes-box {
+    background: rgba(0, 0, 0, 0.03);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-style: italic;
+    color: var(--text);
+  }
+  .t-items-mini-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .t-item-mini-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .t-total-row {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 6px;
+    font-size: 0.88rem;
+    font-weight: 800;
+  }
+  .t-total-price {
+    color: var(--olive);
+  }
+
+  .t-history-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 160px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .h-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.78rem;
+  }
+  .h-step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--olive);
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .h-step-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .h-step-time {
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+  .h-step-comment {
+    margin: 2px 0 0;
+    color: var(--text);
+  }
+
+  .track-actions-bar {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .btn-track-action-assign {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-track-action-assign:hover {
+    background: var(--line-strong);
+  }
+  .btn-track-action-public {
+    flex: 1;
+    background: var(--olive);
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .btn-track-action-public:hover {
+    background: #1b2b1f;
+  }
+
+  .tracking-loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 14px;
+    color: var(--muted);
+  }
+  .tracking-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(46, 68, 50, 0.1);
+    border-top-color: var(--olive);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 </style>
 

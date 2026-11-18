@@ -70,7 +70,7 @@
     { key: 'confirmed', label: 'تم تأكيد الطلب', desc: 'تم استلام طلبك ومراجعته بنجاح' },
     { key: 'preparing', label: 'جاري التنسيق في الأتيليه', desc: 'يقوم منسق الورد بتجهيز الباقة وختم الكرت' },
     { key: 'out_for_delivery', label: 'في الطريق للتوصيل', desc: 'استلم السائق الباقة وهي في طريقها إليك بسيارة مبردة' },
-    { key: 'delivered', label: 'تم التسليم بنجاح', desc: 'وصلت الباقة بحمد الله وزرعت الابتسامة 🌸' }
+    { key: 'delivered', label: 'تم التسليم بنجاح', desc: 'وصلت الباقة بحمد الله وزرعت الابتسامة' }
   ];
 
   function getStageIndex(status) {
@@ -87,7 +87,7 @@
 <div class="track-page fade-in">
   <div class="container">
     <div class="track-header">
-      <span class="badge badge-lime">تتبع مسار الطلب لحظة بلحظة 📍</span>
+      <span class="badge badge-lime">تتبع مسار الطلب لحظة بلحظة</span>
       <h1 class="page-title">شاشة التتبع المباشر للطلب</h1>
       <p class="page-subtitle">
         تابع مراحل تجهيز الباقة في الأتيليه، وموقع السائق المباشر عبر الـ GPS حتى وصولها للمستلم.
@@ -103,7 +103,7 @@
           required 
         />
         <button type="submit" class="btn btn-primary" disabled={loading}>
-          {loading ? 'جاري البحث...' : 'تتبع الآن 🔍'}
+          {loading ? 'جاري البحث...' : 'تتبع الآن'}
         </button>
       </form>
 
@@ -111,14 +111,14 @@
         <span>أو اختر طلباً للاختبار السريع: </span>
         <button type="button" on:click={() => { orderNumberInput = '1048'; loadOrder('1048'); }}>#1048 (مكتمل)</button>
         <button type="button" on:click={() => { orderNumberInput = '1049'; loadOrder('1049'); }}>#1049 (جاري التنسيق)</button>
-        <button type="button" on:click={() => { orderNumberInput = '1050'; loadOrder('1050'); }}>#1050 (في الطريق 🚗)</button>
+        <button type="button" on:click={() => { orderNumberInput = '1050'; loadOrder('1050'); }}>#1050 (في الطريق)</button>
         <button type="button" on:click={() => { orderNumberInput = '1051'; loadOrder('1051'); }}>#1051 (مؤكد)</button>
       </div>
     </div>
 
     {#if errorMessage}
       <div class="error-card fade-in">
-        <span>⚠️ {errorMessage}</span>
+        <span>{errorMessage}</span>
       </div>
     {/if}
 
@@ -161,14 +161,14 @@
             </div>
 
             <div class="delivery-time-slot">
-              <span>📅 موعد التوصيل المحدد:</span>
+              <span>موعد التوصيل المحدد:</span>
               <b>{o.delivery_window || 'اليوم — خلال 3 ساعات'}</b>
             </div>
           </div>
 
           <!-- تفاصيل السائق والمنسق -->
           <div class="card staff-card">
-            <h3>طاقم تجهيز وتوصيل مسكة 🌸</h3>
+            <h3>طاقم تجهيز وتوصيل مسكة</h3>
             <div class="staff-grid">
               <div class="staff-box">
                 <span class="staff-role">منسق الورد في الأتيليه:</span>
@@ -180,12 +180,12 @@
                 <span class="staff-role">سائق التوصيل المعتمد:</span>
                 <h4 class="staff-name">{o.driver_name || 'طارق الزوي'}</h4>
                 <div class="vehicle-info">
-                  <span>🚗 {o.vehicle_type || 'تويوتا كورولا مكيفة'}</span>
+                  <span>{o.vehicle_type || 'تويوتا كورولا مكيفة'}</span>
                   <span>لوحة: {o.plate_number || 'طرابلس 5-12345'}</span>
                 </div>
                 {#if o.driver_phone}
                   <a href="tel:{o.driver_phone}" class="call-driver-btn">
-                    📞 اتصال بالسائق ({o.driver_phone})
+                    اتصال بالسائق ({o.driver_phone})
                   </a>
                 {/if}
               </div>
@@ -194,12 +194,12 @@
 
           <!-- عناصر الطلب وبطاقة الإهداء -->
           <div class="card items-card">
-            <h3>محتويات الباقة والهدية 💐</h3>
+            <h3>محتويات الباقة والهدية</h3>
             <div class="ordered-items-list">
               {#each orderData.items as item (item.id)}
                 <div class="order-item-tile">
                   <div class="item-name-group">
-                    <span class="flower-icon">🌸</span>
+                    <span class="flower-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L3 9l9 13 9-13-9-7z"/></svg></span>
                     <div>
                       <h4>{item.item_title}</h4>
                       {#if item.wrap_type}
@@ -216,7 +216,7 @@
                 {#if item.wax_seal_text}
                   <div class="wax-seal-preview-box">
                     <div class="seal-stamp-circle" style="background: #851b2f;">
-                      {item.seal_stamp || 'MASKA 🌸'}
+                      {item.seal_stamp || 'MASKA'}
                     </div>
                     <div class="card-written-content">
                       <span class="card-label">نص كرت الإهداء المكتوب بخط اليد:</span>
@@ -254,9 +254,9 @@
         <aside class="track-map-col">
           <div class="card map-card">
             <div class="map-header">
-              <h3>التتبع الجغرافي الحي (GPS) 📍</h3>
+              <h3>التتبع الجغرافي الحي (GPS)</h3>
               {#if o.status === 'out_for_delivery'}
-                <span class="live-pulse-badge">🔴 بث مباشر للسائق</span>
+                <span class="live-pulse-badge">بث مباشر للسائق</span>
               {:else}
                 <span class="idle-badge">جاهزية المسار</span>
               {/if}
@@ -273,14 +273,14 @@
 
               <!-- موقع المستلم / الوجهة -->
               <div class="map-pin destination-pin">
-                <span class="pin-icon">🏡</span>
+                <span class="pin-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
                 <span class="pin-label">{o.delivery_city} - {o.delivery_zone}</span>
               </div>
 
               <!-- موقع السائق المتحرك -->
               <div class="map-pin driver-pin" class:moving={o.status === 'out_for_delivery'}>
                 <span class="radar-ripple"></span>
-                <span class="pin-icon">🚗</span>
+                <span class="pin-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
                 <span class="pin-label">{o.driver_name || 'السائق'} ({simSpeed} كم/س)</span>
               </div>
             </div>
@@ -305,7 +305,7 @@
             </div>
 
             <div class="guarantee-box">
-              <span>🌸 سيارة التوصيل مجهزة بنظام تبريد مستمر للحفاظ على نضارة كل ساق زهور حتى باب منزلك.</span>
+              <span>سيارة التوصيل مجهزة بنظام تبريد مستمر للحفاظ على نضارة كل ساق زهور حتى باب منزلك.</span>
             </div>
           </div>
         </aside>

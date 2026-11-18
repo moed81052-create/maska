@@ -130,7 +130,7 @@
   let selectedWaxColor = waxSealColors[0];
 
   let cardMessage = 'أجمل اللحظات هي التي تبدأ بوردة صادقة…';
-  let sealStamp = 'MASKA 🌸';
+  let sealStamp = 'MASKA';
   let is3DRotating = false;
   let showGrid = false;
   let activeTab = 'flowers'; // 'flowers' | 'ai' | 'stems' | 'packaging'
@@ -148,7 +148,7 @@
 
   // الذكاء الاصطناعي (AI Florist Assistant)
   let aiPromptText = '';
-  let aiStatusMessage = '✨ الذكاء الاصطناعي جاهز لمساعدتك في تنسيق وتحريك الباقة!';
+  let aiStatusMessage = 'الذكاء الاصطناعي جاهز لمساعدتك في تنسيق وتحريك الباقة.';
   let aiIsThinking = false;
   let aiStylePreset = 'royal'; // 'royal' | 'dome' | 'boho' | 'heart'
 
@@ -333,7 +333,7 @@
     initializeStemsFromQuantities();
     applyStylePreset(aiStylePreset);
 
-    aiStatusMessage = `🌸 تم تطبيق تصميم "${design.name || 'باقة مسكة'}" بالكامل على اللوحة!`;
+    aiStatusMessage = `تم تطبيق تصميم "${design.name || 'باقة مسكة'}" بالكامل على اللوحة!`;
     activeTab = 'flowers';
 
     const canvas = document.querySelector('.bouquet-canvas-box') || document.querySelector('.canvas-view-port');
@@ -367,7 +367,7 @@
       const newStem = createStemInstance(flower, flower.section);
       stems = [...stems, newStem];
       selectedStemId = newStem.id;
-      aiStatusMessage = `🌸 أضيفت ساق جديدة من "${flower.name}" إلى ${getSectionNameAr(flower.section)}`;
+      aiStatusMessage = `أضيفت ساق جديدة من "${flower.name}" إلى ${getSectionNameAr(flower.section)}`;
     } else {
       // إزالة آخر ساق من هذا النوع
       let removeIdx = -1;
@@ -387,7 +387,7 @@
     }
   }
 
-  // تغيير قسم نوع الزهرة كاملاً (🔝 فوق، 🎯 وسط، 👉 يمين، 👈 يسار، 🔽 أسفل)
+  // تغيير قسم نوع الزهرة كاملاً
   function handleSectionChange(flowerId, newSection) {
     flowers = flowers.map(f => f.id === flowerId ? { ...f, section: newSection } : f);
     
@@ -408,13 +408,13 @@
     });
 
     const flower = flowers.find(f => f.id === flowerId);
-    aiStatusMessage = `✨ تم نقل زهور "${flower ? flower.name : ''}" إلى قسم (${getSectionNameAr(newSection)})`;
+    aiStatusMessage = `تم نقل زهور "${flower ? flower.name : ''}" إلى قسم (${getSectionNameAr(newSection)})`;
   }
 
   function getSectionNameAr(sec) {
     switch (sec) {
-      case 'top': return 'القمة والأعلى 🔝';
-      case 'center': return 'القلب والوسط 🎯';
+      case 'top': return 'الأعلى والقمة 🔝';
+      case 'center': return 'الوسط والمركز 🎯';
       case 'left': return 'الجهة اليسرى 👈';
       case 'right': return 'الجهة اليمنى 👉';
       case 'bottom': return 'القاعدة والمحيط 🔽';
@@ -422,14 +422,40 @@
     }
   }
 
-  // --- محرر الوردة الفردية (Stem-by-Stem Inspector) ---
-  $: selectedStem = stems.find(s => s.id === selectedStemId) || null;
+  // --- محرر الوردة الفردية (Stem-by-Stem Inspector - الوردة التي تم النقر عليها فقط) ---
+  $: effectiveStemId = (selectedStemId && stems.some(s => s.id === selectedStemId)) 
+    ? selectedStemId 
+    : null;
+  $: selectedStem = effectiveStemId ? (stems.find(s => s.id === effectiveStemId) || null) : null;
+  $: selectedFlowerData = selectedStem ? flowers.find(f => f.id === selectedStem.flowerId) : null;
+  $: selectedStemInfo = selectedStem ? getFlowerMeaningAndCare(selectedStem.flowerName) : null;
+
+  function getCleanFlowerName(name) {
+    if (!name) return 'وردة';
+    if (name.includes('أوكالبتوس') || name.includes('اوكالبتوس')) return 'أوكالبتوس';
+    if (name.includes('جيبسوفيلا') || name.includes('جبسوفيلا')) return 'جيبسوفيلا';
+    if (name.includes('فاوانيا') || name.includes('بيوني')) return 'بيوني';
+    if (name.includes('أوركيد') || name.includes('اوركيد')) return 'أوركيد';
+    if (name.includes('توليب')) return 'توليب';
+    if (name.includes('شمس') || name.includes('عباد')) return 'عباد الشمس';
+    if (name.includes('ليلي') || name.includes('زنابق')) return 'زنابق الليلي';
+    if (name.includes('جوري أحمر') || (name.includes('جوري') && name.includes('أحمر'))) return 'جوري أحمر';
+    if (name.includes('جوري وردي') || (name.includes('جوري') && name.includes('وردي'))) return 'جوري وردي';
+    return name.split(' ')[0] || name;
+  }
+
+  function selectNextStem(delta = 1) {
+    if (stems.length === 0) return;
+    const currentIdx = stems.findIndex(s => s.id === selectedStemId);
+    let nextIdx = (currentIdx + delta + stems.length) % stems.length;
+    selectedStemId = stems[nextIdx].id;
+  }
 
   function setStemAngle(angle) {
     if (!selectedStem) return;
     selectedStem.angle = angle;
     stems = [...stems];
-    aiStatusMessage = `📸 تم ضبط زاوية الرؤية إلى (${getAngleLabelAr(angle)})`;
+    aiStatusMessage = `تم ضبط زاوية الرؤية إلى (${getAngleLabelAr(angle)})`;
   }
 
   function getAngleLabelAr(angle) {
@@ -446,6 +472,137 @@
     if (!selectedStem) return;
     selectedStem[prop] = value;
     stems = [...stems];
+  }
+
+  function rotateSelectedStem(delta = 15) {
+    if (!selectedStem) return;
+    selectedStem.rotation = Math.max(-60, Math.min(60, (selectedStem.rotation || 0) + delta));
+    stems = [...stems];
+  }
+
+  function scaleSelectedStem(delta = 0.05) {
+    if (!selectedStem) return;
+    const nextScale = Math.round(((selectedStem.scale || 1.0) + delta) * 100) / 100;
+    selectedStem.scale = Math.max(0.7, Math.min(1.4, nextScale));
+    stems = [...stems];
+  }
+
+  function cycleSelectedStemAngle() {
+    if (!selectedStem) return;
+    const angles = ['front', 'side', 'top', 'stem'];
+    const curIdx = angles.indexOf(selectedStem.angle || 'front');
+    const nextAngle = angles[(curIdx + 1) % angles.length];
+    setStemAngle(nextAngle);
+  }
+
+  function nudgeSelectedStem(dx, dy) {
+    if (!selectedStem) return;
+    selectedStem.x = Math.max(-140, Math.min(140, (selectedStem.x || 0) + dx));
+    selectedStem.y = Math.max(-140, Math.min(140, (selectedStem.y || 0) + dy));
+    stems = [...stems];
+  }
+
+  function moveStemToSection(newSection) {
+    if (!selectedStem) return;
+    const coords = getSectionCoordinates(newSection);
+    selectedStem.section = newSection;
+    selectedStem.x = coords.x + Math.round((Math.random() - 0.5) * 16);
+    selectedStem.y = coords.y + Math.round((Math.random() - 0.5) * 12);
+    selectedStem.rotation = coords.rotation;
+    selectedStem.angle = coords.angle;
+    stems = [...stems];
+    aiStatusMessage = `تم نقل الساق إلى قسم (${getSectionNameAr(newSection)})`;
+  }
+
+  function resetStemPosition() {
+    if (!selectedStem) return;
+    const coords = getSectionCoordinates(selectedStem.section || 'center');
+    selectedStem.x = coords.x;
+    selectedStem.y = coords.y;
+    selectedStem.rotation = coords.rotation;
+    selectedStem.scale = 1.0;
+    stems = [...stems];
+    aiStatusMessage = `🔄 تم إعادة ضبط موقع الساق للموضع المتناسق`;
+  }
+
+  function duplicateSelectedStem() {
+    if (!selectedStem) return;
+    const flower = flowers.find(f => f.id === selectedStem.flowerId);
+    if (!flower) return;
+    if (flower.qty >= flower.stock_quantity) {
+      alert(`عذراً، وصلت للحد الأقصى المتوفر بالمخزن (${flower.stock_quantity} ساق)`);
+      return;
+    }
+    flower.qty += 1;
+    flowers = [...flowers];
+    const newStem = {
+      ...selectedStem,
+      id: 'stem_' + flower.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      x: selectedStem.x + 12,
+      y: selectedStem.y + 10,
+      zIndex: stems.length + 10
+    };
+    stems = [...stems, newStem];
+    selectedStemId = newStem.id;
+    aiStatusMessage = `➕ تم تكرار ساق من \"${flower.name}\" بنجاح`;
+  }
+
+  function getFlowerMeaningAndCare(flowerName = '') {
+    const n = flowerName.toLowerCase();
+    if (n.includes('أحمر') || n.includes('حمراء')) {
+      return {
+        meaning: 'الحب العميق والخلود والمشاعر الصادقة الفاخرة.',
+        care: 'اقطع الساق بزاوية 45° تحت الماء كل يومين واغمرها بماء بارد ونقي.',
+        season: 'متوفر طوال العام'
+      };
+    }
+    if (n.includes('توليب')) {
+      return {
+        meaning: 'النقاء والبدايات الجديدة المشرقة والصفاء الملكي.',
+        care: 'ضع مكعب ثلج صغير يومياً في ماء المزهرية لتبقى الساق منتصبة وقوية.',
+        season: 'موسم الربيع الهولندي'
+      };
+    }
+    if (n.includes('أوركيد') || n.includes('اوركيد')) {
+      return {
+        meaning: 'الفخامة الاستثنائية والجمال النادر والأناقة الدائمة.',
+        care: 'احفظها بعيداً عن أشعة الشمس المباشرة ورش محيطها برذاذ خفيف.',
+        season: 'زهور ملكية استوائية'
+      };
+    }
+    if (n.includes('شمس') || n.includes('عباد')) {
+      return {
+        meaning: 'البهجة، الطاقة الإيجابية، الصداقة المتينة، والنجاح.',
+        care: 'تحتاج ماء عميقاً نسبياً لدعم ثقل رأس الزهرة وغيّر الماء بانتظام.',
+        season: 'الصيف والربيع المشرق'
+      };
+    }
+    if (n.includes('بيوني') || n.includes('فاوانيا')) {
+      return {
+        meaning: 'الرقي الأرستقراطي، السعادة الزوجية، والحظ الوفير.',
+        care: 'احفظها في مكان بارد معتدل، وقص أطراف الساق بمقص حاد كل 48 ساعة.',
+        season: 'موسم أوائل الصيف الفاخر'
+      };
+    }
+    if (n.includes('ليلي') || n.includes('زنابق')) {
+      return {
+        meaning: 'السمو، العظمة، والشذى العطري الفواح.',
+        care: 'أزل حبوب اللقاح البرتقالية بمنديل فور تفتح الزهرة لمضاعفة عمرها.',
+        season: 'طوال العام'
+      };
+    }
+    if (n.includes('أوكالبتوس') || n.includes('اوكالبتوس')) {
+      return {
+        meaning: 'النضارة، الحماية، والتناغم الطبيعي العطري الأخضر.',
+        care: 'تدوم لأكثر من 3 أسابيع، ويمكن تجفيفها لتبقى تذكاراً جميلاً.',
+        season: 'نبات عطري دائم الخضرة'
+      };
+    }
+    return {
+      meaning: 'الرقة والمودة والجمال الطبيعي المتناسق.',
+      care: 'تغيير الماء كل يومين وإزالة أي أوراق تقع تحت خط الماء في الفازة.',
+      season: 'أزهار مسكة الطبيعية'
+    };
   }
 
   function bringStemForward() {
@@ -475,15 +632,16 @@
     aiStatusMessage = `🗑️ تم حذف الساق المحددة`;
   }
 
-  // --- السحب والإفلات اليدوي الحر (Freeform Drag & Drop) ---
+  // --- السحب والإفلات اليدوي الحر (Freeform Touch & Pointer Drag) ---
   function startStemDrag(e, stemId) {
     e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
     selectedStemId = stemId;
     isDragging = true;
     dragStemId = stemId;
 
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const clientX = e.touches ? e.touches[0].clientX : (e.clientX ?? 0);
+    const clientY = e.touches ? e.touches[0].clientY : (e.clientY ?? 0);
 
     if (canvasContainer) {
       const rect = canvasContainer.getBoundingClientRect();
@@ -502,14 +660,17 @@
     window.addEventListener('mouseup', endStemDrag);
     window.addEventListener('touchmove', onStemDragMove, { passive: false });
     window.addEventListener('touchend', endStemDrag);
+    window.addEventListener('pointermove', onStemDragMove, { passive: false });
+    window.addEventListener('pointerup', endStemDrag);
+    window.addEventListener('pointercancel', endStemDrag);
   }
 
   function onStemDragMove(e) {
     if (!isDragging || !dragStemId || !canvasContainer) return;
-    if (e.preventDefault && e.touches) e.preventDefault();
+    if (e.cancelable) e.preventDefault();
 
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const clientX = e.touches ? e.touches[0].clientX : (e.clientX ?? 0);
+    const clientY = e.touches ? e.touches[0].clientY : (e.clientY ?? 0);
 
     const rect = canvasContainer.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
@@ -518,9 +679,9 @@
     const newX = Math.round(clientX - centerX - dragOffset.x);
     const newY = Math.round(clientY - centerY - dragOffset.y);
 
-    // قيود الحركة داخل حدود المسرح
-    const clampedX = Math.max(-145, Math.min(145, newX));
-    const clampedY = Math.max(-185, Math.min(75, newY));
+    // قيود الحركة داخل حدود المسرح الموسعة لتمنح حرية كاملة لليد
+    const clampedX = Math.max(-155, Math.min(155, newX));
+    const clampedY = Math.max(-190, Math.min(85, newY));
 
     stems = stems.map(s => {
       if (s.id === dragStemId) {
@@ -537,6 +698,9 @@
     window.removeEventListener('mouseup', endStemDrag);
     window.removeEventListener('touchmove', onStemDragMove);
     window.removeEventListener('touchend', endStemDrag);
+    window.removeEventListener('pointermove', onStemDragMove);
+    window.removeEventListener('pointerup', endStemDrag);
+    window.removeEventListener('pointercancel', endStemDrag);
   }
 
   // --- الذكاء الاصطناعي لتنسيق وتحريك وتشكيل الزهور (AI Florist Assistant) ---
@@ -544,7 +708,7 @@
   // 1. التنسيق الذكي بأنماط متعددة (AI Arranging Presets)
   function aiArrangeBouquet(preset = 'royal') {
     if (stems.length === 0) {
-      alert('الرجاء اختيار بعض الزهور أولاً ليقوم الذكاء الاصطناعي بتنسيقها 🌸');
+      alert('الرجاء اختيار بعض الزهور أولاً ليقوم الذكاء الاصطناعي بتنسيقها');
       return;
     }
 
@@ -582,7 +746,7 @@
           }
           return { ...s, x: Math.round(x), y: Math.round(y), rotation: Math.round(rot), angle };
         });
-        aiStatusMessage = '👑 تم تطبيق "التنسيق الهرمي الملكي المتدرج" بالذكاء الاصطناعي!';
+        aiStatusMessage = 'تم تطبيق "التنسيق الملكي المتدرج" بنجاح!';
 
       } else if (preset === 'dome') {
         // باقة دائرية متناسقة كلاسيكية على مدار النسبة الذهبية
@@ -599,7 +763,7 @@
           const angle = Math.abs(x) > 60 ? 'side' : (y < -110 ? 'top' : 'front');
           return { ...s, x, y, rotation: rot, angle };
         });
-        aiStatusMessage = '🎯 تم تشكيل "الباقة الدائرية المتناسقة" وفق النسبة الذهبية!';
+        aiStatusMessage = 'تم تشكيل "الباقة الدائرية المتناسقة" وفق النسبة الذهبية!';
 
       } else if (preset === 'boho') {
         // نمط بوهيمي عصري غير متناظر
@@ -612,7 +776,7 @@
           const angle = angles[Math.floor(Math.random() * angles.length)];
           return { ...s, x, y, rotation: rot, angle };
         });
-        aiStatusMessage = '🌿 تم تشكيل "التنسيق البوهيمي العصري غير المتناظر" بحرية فنية!';
+        aiStatusMessage = 'تم تشكيل "التنسيق البوهيمي العصري غير المتناظر" بحرية فنية!';
 
       } else if (preset === 'heart') {
         // نمط القلب الرومانسي
@@ -627,7 +791,7 @@
           const rot = Math.round((x / 110) * 25);
           return { ...s, x, y, rotation: rot, angle: 'front' };
         });
-        aiStatusMessage = '💖 تم تشكيل "القلب الرومانسي المدمج" بالذكاء الاصطناعي!';
+        aiStatusMessage = 'تم تشكيل "التنسيق الرومانسي الفاخر" بنجاح!';
       }
 
       aiIsThinking = false;
@@ -657,14 +821,14 @@
       }
       return { ...s, angle, rotation: rot };
     });
-    aiStatusMessage = '🪄 تم ضبط زوايا الورود ثلاثية الأبعاد تلقائياً حسب موقع كل وردة!';
+    aiStatusMessage = 'تم ضبط زوايا الورود ثلاثية الأبعاد تلقائياً حسب موقع كل وردة!';
   }
 
   // 3. محرك الأوامر بالذكاء الاصطناعي (AI Natural Language Prompt Parser)
   function executeAiPrompt() {
     const p = aiPromptText.trim().toLowerCase();
     if (!p) {
-      alert('الرجاء كتابة طلبك للمنسق الذكي أولاً 🌸');
+      alert('الرجاء كتابة طلبك للمنسق الذكي أولاً');
       return;
     }
 
@@ -672,7 +836,7 @@
 
     setTimeout(() => {
       // 1. الكشف عن الأنماط العامة
-      if (p.includes('هرمي') || p.includes('ملكي') || p.includes('متدرج')) {
+      if (p.includes('هرمي') || p.includes('ملكي') || p.includes('متدرج') || p.includes('مثلث') || p.includes('متلت')) {
         aiArrangeBouquet('royal');
         return;
       }
@@ -684,7 +848,7 @@
         aiArrangeBouquet('boho');
         return;
       }
-      if (p.includes('قلب') || p.includes('رومانسي')) {
+      if (p.includes('قلب') || p.includes('رومانسي') || p.includes('مدمج')) {
         aiArrangeBouquet('heart');
         return;
       }
@@ -746,11 +910,11 @@
       aiIsThinking = false;
 
       if (appliedDetails.length > 0) {
-        aiStatusMessage = `✨ نفّذ الذكاء الاصطناعي أمرك: وضع ${appliedDetails.join('، ')} بنجاح!`;
+        aiStatusMessage = `نفّذ الذكاء الاصطناعي أمرك: وضع ${appliedDetails.join('، ')} بنجاح!`;
       } else {
         // توزيع ذكي متوازن افتراضي
         aiArrangeBouquet('royal');
-        aiStatusMessage = `✨ تم تحليل نصك وتوزيع الباقة بنمط ذكي مخصص متناغم!`;
+        aiStatusMessage = `تم تحليل نصك وتوزيع الباقة بنمط ذكي مخصص متناغم!`;
       }
     }, 400);
   }
@@ -769,10 +933,10 @@
   $: aiSuggestion = getAiSuggestion(stems, selectedWrap, colorHarmonyScore);
   function getAiSuggestion(stemsList, wrap, harmony) {
     if (stemsList.length === 0) return 'ابدأ بإضافة ورود الجوري أو التوليب لبناء قاعدة الباقة.';
-    if (stemsList.length < 5) return '💡 نصيحة المنسق الذكي: إضافة 2-3 سيقان جيبسوفيلا أو أوكالبتوس سيعطي حجماً إضافياً وامتلاءً ملكياً.';
-    if (wrap.id === 'black') return '✨ اختيار ورق السهرة الأسود يُبرز تباين الورود الزاهية بأسلوب فاخر وعصري.';
-    if (wrap.id === 'kraft') return '🌿 التغليف الكرافت الكلاسيكي يمنح إحساساً بالأصالة والحدائق الإيطالية النضرة.';
-    return '🌸 تناسق الألوان رائع ومتوازن، جاهز للاعتماد والتقديم بالختم الشمعي.';
+    if (stemsList.length < 5) return 'نصيحة المنسق الذكي: إضافة 2-3 سيقان جيبسوفيلا أو أوكالبتوس سيعطي حجماً إضافياً وامتلاءً ملكياً.';
+    if (wrap.id === 'black') return 'اختيار ورق السهرة الأسود يُبرز تباين الورود الزاهية بأسلوب فاخر وعصري.';
+    if (wrap.id === 'kraft') return 'التغليف الكرافت الكلاسيكي يمنح إحساساً بالأصالة والحدائق الإيطالية النضرة.';
+    return 'تناسق الألوان رائع ومتوازن، جاهز للاعتماد والتقديم بالختم الشمعي.';
   }
 
   // الحسابات المالية
@@ -783,7 +947,7 @@
   // إضافة الباقة المصممة للسلة
   function handleAddCustomToCart() {
     if (totalStems < 3) {
-      alert('الرجاء اختيار 3 سيقان زهور على الأقل لتنسيق باقة متناسقة 🌸');
+      alert('الرجاء اختيار 3 سيقان زهور على الأقل لتنسيق باقة متناسقة');
       return;
     }
 
@@ -819,7 +983,7 @@
     {
       id: 1,
       sender: 'ai',
-      text: 'مرحباً بك في مسكة أتيليه! 🌸 أنا منسقك ومستشارك الذكي المتخصص في عالم الزهور الطبيعية. اسألني عن معاني الورود، دلالات الألوان، نصائح العناية وإطالة النضارة، أو اقترح لي تنسيقاً لباقة أحلامك!',
+      text: 'مرحباً بك في مسكة أتيليه! أنا منسقك ومستشارك الذكي المتخصص في عالم الزهور الطبيعية. اسألني عن معاني الورود، دلالات الألوان، نصائح العناية وإطالة النضارة، أو اقترح لي تنسيقاً لباقة أحلامك!',
       isOffTopic: false,
       timestamp: 'الآن'
     }
@@ -846,7 +1010,7 @@
 
     // فحص ما إذا كانت الرسالة تتضمن أمر تنسيق للباقة الحية
     const lower = textToSend.toLowerCase();
-    if (lower.includes('حط') || lower.includes('وسط') || lower.includes('فوق') || lower.includes('هرمي') || lower.includes('دائري') || lower.includes('بوهيمي') || lower.includes('قلب')) {
+    if (lower.includes('حط') || lower.includes('وسط') || lower.includes('فوق') || lower.includes('هرمي') || lower.includes('ملكي') || lower.includes('متلت') || lower.includes('مثلث') || lower.includes('دائري') || lower.includes('بوهيمي') || lower.includes('قلب') || lower.includes('رومانسي')) {
       aiPromptText = textToSend;
       executeAiPrompt();
     }
@@ -879,7 +1043,7 @@
         {
           id: Date.now() + 1,
           sender: 'ai',
-          text: 'عذراً، حدث خطأ مؤقت في الاتصال بمساعد الذكاء الاصطناعي. يمكنك المحاولة مجدداً أو كتابة سؤالك في الزهور 🌸',
+          text: 'عذراً، حدث خطأ مؤقت في الاتصال بمساعد الذكاء الاصطناعي. يمكنك المحاولة مجدداً أو كتابة سؤالك في الزهور',
           isOffTopic: false,
           timestamp: new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })
         }
@@ -913,8 +1077,8 @@
     <!-- رأس الصفحة -->
     <div class="studio-header">
       <div class="badge-cluster">
-        <span class="badge badge-lime">استوديو التصميم الحي 💐</span>
-        <span class="badge badge-gold">مدعوم بالذكاء الاصطناعي ✨</span>
+        <span class="badge badge-lime">استوديو التصميم الحي</span>
+        <span class="badge badge-gold">مدعوم بالذكاء الاصطناعي</span>
       </div>
       <h1 class="page-title">صمّم باقتك وردة بوردة وتغليفاً</h1>
       <p class="page-subtitle">
@@ -934,7 +1098,7 @@
 
     {#if addedToast}
       <div class="studio-toast fade-in">
-        🌸 تمت إضافة باقتك الملكية المنسقة إلى السلة! جاري الانتقال لصفحة إتمام الطلب...
+        تمت إضافة باقتك المنسقة إلى السلة! جاري الانتقال لصفحة إتمام الطلب...
       </div>
     {/if}
 
@@ -944,7 +1108,7 @@
       <!-- العمود الأول: أدوات وتفاصيل التصميم التفاعلي -->
       <div class="studio-controls">
         
-        <!-- أشرطة التبويب الخمسة مع الشات المباشر -->
+        <!-- أشرطة التبويب المتناسقة والمتسلسلة لخطوات التصميم -->
         <div class="studio-tabs">
           <button 
             type="button" 
@@ -952,16 +1116,7 @@
             class:active={activeTab === 'flowers'}
             on:click={() => activeTab = 'flowers'}
           >
-            🌸 زهور الباقة ({totalStems})
-          </button>
-          
-          <button 
-            type="button" 
-            class="tab-btn tab-btn-chat" 
-            class:active={activeTab === 'chat'}
-            on:click={() => activeTab = 'chat'}
-          >
-            💬 شات الذكاء الاصطناعي ✦
+            زهور الباقة ({totalStems})
           </button>
 
           <button 
@@ -970,7 +1125,7 @@
             class:active={activeTab === 'ai'}
             on:click={() => activeTab = 'ai'}
           >
-            ✨ التنسيق والأنماط
+            التنسيق والأنماط
           </button>
 
           <button 
@@ -979,7 +1134,7 @@
             class:active={activeTab === 'stems'}
             on:click={() => activeTab = 'stems'}
           >
-            🔍 تعديل وردة بوردة
+            تعديل وردة بوردة
           </button>
 
           <button 
@@ -988,7 +1143,16 @@
             class:active={activeTab === 'packaging'}
             on:click={() => activeTab = 'packaging'}
           >
-            🎀 التغليف والشريط
+            التغليف والشريط
+          </button>
+
+          <button 
+            type="button" 
+            class="tab-btn tab-btn-chat" 
+            class:active={activeTab === 'chat'}
+            on:click={() => activeTab = 'chat'}
+          >
+            مساعد الذكاء الاصطناعي
           </button>
         </div>
 
@@ -998,13 +1162,17 @@
             <div class="chat-header">
               <div class="chat-agent-info">
                 <div class="agent-avatar-wrap">
-                  <span class="agent-avatar">🌸</span>
+                  <span class="agent-avatar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+                    </svg>
+                  </span>
                   <span class="agent-status-dot" title="متصل الآن"></span>
                 </div>
                 <div>
                   <div class="agent-title-row">
                     <h3 class="agent-name">محادثة مباشرة مع خبير مسكة للذكاء الاصطناعي</h3>
-                    <span class="badge badge-gold">Gemini Floral AI ✦</span>
+                    <span class="badge badge-gold">Gemini Floral AI</span>
                   </div>
                   <p class="agent-desc">
                     اسأل عن معاني الورود، نصائح العناية وإطالة النضارة، أو اطلب تنسيقاً فورياً للباقة الحية.
@@ -1012,7 +1180,7 @@
                 </div>
               </div>
               <div class="chat-scope-badge">
-                <span class="lock-icon">🔒</span>
+                
                 <span>نطاق مقيّد بالزهور فقط</span>
               </div>
             </div>
@@ -1021,22 +1189,22 @@
             <div class="chat-quick-questions">
               <span class="quick-title">جرّب الضغط على سؤال سريع أو طلب تصميم فوري:</span>
               <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة رومانسية فخمة من الورد المتوفر عندك')}>
-                💖 صمملي باقة رومانسية
+                صمملي باقة رومانسية
               </button>
               <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة تخرج ونجاح مبهجة بالورد المتاح')}>
-                🎓 صمملي باقة تخرج
+                صمملي باقة تخرج
               </button>
               <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة زفاف ملكية ناصعة')}>
-                💍 صمملي باقة زفاف ملكية
+                صمملي باقة زفاف ملكية
               </button>
               <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما هو معنى ودلالة الورد الجوري الأحمر؟')}>
-                🌹 ما دلالة الجوري الأحمر؟
+                ما دلالة الجوري الأحمر؟
               </button>
               <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('كيف أعتني بالباقة في المزهرية لتطول نضارتها لأكثر من 10 أيام؟')}>
-                💧 كيف أعتني بالباقة؟
+                كيف أعتني بالباقة؟
               </button>
               <button type="button" class="quick-q-btn btn-try-guardrail" on:click={() => sendChatMessage('اكتب لي كود بايثون لحساب الأرقام')}>
-                ⚠️ تجربة سؤال خارج السياق
+                تجربة سؤال خارج السياق
               </button>
             </div>
 
@@ -1045,7 +1213,7 @@
               {#each chatMessages as msg (msg.id)}
                 <div class="chat-msg-row" class:user={msg.sender === 'user'} class:ai={msg.sender === 'ai'}>
                   <div class="msg-avatar">
-                    {msg.sender === 'user' ? '👤' : '🌸'}
+                    {msg.sender === 'user' ? 'أنت' : 'مسكة'}
                   </div>
                   <div class="msg-bubble" class:off-topic={msg.isOffTopic}>
                     <div class="msg-header">
@@ -1059,20 +1227,20 @@
                     {#if msg.designAction}
                       <div class="ai-bouquet-proposal-card">
                         <div class="proposal-head">
-                          <span class="proposal-tag">🎨 تصميم مقترح من المخزون المتوفر</span>
-                          <h4 class="proposal-title">🌺 {msg.designAction.name}</h4>
+                          <span class="proposal-tag">تصميم مقترح من المخزون المتوفر</span>
+                          <h4 class="proposal-title">{msg.designAction.name}</h4>
                         </div>
                         <div class="proposal-details">
                           <div class="proposal-row">
-                            <span>📐 نمط التنسيق:</span>
-                            <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي متناسق' : msg.designAction.style === 'royal' ? 'هرمي ملكي متدرج' : msg.designAction.style === 'heart' ? 'قلب رومانسي مدمج' : 'بوهيمي عصري'}</b>
+                            <span>نمط التنسيق:</span>
+                            <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي متناسق' : msg.designAction.style === 'royal' ? 'ملكي متدرج فاخر' : msg.designAction.style === 'heart' ? 'رومانسي مدمج فاخر' : 'بوهيمي عصري'}</b>
                           </div>
                           <div class="proposal-row">
-                            <span>🎀 التغليف والشريط:</span>
+                            <span>التغليف والشريط:</span>
                             <b>{msg.designAction.wrapName || msg.designAction.wrap} + {msg.designAction.ribbonName || msg.designAction.ribbon}</b>
                           </div>
                           <div class="proposal-row">
-                            <span>💰 السعر الإجمالي:</span>
+                            <span>السعر الإجمالي:</span>
                             <b class="price-val">{msg.designAction.totalPrice} د.ل</b>
                           </div>
                           <div class="proposal-stems-list">
@@ -1090,7 +1258,7 @@
                           class="btn btn-apply-design" 
                           on:click={() => applyAiBouquetDesign(msg.designAction)}
                         >
-                          🌸 تطبيق هذا التصميم على اللوحة فوراً 🎨
+                          تطبيق هذا التصميم على اللوحة فوراً
                         </button>
                       </div>
                     {/if}
@@ -1100,12 +1268,16 @@
 
               {#if chatIsLoading}
                 <div class="chat-msg-row ai">
-                  <div class="msg-avatar">🌸</div>
+                  <div class="msg-avatar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+                    </svg>
+                  </div>
                   <div class="msg-bubble typing-bubble">
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
-                    <span class="typing-text">جاري استشارة خبير مسكة للذكاء الاصطناعي… ✨</span>
+                    <span class="typing-text">جاري استشارة خبير مسكة للذكاء الاصطناعي…</span>
                   </div>
                 </div>
               {/if}
@@ -1125,22 +1297,221 @@
                 class="btn btn-primary chat-send-btn"
                 disabled={chatIsLoading || !chatInput.trim()}
               >
-                إرسال 💬
+                إرسال ↵
               </button>
             </form>
 
             <div class="chat-disclaimer">
-              🔒 تنبيه حاسم: هذا المساعد مبرمج للإجابة حصرياً عن الزهور والباقات، وأي سؤال خارج هذا النطاق يتم الاعتذار عنه فوراً لضمان التخصص والدقة.
+              تنبيه: هذا المساعد مبرمج للإجابة حصرياً عن الزهور والباقات، وأي سؤال خارج هذا النطاق يتم الاعتذار عنه فوراً لضمان التخصص والدقة.
             </div>
           </div>
         {/if}
 
-        <!-- 1. تبويب اختيار الزهور وتوزيع الأقسام (فوق، وسط، يمين، يسار، قاعدة) -->
-        {#if activeTab === 'flowers'}
-          <div class="card control-box fade-in">
+        <!-- 1 & 3. تبويب تصميم واختيار زهور الباقة وتعديل الوردة المحددة (التصميم يظل معروضاً دائماً بالصفحة) -->
+        {#if activeTab === 'flowers' || activeTab === 'stems'}
+
+          <!-- بطاقة تعديل الوردة المحددة باليد فقط (الوردة التي ضغطت عليها فقط - بدون شريط تكرار باقي الورود) -->
+          {#if selectedStem}
+            <div class="card control-box fade-in stem-inspector-box-compact single-stem-focus">
+              <!-- رأس كارت تعديل الوردة المحددة -->
+              <div class="stem-inspector-mini-head">
+                <div class="mini-title-wrap">
+                  <span class="mini-head-title">تعديل الوردة المحددة: <b>{selectedStem.flowerName}</b></span>
+                  <span class="badge badge-lime">الساق #{stems.findIndex(s => s.id === selectedStem.id) + 1}</span>
+                </div>
+                <div class="head-actions-compact">
+                  <span class="badge-hand-hint">✋ سحب مباشر باليد</span>
+                  <button type="button" class="btn-close-edit" on:click={() => selectedStemId = null} title="إلغاء التحديد وإغلاق">
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <!-- تفاصيل وأدوات تحكم الوردة المحددة فقط -->
+              <div class="stem-editor-body-compact">
+                <!-- شريط تفاصيل الوردة (صورة + سعر + موقع + تكرار وحذف) -->
+                <div class="stem-detail-strip-compact">
+                  <div class="stem-left-info">
+                    <div class="stem-thumb-mini">
+                      <img 
+                        src={getFlowerAngleImage(selectedFlowerData || { key: selectedStem.flowerKey }, selectedStem.angle)} 
+                        alt={selectedStem.flowerName}
+                        class="stem-thumb-img-mini" 
+                      />
+                    </div>
+                    <span class="stem-name-compact">{selectedStem.flowerName}</span>
+                    <span class="tag-price-mini">{parseFloat(selectedStem.price || 5).toFixed(1)} د.ل</span>
+                    <span class="tag-sec-mini">{getSectionNameAr(selectedStem.section)}</span>
+                  </div>
+
+                  <div class="stem-mini-actions">
+                    <button type="button" class="btn-icon-action" on:click={duplicateSelectedStem} title="تكرار هذه الوردة">
+                      ➕ تكرار
+                    </button>
+                    <button type="button" class="btn-icon-action btn-icon-del" on:click={deleteSelectedStem} title="حذف هذه الوردة">
+                      🗑️ حذف
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 1. زاوية التصوير ثلاثية الأبعاد للوردة -->
+                <div class="compact-field-row">
+                  <span class="compact-label">الزاوية:</span>
+                  <div class="angles-segmented-compact">
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.angle === 'front'} 
+                      on:click={() => setStemAngle('front')}
+                    >
+                      🌸 أمامي
+                    </button>
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.angle === 'side'} 
+                      on:click={() => setStemAngle('side')}
+                    >
+                      🌿 جانبي
+                    </button>
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.angle === 'top'} 
+                      on:click={() => setStemAngle('top')}
+                    >
+                      🪷 علوي
+                    </button>
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.angle === 'stem'} 
+                      on:click={() => setStemAngle('stem')}
+                    >
+                      🌾 ساق
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 2. موضع الوردة في الباقة -->
+                <div class="compact-field-row">
+                  <div class="compact-label-with-reset">
+                    <span class="compact-label">الموضع:</span>
+                    <button type="button" class="btn-reset-mini" on:click={resetStemPosition} title="إعادة الموضع للمركز">
+                      🔄 ضبط
+                    </button>
+                  </div>
+                  <div class="sections-segmented-compact">
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.section === 'top'} 
+                      on:click={() => moveStemToSection('top')}
+                    >
+                      🔝 قمة
+                    </button>
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.section === 'center'} 
+                      on:click={() => moveStemToSection('center')}
+                    >
+                      🎯 وسط
+                    </button>
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.section === 'right'} 
+                      on:click={() => moveStemToSection('right')}
+                    >
+                      👉 يمين
+                    </button>
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.section === 'left'} 
+                      on:click={() => moveStemToSection('left')}
+                    >
+                      👈 يسار
+                    </button>
+                    <button 
+                      type="button" 
+                      class="seg-btn-compact" 
+                      class:active={selectedStem.section === 'bottom'} 
+                      on:click={() => moveStemToSection('bottom')}
+                    >
+                      🔽 قاعدة
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 3. المنزلقات المصغرة جنباً إلى جنب -->
+                <div class="compact-sliders-row">
+                  <div class="mini-slider-cell">
+                    <div class="mini-slider-meta">
+                      <span>🔄 التدوير:</span>
+                      <b class="val-pill">{selectedStem.rotation}°</b>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="-60" 
+                      max="60" 
+                      step="2" 
+                      class="slider-ultra-compact" 
+                      value={selectedStem.rotation} 
+                      on:input={(e) => updateStemProp('rotation', parseInt(e.target.value, 10))} 
+                    />
+                  </div>
+
+                  <div class="mini-slider-cell">
+                    <div class="mini-slider-meta">
+                      <span>🔍 الحجم:</span>
+                      <b class="val-pill">{Math.round(selectedStem.scale * 100)}%</b>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0.75" 
+                      max="1.35" 
+                      step="0.05" 
+                      class="slider-ultra-compact" 
+                      value={selectedStem.scale} 
+                      on:input={(e) => updateStemProp('scale', parseFloat(e.target.value))} 
+                    />
+                  </div>
+                </div>
+
+                <!-- 4. الطبقات والتلميح -->
+                <div class="compact-layer-footer">
+                  <div class="layer-btns-mini">
+                    <span class="layer-lbl-mini">الترتيب:</span>
+                    <button type="button" class="btn-layer-mini" on:click={bringStemForward} title="تقديم للأمام">
+                      ⬆️ للأمام
+                    </button>
+                    <button type="button" class="btn-layer-mini" on:click={sendStemBackward} title="تأخير للخلف">
+                      ⬇️ للخلف
+                    </button>
+                  </div>
+                  <span class="direct-hand-tip">يمكنك سحب الزهرة مباشرة بيدك داخل الباقة</span>
+                </div>
+
+              </div>
+            </div>
+          {:else if activeTab === 'stems'}
+            <!-- رسالة إرشادية عند النقر على تبويب التعديل قبل تحديد زهرة -->
+            <div class="card control-box fade-in hint-no-stem-box">
+              
+              <div>
+                <h4 class="hint-title">اضغط على أي وردة في الباقة الحية لتعديلها</h4>
+                <p class="hint-desc">المس أو انقر بالماوس على أي وردة في لوحة العرض لتعديل زاويتها، تدويرها، أو موقعها هنا فوراً.</p>
+              </div>
+            </div>
+          {/if}
+
+          <!-- قائمة التصميم والزهور الرئيسية (تظل معروضة بالصفحة ولا تختفي أبداً!) -->
+          <div class="card control-box fade-in main-design-box">
             <div class="box-head">
               <div>
-                <h3>1. اختيار زهور الباقة وتحديد موقع كل نوع</h3>
+                <h3>1. تصميم واختيار زهور الباقة</h3>
                 <p class="box-subdesc">اختر عدد السيقان وحدد موقعها المفضل في التنسيق:</p>
               </div>
               <span class="count-badge">{totalStems} ساق مختارة</span>
@@ -1171,11 +1542,11 @@
                       value={f.section}
                       on:change={(e) => handleSectionChange(f.id, e.target.value)}
                     >
-                      <option value="top">🔝 في القمة (أعلى)</option>
-                      <option value="center">🎯 في الوسط (القلب)</option>
-                      <option value="left">👈 على اليسار</option>
-                      <option value="right">👉 على اليمين</option>
-                      <option value="bottom">🔽 في الأسفل (القاعدة)</option>
+                      <option value="top">في الأعلى والقمة</option>
+                      <option value="center">في الوسط والمركز</option>
+                      <option value="left">على اليسار</option>
+                      <option value="right">على اليمين</option>
+                      <option value="bottom">في الأسفل (القاعدة)</option>
                     </select>
                   </div>
 
@@ -1211,7 +1582,11 @@
         {#if activeTab === 'ai'}
           <div class="card control-box fade-in">
             <div class="ai-banner">
-              <div class="ai-icon-ring">✨</div>
+              <div class="ai-icon-ring">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+                </svg>
+              </div>
               <div>
                 <h3>مساعد مسكة للذكاء الاصطناعي لتنسيق الورد</h3>
                 <p>اكتب باللغة الطبيعية كيف تحب تشكيل باقتك، أو اختر نمطاً ذكياً لتوزيع وتدوير الزوايا تلقائياً.</p>
@@ -1237,9 +1612,9 @@
                   on:click={executeAiPrompt}
                 >
                   {#if aiIsThinking}
-                    جاري التنسيق… ⏳
+                    جاري التنسيق…
                   {:else}
-                    نفّذ بالذكاء الاصطناعي ✨
+                    نفّذ بالذكاء الاصطناعي
                   {/if}
                 </button>
               </div>
@@ -1248,16 +1623,16 @@
               <div class="quick-prompt-chips">
                 <span class="quick-label">أوامر شائعة سريعة:</span>
                 <button type="button" class="chip" on:click={() => { aiPromptText = 'حط الجوري في الوسط والبيوني فوق والجيبسوفيلا على الأطراف'; executeAiPrompt(); }}>
-                  🌸 جوري وسط، بيوني فوق، جيبسوفيلا أطراف
+                  جوري وسط، بيوني فوق، جيبسوفيلا أطراف
                 </button>
-                <button type="button" class="chip" on:click={() => { aiPromptText = 'تنسيق هرمي ملكي متدرج'; executeAiPrompt(); }}>
-                  👑 هرمي ملكي متدرج
+                <button type="button" class="chip" on:click={() => { aiPromptText = 'تنسيق ملكي متدرج فاخر'; executeAiPrompt(); }}>
+                  ملكي متدرج فاخر
                 </button>
                 <button type="button" class="chip" on:click={() => { aiPromptText = 'باقة دائرية متناسقة كلاسيكية'; executeAiPrompt(); }}>
-                  🎯 باقة دائرية متناسقة
+                  باقة دائرية متناسقة
                 </button>
                 <button type="button" class="chip" on:click={() => { aiPromptText = 'تنسيق بوهيمي عصري غير متناظر'; executeAiPrompt(); }}>
-                  🌿 بوهيمي عصري حر
+                  بوهيمي عصري حر
                 </button>
               </div>
             </div>
@@ -1271,8 +1646,8 @@
                   class:active={aiStylePreset === 'royal'}
                   on:click={() => aiArrangeBouquet('royal')}
                 >
-                  <span class="preset-icon">👑</span>
-                  <div class="preset-title">هرمي ملكي متدرج</div>
+                  
+                  <div class="preset-title">ملكي متدرج فاخر</div>
                   <p class="preset-desc">سيقان طويلة بالقمة، ورود بارزة بالوسط، وفروع على الجوانب.</p>
                 </div>
 
@@ -1281,7 +1656,7 @@
                   class:active={aiStylePreset === 'dome'}
                   on:click={() => aiArrangeBouquet('dome')}
                 >
-                  <span class="preset-icon">🎯</span>
+                  
                   <div class="preset-title">دائري متناسق متناغم</div>
                   <p class="preset-desc">توزيع متوازن حلزوني على أساس النسبة الذهبية والتناغم الدائري.</p>
                 </div>
@@ -1291,7 +1666,7 @@
                   class:active={aiStylePreset === 'boho'}
                   on:click={() => aiArrangeBouquet('boho')}
                 >
-                  <span class="preset-icon">🌿</span>
+                  
                   <div class="preset-title">بوهيمي عصري حر</div>
                   <p class="preset-desc">ارتفاعات غير متناظرة مع زوايا متنوعة تمنح إحساس الطبيعة البرية.</p>
                 </div>
@@ -1301,9 +1676,9 @@
                   class:active={aiStylePreset === 'heart'}
                   on:click={() => aiArrangeBouquet('heart')}
                 >
-                  <span class="preset-icon">💖</span>
-                  <div class="preset-title">قلب رومانسي مدمج</div>
-                  <p class="preset-desc">توزيع السيقان على شكل قلب أنيق يعبر عن أصدق مشاعر الود.</p>
+                  
+                  <div class="preset-title">رومانسي مدمج فاخر</div>
+                  <p class="preset-desc">توزيع متوازن ومترابط للسيقان يعبر عن أصدق مشاعر الود والرقي.</p>
                 </div>
               </div>
             </div>
@@ -1311,7 +1686,7 @@
             <!-- زر ضبط الزوايا ثلاثية الأبعاد تلقائياً -->
             <div class="ai-angles-optimizer-box">
               <div>
-                <h4 class="opt-title">🪄 اختيار الزوايا والتدوير ثلاثي الأبعاد بالذكاء الاصطناعي</h4>
+                <h4 class="opt-title">اختيار الزوايا والتدوير ثلاثي الأبعاد بالذكاء الاصطناعي</h4>
                 <p class="opt-desc">يحلل النظام موقع كل وردة بالنسبة للمركز ويختار الزاوية المناسبة (أمامي، جانبي، علوي) ويديرها بشكل واقعي 3D.</p>
               </div>
               <button 
@@ -1319,7 +1694,7 @@
                 class="btn btn-outline"
                 on:click={aiAutoAngles}
               >
-                تحسين الزوايا 3D الآن 🔄
+                تحسين الزوايا 3D وتدويرها تلقائياً 🔄
               </button>
             </div>
 
@@ -1329,7 +1704,7 @@
               <div class="analytics-bars">
                 <div class="metric-row">
                   <div class="metric-head">
-                    <span>تناغم الألوان وتكاملها 🎨</span>
+                    <span>تناغم الألوان وتكاملها</span>
                     <b>{colorHarmonyScore}%</b>
                   </div>
                   <div class="metric-track">
@@ -1339,7 +1714,7 @@
 
                 <div class="metric-row">
                   <div class="metric-head">
-                    <span>التوازن البصري وتوزيع الكتل ⚖️</span>
+                    <span>التوازن البصري وتوزيع الكتل</span>
                     <b>{visualBalanceScore}%</b>
                   </div>
                   <div class="metric-track">
@@ -1349,7 +1724,7 @@
               </div>
 
               <div class="ai-suggestion-box">
-                <span class="sug-icon">💡</span>
+                
                 <p>{aiSuggestion}</p>
               </div>
             </div>
@@ -1357,172 +1732,14 @@
           </div>
         {/if}
 
-        <!-- 3. تبويب التعديل الدقيق وردة بوردة (Stem-by-Stem Inspector) -->
-        {#if activeTab === 'stems'}
-          <div class="card control-box fade-in">
-            <div class="box-head">
-              <div>
-                <h3>محرر الوردة الفردية (وردة بوردة) 🔍</h3>
-                <p class="box-subdesc">انقر على أي وردة في اللوحة أو اخترها أدناه لتعديل زاوية تصويرها ودورانها:</p>
-              </div>
-              <span class="count-badge">{stems.length} سيقان</span>
-            </div>
 
-            {#if stems.length === 0}
-              <div class="empty-stems-state">
-                <p>لا توجد زهور في اللوحة حالياً. انتقل إلى تبويب "زهور الباقة" وأضف بعض السيقان 🌸</p>
-                <button type="button" class="btn btn-outline" on:click={() => activeTab = 'flowers'}>
-                  الذهاب لاختيار الزهور
-                </button>
-              </div>
-            {:else}
-              <!-- قائمة اختيار الساق السريع -->
-              <div class="stems-pill-carousel">
-                {#each stems as stem, idx (stem.id)}
-                  <button 
-                    type="button" 
-                    class="stem-select-chip" 
-                    class:active={selectedStemId === stem.id}
-                    on:click={() => selectedStemId = stem.id}
-                  >
-                    <span class="chip-color" style="background: {stem.color};"></span>
-                    <span>ساق #{idx + 1} ({stem.flowerName.split(' ')[0]})</span>
-                  </button>
-                {/each}
-              </div>
-
-              {#if selectedStem}
-                <div class="stem-inspector-card fade-in">
-                  <div class="inspector-header">
-                    <div class="insp-title">
-                      <span class="color-dot" style="background: {selectedStem.color};"></span>
-                      <h4>{selectedStem.flowerName}</h4>
-                      <span class="badge badge-lime">الموقع: {getSectionNameAr(selectedStem.section)}</span>
-                    </div>
-
-                    <button 
-                      type="button" 
-                      class="btn-delete-stem" 
-                      title="حذف هذه الساق"
-                      on:click={deleteSelectedStem}
-                    >
-                      حذف الساق 🗑️
-                    </button>
-                  </div>
-
-                  <!-- 1. تبديل زوايا التصوير (أمامي، جانبي، علوي، ساق) -->
-                  <div class="inspector-group">
-                    <label class="insp-label">زاوية الرؤية والتصوير الفوتوغرافي:</label>
-                    <div class="angle-buttons-grid">
-                      <button 
-                        type="button" 
-                        class="angle-btn" 
-                        class:active={selectedStem.angle === 'front'}
-                        on:click={() => setStemAngle('front')}
-                      >
-                        <span class="ang-icon">🌸</span>
-                        <span>أمامي</span>
-                        <small>Front</small>
-                      </button>
-
-                      <button 
-                        type="button" 
-                        class="angle-btn" 
-                        class:active={selectedStem.angle === 'side'}
-                        on:click={() => setStemAngle('side')}
-                      >
-                        <span class="ang-icon">🌿</span>
-                        <span>جانبي</span>
-                        <small>Side</small>
-                      </button>
-
-                      <button 
-                        type="button" 
-                        class="angle-btn" 
-                        class:active={selectedStem.angle === 'top'}
-                        on:click={() => setStemAngle('top')}
-                      >
-                        <span class="ang-icon">🪷</span>
-                        <span>علوي</span>
-                        <small>Top View</small>
-                      </button>
-
-                      <button 
-                        type="button" 
-                        class="angle-btn" 
-                        class:active={selectedStem.angle === 'stem'}
-                        on:click={() => setStemAngle('stem')}
-                      >
-                        <span class="ang-icon">🌾</span>
-                        <span>ساق وأوراق</span>
-                        <small>Stem & Foliage</small>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- 2. زاوية الدوران والحجم والطبقات -->
-                  <div class="inspector-sliders-grid">
-                    <div class="slider-box">
-                      <div class="slider-label-row">
-                        <span>زاوية الدوران والالتواء:</span>
-                        <b>{selectedStem.rotation}°</b>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="-60" 
-                        max="60" 
-                        step="2" 
-                        class="slider-field"
-                        value={selectedStem.rotation}
-                        on:input={(e) => updateStemProp('rotation', parseInt(e.target.value, 10))}
-                      />
-                    </div>
-
-                    <div class="slider-box">
-                      <div class="slider-label-row">
-                        <span>حجم رأس الوردة:</span>
-                        <b>{Math.round(selectedStem.scale * 100)}%</b>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="0.7" 
-                        max="1.35" 
-                        step="0.05" 
-                        class="slider-field"
-                        value={selectedStem.scale}
-                        on:input={(e) => updateStemProp('scale', parseFloat(e.target.value))}
-                      />
-                    </div>
-                  </div>
-
-                  <!-- 3. ترتيب الطبقات (تقديم أو تأخير) -->
-                  <div class="layer-controls-row">
-                    <span class="layer-label">ترتيب الطبقة (Stacking):</span>
-                    <div class="layer-btns">
-                      <button type="button" class="btn btn-sm btn-outline" on:click={bringStemForward}>
-                        تقديم للأمام ⬆️
-                      </button>
-                      <button type="button" class="btn btn-sm btn-outline" on:click={sendStemBackward}>
-                        تأخير للخلف ⬇️
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="drag-tip-box">
-                    💡 تلميح: يمكنك أيضاً سحب وتحريك هذه الوردة يدوياً بالماوس أو اللمس مباشرة على لوحة المعاينة!
-                  </div>
-                </div>
-              {/if}
-            {/if}
-          </div>
-        {/if}
 
         <!-- 4. تبويب التغليف الملكي وشريط الساتان والختم الشمعي -->
         {#if activeTab === 'packaging'}
           <div class="card control-box fade-in">
             <div class="box-head">
               <div>
-                <h3>أغلفة الباقة، شريط الساتان، والختم الشمعي 🎀</h3>
+                <h3>أغلفة الباقة، شريط الساتان، والختم الشمعي</h3>
                 <p class="box-subdesc">تدخل الأغلفة مباشرة في تشكيل وتغليف الباقة في اللوحة الحية:</p>
               </div>
             </div>
@@ -1535,7 +1752,7 @@
                   <div 
                     class="option-pill" 
                     class:selected={selectedWrap.id === wrap.id}
-                    on:click={() => { selectedWrap = wrap; aiStatusMessage = `🎁 تم تغيير ورق التغليف إلى (${wrap.name})`; }}
+                    on:click={() => { selectedWrap = wrap; aiStatusMessage = `تم تغيير ورق التغليف إلى (${wrap.name})`; }}
                   >
                     <span class="option-color" style="background: {wrap.color};"></span>
                     <div class="opt-info">
@@ -1555,7 +1772,7 @@
                   <div 
                     class="option-pill" 
                     class:selected={selectedRibbon.id === ribbon.id}
-                    on:click={() => { selectedRibbon = ribbon; aiStatusMessage = `🎀 تم تغيير شريط الساتان إلى (${ribbon.name})`; }}
+                    on:click={() => { selectedRibbon = ribbon; aiStatusMessage = `تم تغيير شريط الساتان إلى (${ribbon.name})`; }}
                   >
                     <span class="option-color" style="background: {ribbon.color};"></span>
                     <span class="opt-name">{ribbon.name}</span>
@@ -1595,10 +1812,10 @@
                 <div>
                   <label class="sub-label" for="seal-stamp-select">نقشة الختم الشمعي:</label>
                   <select id="seal-stamp-select" class="input-field" bind:value={sealStamp}>
-                    <option value="MASKA 🌸">MASKA 🌸 (شعار مسكة الرسمي)</option>
-                    <option value="زهرة اللوتس 🪷">زهرة اللوتس الملكية</option>
-                    <option value="غصن الزيتون 🌿">غصن الزيتون والأصالة</option>
-                    <option value="تاج المحبة 👑">تاج المحبة والتقدير</option>
+                    <option value="MASKA">MASKA (شعار مسكة الرسمي)</option>
+                    <option value="زهرة اللوتس">زهرة اللوتس الملكية</option>
+                    <option value="غصن الزيتون">غصن الزيتون والأصالة</option>
+                    <option value="تاج المحبة">تاج المحبة والتقدير</option>
                   </select>
                 </div>
               </div>
@@ -1635,17 +1852,21 @@
                 type="button" 
                 class="stage-tool-btn" 
                 class:active={is3DRotating}
-                title={is3DRotating ? 'إيقاف الدوران' : 'دوران 360°'}
+                title={is3DRotating ? 'إيقاف الدوران' : 'تدوير تلقائي 360°'}
                 on:click={() => is3DRotating = !is3DRotating}
               >
-                {is3DRotating ? '⏸' : '🔄'}
+                {is3DRotating ? '⏸️' : '🔄'}
               </button>
             </div>
           </div>
 
           <!-- شريط حالة وتنبيه الذكاء الاصطناعي اللحظي -->
           <div class="ai-status-strip">
-            <span class="ai-spark">✨</span>
+            <span class="ai-spark">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+              </svg>
+            </span>
             <span class="ai-strip-text">{aiStatusMessage}</span>
           </div>
 
@@ -1681,27 +1902,29 @@
             <div class="stems-layer">
               {#if stems.length === 0}
                 <div class="canvas-empty-hint">
-                  <span>🌸 الباقة فارغة حالياً</span>
+                  <span>الباقة فارغة حالياً</span>
                   <small>أضف سيقان الورد من القائمة لتظهر هنا فوراً!</small>
                 </div>
               {/if}
 
-              {#each stems as stem (stem.id)}
+              {#each stems as stem, idx (stem.id)}
                 <div 
                   class="stem-canvas-node"
-                  class:selected={selectedStemId === stem.id}
+                  class:selected={effectiveStemId === stem.id}
+                  class:dragging={isDragging && dragStemId === stem.id}
                   style="
                     left: calc(50% + {stem.x}px);
                     top: calc(50% + {stem.y}px);
-                    transform: translate(-50%, -50%) rotate({stem.rotation}deg) scale({stem.scale});
-                    z-index: {stem.zIndex || 10};
+                    transform: translate(-50%, -50%) rotate({stem.rotation}deg) scale({isDragging && dragStemId === stem.id ? stem.scale * 1.08 : stem.scale});
+                    z-index: {isDragging && dragStemId === stem.id ? 9999 : (stem.zIndex || 10)};
                   "
                   on:mousedown={(e) => startStemDrag(e, stem.id)}
                   on:touchstart={(e) => startStemDrag(e, stem.id)}
-                  on:click={() => { selectedStemId = stem.id; activeTab = 'stems'; }}
+                  on:pointerdown={(e) => startStemDrag(e, stem.id)}
+                  on:click={() => { selectedStemId = stem.id; }}
                   role="button"
                   tabindex="0"
-                  title="{stem.flowerName} ({getAngleLabelAr(stem.angle)}) - اسحب للتحريك اليدوي"
+                  title="{stem.flowerName} ({getAngleLabelAr(stem.angle)}) - اسحب باليد للتحريك أو انقر للتعديل"
                 >
                   <img 
                     src={getFlowerAngleImage(flowers.find(f => f.id === stem.flowerId) || { key: stem.flowerKey }, stem.angle)} 
@@ -1710,8 +1933,14 @@
                     draggable="false"
                   />
                   
-                  {#if selectedStemId === stem.id}
+                  {#if effectiveStemId === stem.id}
                     <div class="stem-active-ring"></div>
+                  {/if}
+
+                  {#if activeTab === 'stems' || selectedStemId === stem.id}
+                    <span class="stem-number-badge" class:active={effectiveStemId === stem.id}>
+                      {idx + 1}
+                    </span>
                   {/if}
                 </div>
               {/each}
@@ -1761,6 +1990,31 @@
 
             <!-- قاعدة العرض الرخامية في الأسفل -->
             <div class="stage-pedestal"></div>
+
+            <!-- 5. شريط التعديل باليد المباشر فوق الباقة الحية -->
+            {#if activeTab === 'stems' || selectedStem}
+              <div class="canvas-hand-indicator fade-in">
+                
+                <span>اسحب أي وردة بيدك مباشرة في الباقة</span>
+              </div>
+
+              {#if selectedStem}
+                <div class="canvas-floating-toolbar fade-in">
+                  <span class="floating-stem-title">#{stems.findIndex(s => s.id === selectedStem.id) + 1} {getCleanFlowerName(selectedStem.flowerName)}:</span>
+                  <div class="floating-btns-group">
+                    <button type="button" class="floating-btn" on:click={() => rotateSelectedStem(-15)} title="لف لليسار 15°">⟲</button>
+                    <button type="button" class="floating-btn" on:click={() => rotateSelectedStem(15)} title="لف لليمين 15°">⟳</button>
+                    <button type="button" class="floating-btn" on:click={() => scaleSelectedStem(-0.05)} title="تصغير الحجم">🔍−</button>
+                    <button type="button" class="floating-btn" on:click={() => scaleSelectedStem(0.05)} title="تكبير الحجم">🔍+</button>
+                    <button type="button" class="floating-btn" on:click={cycleSelectedStemAngle} title="تغيير زاوية الرؤية">
+                      {selectedStem.angle === 'front' ? '🌸 أمامي' : (selectedStem.angle === 'side' ? '🌿 جانبي' : (selectedStem.angle === 'top' ? '🪷 علوي' : '🌾 ساق'))}
+                    </button>
+                    <button type="button" class="floating-btn floating-btn-del" on:click={deleteSelectedStem} title="حذف الوردة">🗑️</button>
+                    <button type="button" class="floating-btn" on:click={() => selectedStemId = null} title="إلغاء التحديد وإخفاء الشريط">✕</button>
+                  </div>
+                </div>
+              {/if}
+            {/if}
           </div>
 
           <!-- ملخص التكلفة وإتمام الباقة -->
@@ -1775,7 +2029,7 @@
             </div>
             <div class="summary-line">
               <span>شريط الساتان والختم الشمعي المخصص:</span>
-              <b class="free-badge">مجاني 🌸</b>
+              <b class="free-badge">مجاني</b>
             </div>
 
             <div class="total-bar">
@@ -1805,13 +2059,17 @@
         <div class="chat-header">
           <div class="chat-agent-info">
             <div class="agent-avatar-wrap">
-              <span class="agent-avatar">🌸</span>
+              <span class="agent-avatar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+                </svg>
+              </span>
               <span class="agent-status-dot" title="متصل ومستعد للإجابة"></span>
             </div>
             <div>
               <div class="agent-title-row">
                 <h3 class="agent-name">محادثة مباشرة مع خبير مسكة للذكاء الاصطناعي</h3>
-                <span class="badge badge-gold">Gemini Floral AI ✦</span>
+                <span class="badge badge-gold">Gemini Floral AI</span>
               </div>
               <p class="agent-desc">
                 اسأل عن معاني الورود، دلالات الألوان، نصائح العناية وإطالة النضارة، أو اطلب تنسيقاً فورياً للباقة الحية أعلاه.
@@ -1820,7 +2078,7 @@
           </div>
 
           <div class="chat-scope-badge">
-            <span class="lock-icon">🔒</span>
+            
             <span>نطاق مقيّد بالزهور والباقات فقط</span>
           </div>
         </div>
@@ -1829,22 +2087,22 @@
         <div class="chat-quick-questions">
           <span class="quick-title">جرّب الضغط على طلب تصميم فوري أو سؤال سريع:</span>
           <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة رومانسية فخمة من الورد المتوفر عندك')}>
-            💖 صمملي باقة رومانسية
+            صمملي باقة رومانسية
           </button>
           <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة تخرج ونجاح مبهجة بالورد المتاح')}>
-            🎓 صمملي باقة تخرج
+            صمملي باقة تخرج
           </button>
           <button type="button" class="quick-q-btn btn-design-quick" on:click={() => sendChatMessage('صمملي باقة زفاف ملكية ناصعة')}>
-            💍 صمملي باقة زفاف ملكية
+            صمملي باقة زفاف ملكية
           </button>
           <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('ما هو معنى ودلالة الورد الجوري الأحمر؟')}>
-            🌹 ما دلالة الجوري الأحمر؟
+            ما دلالة الجوري الأحمر؟
           </button>
           <button type="button" class="quick-q-btn" on:click={() => sendChatMessage('كيف أعتني بالباقة في المزهرية لتطول نضارتها لأكثر من 10 أيام؟')}>
-            💧 كيف أعتني بالباقة لتدوم نضرة؟
+            كيف أعتني بالباقة لتدوم نضرة؟
           </button>
           <button type="button" class="quick-q-btn btn-try-guardrail" on:click={() => sendChatMessage('اكتب لي كود بايثون لحساب الأرقام')}>
-            ⚠️ تجربة سؤال خارج السياق
+            تجربة سؤال خارج السياق
           </button>
         </div>
 
@@ -1853,7 +2111,7 @@
           {#each chatMessages as msg (msg.id)}
             <div class="chat-msg-row" class:user={msg.sender === 'user'} class:ai={msg.sender === 'ai'}>
               <div class="msg-avatar">
-                {msg.sender === 'user' ? '👤' : '🌸'}
+                {msg.sender === 'user' ? 'أنت' : 'مسكة'}
               </div>
               <div class="msg-bubble" class:off-topic={msg.isOffTopic}>
                 <div class="msg-header">
@@ -1867,20 +2125,20 @@
                 {#if msg.designAction}
                   <div class="ai-bouquet-proposal-card">
                     <div class="proposal-head">
-                      <span class="proposal-tag">🎨 تصميم مقترح من المخزون المتوفر</span>
-                      <h4 class="proposal-title">🌺 {msg.designAction.name}</h4>
+                      <span class="proposal-tag">تصميم مقترح من المخزون المتوفر</span>
+                      <h4 class="proposal-title">{msg.designAction.name}</h4>
                     </div>
                     <div class="proposal-details">
                       <div class="proposal-row">
-                        <span>📐 نمط التنسيق:</span>
-                        <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي متناسق' : msg.designAction.style === 'royal' ? 'هرمي ملكي متدرج' : msg.designAction.style === 'heart' ? 'قلب رومانسي مدمج' : 'بوهيمي عصري'}</b>
+                        <span>نمط التنسيق:</span>
+                        <b>{msg.designAction.style === 'dome' ? 'دائري كلاسيكي متناسق' : msg.designAction.style === 'royal' ? 'ملكي متدرج فاخر' : msg.designAction.style === 'heart' ? 'رومانسي مدمج فاخر' : 'بوهيمي عصري'}</b>
                       </div>
                       <div class="proposal-row">
-                        <span>🎀 التغليف والشريط:</span>
+                        <span>التغليف والشريط:</span>
                         <b>{msg.designAction.wrapName || msg.designAction.wrap} + {msg.designAction.ribbonName || msg.designAction.ribbon}</b>
                       </div>
                       <div class="proposal-row">
-                        <span>💰 السعر الإجمالي:</span>
+                        <span>السعر الإجمالي:</span>
                         <b class="price-val">{msg.designAction.totalPrice} د.ل</b>
                       </div>
                       <div class="proposal-stems-list">
@@ -1898,7 +2156,7 @@
                       class="btn btn-apply-design" 
                       on:click={() => applyAiBouquetDesign(msg.designAction)}
                     >
-                      🌸 تطبيق هذا التصميم على اللوحة فوراً 🎨
+                      تطبيق هذا التصميم على اللوحة فوراً
                     </button>
                   </div>
                 {/if}
@@ -1908,12 +2166,16 @@
 
           {#if chatIsLoading}
             <div class="chat-msg-row ai">
-              <div class="msg-avatar">🌸</div>
+              <div class="msg-avatar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L3 9l9 13 9-13-9-7z"/>
+                </svg>
+              </div>
               <div class="msg-bubble typing-bubble">
                 <span class="typing-dot"></span>
                 <span class="typing-dot"></span>
                 <span class="typing-dot"></span>
-                <span class="typing-text">جاري استشارة خبير مسكة للذكاء الاصطناعي… ✨</span>
+                <span class="typing-text">جاري استشارة خبير مسكة للذكاء الاصطناعي…</span>
               </div>
             </div>
           {/if}
@@ -1933,12 +2195,12 @@
             class="btn btn-primary chat-send-btn"
             disabled={chatIsLoading || !chatInput.trim()}
           >
-            إرسال 💬
+            إرسال ↵
           </button>
         </form>
 
         <div class="chat-disclaimer">
-          🔒 تنبيه حاسم: هذا المساعد الذكي مبرمج للإجابة حصرياً عن عالم الزهور والباقات، وأي سؤال خارج هذا النطاق سيتم الاعتذار عنه فوراً لضمان التخصص والدقة.
+          تنبيه: هذا المساعد الذكي مبرمج للإجابة حصرياً عن عالم الزهور والباقات، وأي سؤال خارج هذا النطاق سيتم الاعتذار عنه فوراً لضمان التخصص والدقة.
         </div>
 
       </div>
@@ -1947,7 +2209,7 @@
 
   <!-- زر الشات العائم في أسفل الشاشة (Floating Chat Pill) -->
   <button type="button" class="floating-chat-trigger" on:click={scrollToChat} title="محادثة خبير الذكاء الاصطناعي">
-    <span class="float-icon">🌸💬</span>
+    <span class="float-icon">AI</span>
     <span class="float-text">شات خبير مسكة للزهور</span>
     <span class="float-status-dot"></span>
   </button>
@@ -2038,8 +2300,8 @@
   /* تخطيط الصفحة */
   .studio-layout {
     display: grid;
-    grid-template-columns: 1.25fr 0.95fr;
-    gap: 32px;
+    grid-template-columns: 1fr 1.08fr;
+    gap: 24px;
     align-items: start;
   }
 
@@ -2418,162 +2680,349 @@
     line-height: 1.6;
   }
 
-  /* تبويب محرر الوردة الفردية (Stem-by-Stem Inspector) */
-  .stems-pill-carousel {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 12px;
-    margin-bottom: 20px;
-  }
-  .stem-select-chip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    background: var(--bg);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius-full);
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--text);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-  }
-  .stem-select-chip.active {
-    border-color: var(--olive);
-    background: var(--olive);
-    color: #fff;
-  }
-  .chip-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-  }
-
-  .stem-inspector-card {
-    background: var(--bg);
-    border: 1.5px solid var(--line-strong);
-    border-radius: var(--radius-md);
-    padding: 20px;
-  }
-  .inspector-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 12px;
-  }
-  .insp-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .insp-title h4 {
-    margin: 0;
-    font-size: 1.05rem;
-    color: var(--text);
-  }
-  .btn-delete-stem {
-    background: rgba(192, 39, 65, 0.1);
-    color: #c02741;
-    border: 1px solid rgba(192, 39, 65, 0.2);
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.82rem;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .insp-label {
-    display: block;
-    font-size: 0.86rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: var(--text);
-  }
-  .angle-buttons-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .angle-btn {
+  /* تبويب محرر الوردة الفردية (تعديل وردة بوردة) فائق الرشاقة والصغر */
+  .stem-inspector-box-compact {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 8px;
-    background: var(--card-solid);
-    border: 1.5px solid var(--line);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--text);
-    transition: all 0.2s;
+    gap: 10px;
+    padding: 14px 18px !important;
   }
-  .angle-btn small {
-    font-size: 0.7rem;
-    color: var(--text-muted);
+  .single-stem-focus {
+    border: 1.5px solid var(--olive);
+    background: linear-gradient(180deg, rgba(94, 107, 44, 0.04) 0%, var(--card-solid) 100%);
+    box-shadow: 0 4px 16px rgba(94, 107, 44, 0.15);
+    margin-bottom: 20px;
   }
-  .angle-btn:hover, .angle-btn.active {
-    border-color: var(--olive);
-    background: rgba(94, 107, 44, 0.08);
-  }
-  .angle-btn.active {
-    box-shadow: 0 0 0 2px var(--olive);
-  }
-
-  .inspector-sliders-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-  .slider-box {
-    background: var(--card-solid);
-    padding: 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--line);
-  }
-  .slider-label-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.82rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .slider-field {
-    width: 100%;
-    accent-color: var(--olive);
-    cursor: pointer;
-  }
-  .layer-controls-row {
+  .stem-inspector-mini-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--card-solid);
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
   }
-  .layer-label {
-    font-size: 0.84rem;
-    font-weight: 700;
-  }
-  .layer-btns {
+  .mini-title-wrap {
     display: flex;
+    align-items: center;
     gap: 8px;
   }
-  .drag-tip-box {
-    font-size: 0.8rem;
+  .mini-head-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .head-actions-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-close-edit {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
     color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .btn-close-edit:hover {
+    background: #c02741;
+    color: #ffffff;
+    border-color: #c02741;
+  }
+  .badge-hand-hint {
+    background: rgba(94, 107, 44, 0.12);
+    color: var(--olive);
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(94, 107, 44, 0.25);
+  }
+  .hint-no-stem-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
     background: rgba(94, 107, 44, 0.05);
-    padding: 8px 12px;
+    border: 1.5px dashed var(--olive);
+    border-radius: var(--radius-md);
+  }
+  .hint-icon {
+    font-size: 1.8rem;
+  }
+  .hint-title {
+    margin: 0 0 4px;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--olive);
+  }
+  .hint-desc {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  /* جسم المحرر المصغر */
+  .stem-editor-body-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .stem-detail-strip-compact {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
+    padding: 6px 12px;
+  }
+  .stem-left-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .stem-thumb-mini {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--card-solid);
+    border: 1px solid var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .stem-thumb-img-mini {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+  }
+  .stem-name-compact {
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .tag-price-mini {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #b45309;
+    background: rgba(180, 83, 9, 0.1);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .tag-sec-mini {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .stem-mini-actions {
+    display: flex;
+    gap: 5px;
+  }
+  .btn-icon-action {
+    background: var(--card-solid);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .btn-icon-action:hover {
+    border-color: var(--olive);
+    color: var(--olive);
+  }
+  .btn-icon-del {
+    color: #c02741;
+    background: rgba(192, 39, 65, 0.06);
+    border-color: rgba(192, 39, 65, 0.2);
+  }
+  .btn-icon-del:hover {
+    background: #c02741;
+    color: #ffffff;
+  }
+
+  /* صفوف الأزرار المقطعية المدمجة */
+  .compact-field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .compact-label {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text);
+    white-space: nowrap;
+    min-width: 62px;
+  }
+  .compact-label-with-reset {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 62px;
+    white-space: nowrap;
+  }
+  .btn-reset-mini {
+    background: none;
+    border: none;
+    color: var(--olive);
+    font-size: 0.7rem;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+  .angles-segmented-compact {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    flex: 1;
+  }
+  .sections-segmented-compact {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    flex: 1;
+  }
+  .seg-btn-compact {
+    padding: 6px 4px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
     text-align: center;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .seg-btn-compact:hover {
+    border-color: var(--olive);
+    background: rgba(94, 107, 44, 0.06);
+  }
+  .seg-btn-compact.active {
+    background: var(--olive);
+    color: #ffffff;
+    border-color: var(--olive);
+    box-shadow: 0 1px 4px rgba(94, 107, 44, 0.25);
+  }
+
+  /* منزلقات مصغرة */
+  .compact-sliders-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .mini-slider-cell {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+  .mini-slider-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.74rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .val-pill {
+    color: var(--olive);
+    background: rgba(94, 107, 44, 0.12);
+    padding: 0 5px;
+    border-radius: 3px;
+    font-size: 0.72rem;
+  }
+  .slider-ultra-compact {
+    width: 100%;
+    accent-color: var(--olive);
+    height: 4px;
+    cursor: pointer;
+  }
+
+  /* تذييل الطبقات */
+  .compact-layer-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 10px;
+  }
+  .layer-btns-mini {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .layer-lbl-mini {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .btn-layer-mini {
+    background: var(--card-solid);
+    border: 1px solid var(--line-strong);
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-layer-mini:hover {
+    border-color: var(--olive);
+    color: var(--olive);
+  }
+  .direct-hand-tip {
+    font-size: 0.7rem;
+    color: var(--olive);
+    font-weight: 700;
+  }
+  .empty-stems-state-compact {
+    text-align: center;
+    padding: 20px 10px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  /* شارة رقم الساق على المسرح */
+  .stem-number-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--olive);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    border: 1.5px solid #ffffff;
+    pointer-events: none;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .stem-number-badge.active {
+    background: #c59b27;
+    transform: scale(1.2);
+    box-shadow: 0 0 0 2px #ffffff, 0 3px 8px rgba(0,0,0,0.3);
   }
 
   /* تبويب التغليف والشريط والكرت */
@@ -2740,7 +3189,7 @@
   /* مسرح المعاينة الحية للوحة التفاعلية */
   .stage-viewport {
     width: 100%;
-    height: 380px;
+    height: 410px;
     background: radial-gradient(circle at 50% 40%, #ffffff 0%, #f7f4ee 70%, #ede7dc 100%);
     border-radius: var(--radius-md);
     position: relative;
@@ -2749,6 +3198,7 @@
     border: 1px solid var(--line-strong);
     box-shadow: inset 0 2px 8px rgba(0,0,0,0.04);
     user-select: none;
+    touch-action: none;
   }
   .stage-viewport.with-grid {
     background-image: 
@@ -2787,6 +3237,7 @@
     inset: 0;
     z-index: 5;
     pointer-events: auto;
+    touch-action: none;
   }
   .canvas-empty-hint {
     position: absolute;
@@ -2810,10 +3261,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
-  .stem-canvas-node:active {
-    cursor: grabbing;
-    transition: none;
+  .stem-canvas-node:active,
+  .stem-canvas-node.dragging {
+    cursor: grabbing !important;
+    transition: none !important;
+  }
+  .stem-canvas-node.dragging {
+    filter: drop-shadow(0 16px 32px rgba(0,0,0,0.4)) !important;
   }
   .stem-img {
     width: 100%;
@@ -2821,6 +3279,8 @@
     object-fit: contain;
     filter: drop-shadow(0 6px 12px rgba(0,0,0,0.18));
     pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
   }
   .stem-active-ring {
     position: absolute;
@@ -2832,6 +3292,83 @@
   }
   @keyframes spinRing {
     100% { transform: rotate(360deg); }
+  }
+
+  /* شريط التعديل باليد المباشر فوق اللوحة الحية */
+  .canvas-hand-indicator {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(45, 56, 18, 0.88);
+    backdrop-filter: blur(6px);
+    color: #ffffff;
+    padding: 5px 14px;
+    border-radius: var(--radius-full);
+    font-size: 0.74rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 120;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+    border: 1px solid rgba(255,255,255,0.25);
+    white-space: nowrap;
+  }
+  .hand-icon {
+    font-size: 0.85rem;
+  }
+  .canvas-floating-toolbar {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1.5px solid var(--olive);
+    border-radius: var(--radius-full);
+    padding: 4px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 120;
+    box-shadow: 0 6px 20px rgba(94, 107, 44, 0.28);
+    white-space: nowrap;
+  }
+  .floating-stem-title {
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: var(--olive);
+  }
+  .floating-btns-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .floating-btn {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    padding: 3px 8px;
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .floating-btn:hover {
+    background: var(--olive);
+    color: #ffffff;
+    border-color: var(--olive);
+  }
+  .floating-btn.floating-btn-del:hover {
+    background: #c02741;
+    border-color: #c02741;
+    color: #ffffff;
   }
 
   /* 3. مقدمة ورق التغليف الملكي */
@@ -2988,6 +3525,46 @@
     .qty-counter {
       grid-column: span 2;
       justify-content: center;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .angles-segmented-compact {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .sections-segmented-compact {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .compact-sliders-row {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .compact-field-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .angles-segmented-compact,
+    .sections-segmented-compact {
+      width: 100%;
+    }
+    .stem-detail-strip-compact {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .stem-mini-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+    .canvas-floating-toolbar {
+      padding: 3px 6px;
+      gap: 4px;
+      max-width: 96%;
+      overflow-x: auto;
+    }
+    .floating-stem-title {
+      display: none;
     }
   }
 
