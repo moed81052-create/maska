@@ -224,6 +224,10 @@ module.exports = {
     const itemsSql = `
       SELECT 
         oi.*,
+        b.title as catalog_title,
+        b.image_svg_path as bouquet_image,
+        b.occasion_tag,
+        b.description as bouquet_description,
         cbd.wrap_type,
         cbd.ribbon_color,
         cbd.wax_seal_text,
@@ -231,6 +235,7 @@ module.exports = {
         cbd.seal_color,
         cbd.flower_composition_json
       FROM order_items oi
+      LEFT JOIN bouquets b ON oi.bouquet_id = b.id
       LEFT JOIN custom_bouquet_details cbd ON oi.id = cbd.order_item_id
       WHERE oi.order_id = ?
     `;
@@ -1800,6 +1805,10 @@ module.exports = {
     const itemsSql = `
       SELECT 
         oi.*,
+        b.title as catalog_title,
+        b.image_svg_path as bouquet_image,
+        b.occasion_tag,
+        b.description as bouquet_description,
         cbd.wrap_type,
         cbd.ribbon_color,
         cbd.wax_seal_text,
@@ -1807,6 +1816,7 @@ module.exports = {
         cbd.seal_color,
         cbd.flower_composition_json
       FROM order_items oi
+      LEFT JOIN bouquets b ON oi.bouquet_id = b.id
       LEFT JOIN custom_bouquet_details cbd ON oi.id = cbd.order_item_id
       WHERE oi.order_id = ?
     `;
@@ -1823,6 +1833,160 @@ module.exports = {
       const orders = sqliteDb.prepare(sql).all(...params);
       return orders.map(ord => {
         const items = sqliteDb.prepare(itemsSql).all(ord.id);
+        return { ...ord, items };
+      });
+    }
+  },
+
+  // 29b. جلب الطلبات المسندة لمنسقة الزهور حصرياً مع تفاصيل وتوليفة ومواقع الورود
+  async getFloristOrders(floristUserId = null) {
+    if (!floristUserId) {
+      return [];
+    }
+
+    let sql = `
+      SELECT 
+        o.*,
+        f.full_name as florist_name,
+        d.full_name as driver_name,
+        d.phone as driver_phone,
+        dp.vehicle_type,
+        dp.plate_number,
+        p.method as payment_method,
+        p.status as payment_status
+      FROM orders o
+      LEFT JOIN users f ON o.assigned_florist_id = f.id
+      LEFT JOIN users d ON o.assigned_driver_id = d.id
+      LEFT JOIN driver_profiles dp ON d.id = dp.user_id
+      LEFT JOIN payments p ON o.id = p.order_id
+      WHERE o.assigned_florist_id = ?
+      ORDER BY 
+        CASE o.status
+          WHEN 'preparing' THEN 1
+          WHEN 'confirmed' THEN 2
+          WHEN 'out_for_delivery' THEN 3
+          WHEN 'delivered' THEN 4
+          ELSE 5
+        END,
+        o.created_at DESC
+    `;
+    let params = [floristUserId];
+
+    const itemsSql = `
+      SELECT 
+        oi.*,
+        COALESCE(b.title, oi.item_title) as catalog_title,
+        COALESCE(b.image_svg_path, '/assets/bouquet-pink-spring.svg') as bouquet_image,
+        b.occasion_tag,
+        b.description as bouquet_description,
+        b.id as matched_bouquet_id,
+        cbd.wrap_type,
+        cbd.ribbon_color,
+        cbd.wax_seal_text,
+        cbd.seal_stamp,
+        cbd.seal_color,
+        cbd.flower_composition_json
+      FROM order_items oi
+      LEFT JOIN bouquets b ON (oi.bouquet_id = b.id OR (oi.bouquet_id IS NULL AND oi.item_title = b.title))
+      LEFT JOIN custom_bouquet_details cbd ON oi.id = cbd.order_item_id
+      WHERE oi.order_id = ?
+    `;
+
+    const bouquetFlowersSql = `
+      SELECT 
+        bf.flower_id,
+        bf.quantity_stems,
+        bf.notes,
+        fi.name_ar as flower_name,
+        fi.color,
+        fi.unit_price as stem_price,
+        fi.image_front,
+        fi.image_side,
+        fi.image_top,
+        fi.image_stem
+      FROM bouquet_flowers bf
+      JOIN flower_inventory fi ON bf.flower_id = fi.id
+      WHERE bf.bouquet_id = ?
+    `;
+
+    const enrichItem = (itm) => {
+      // إذا لم تكن هناك صورة للباقة، استخدام صورة افتراضية فاخرة
+      if (!itm.bouquet_image) {
+        itm.bouquet_image = '/assets/bouquet-pink-spring.svg';
+      }
+      // ملء خيارات التغليف والشمع الافتراضية إذا لم تكن مسجلة
+      if (!itm.wrap_type) itm.wrap_type = 'ورق كرافت فاخر';
+      if (!itm.ribbon_color) itm.ribbon_color = 'شريط وردي مذهب';
+      if (!itm.wax_seal_text) itm.wax_seal_text = 'أجمل التهاني والتبريكات بمناسبة التفوق والنجاح';
+      if (!itm.seal_stamp) itm.seal_stamp = 'MASKA 🌸';
+      if (!itm.seal_color) itm.seal_color = 'أحمر قرمزي ملكي';
+
+      // إذا كانت باقة مخصصة من الاستوديو ولها تفاصيل في JSON
+      if ((!itm.recipe_flowers || itm.recipe_flowers.length === 0) && itm.flower_composition_json) {
+        try {
+          const comp = typeof itm.flower_composition_json === 'string' 
+            ? JSON.parse(itm.flower_composition_json) 
+            : itm.flower_composition_json;
+          if (Array.isArray(comp)) {
+            itm.recipe_flowers = comp
+              .filter(c => c && c.flower && !c.flower.includes('غلاف') && !c.flower.includes('شريط'))
+              .map(c => {
+                let img = '/assets/flowers/red-rose-front.svg';
+                if (c.flower.includes('توليب')) img = '/assets/flowers/white-tulip-front.svg';
+                else if (c.flower.includes('جبسوفيلا')) img = '/assets/flowers/baby-breath-front.svg';
+                else if (c.flower.includes('فاوانيا')) img = '/assets/flowers/peony-front.svg';
+                else if (c.flower.includes('أوركيد')) img = '/assets/flowers/clean/orchid-front.svg';
+                return {
+                  flower_name: c.flower,
+                  quantity_stems: Number(c.count || c.quantity || 1),
+                  stem_price: Number(c.unit_price || 0),
+                  image_front: img,
+                  notes: 'أستوديو مسكة'
+                };
+              });
+          }
+        } catch (e) {
+          console.error('Failed to parse flower_composition_json:', e);
+        }
+      }
+
+      // إذا كانت لا تزال فارغة، تقديم توليفة احترافية متوازنة للباقة
+      if (!itm.recipe_flowers || itm.recipe_flowers.length === 0) {
+        itm.recipe_flowers = [
+          { flower_name: 'وردة جورية حمراء', quantity_stems: 6, color: 'أحمر قرمزي', stem_price: 5.0, image_front: '/assets/flowers/red-rose-front.svg', notes: 'في المركز والمحيط الخارجي' },
+          { flower_name: 'توليب أبيض نقي', quantity_stems: 5, color: 'أبيض', stem_price: 5.0, image_front: '/assets/flowers/white-tulip-front.svg', notes: 'توزيع دائري متناسق' },
+          { flower_name: 'جبسوفيلا ناعمة', quantity_stems: 3, color: 'أبيض', stem_price: 5.0, image_front: '/assets/flowers/baby-breath-front.svg', notes: 'ملء الفراغات بين الزهور' }
+        ];
+      }
+    };
+
+    if (isMySQL) {
+      const [orders] = await mysqlPool.query(sql, params);
+      const results = [];
+      for (const ord of orders) {
+        const [items] = await mysqlPool.execute(itemsSql, [ord.id]);
+        for (const itm of items) {
+          const targetBouquetId = itm.bouquet_id || itm.matched_bouquet_id;
+          if (targetBouquetId) {
+            const [bFlowers] = await mysqlPool.execute(bouquetFlowersSql, [targetBouquetId]);
+            itm.recipe_flowers = bFlowers;
+          }
+          enrichItem(itm);
+        }
+        results.push({ ...ord, items });
+      }
+      return results;
+    } else {
+      const orders = sqliteDb.prepare(sql).all(...params);
+      return orders.map(ord => {
+        const items = sqliteDb.prepare(itemsSql).all(ord.id);
+        for (const itm of items) {
+          const targetBouquetId = itm.bouquet_id || itm.matched_bouquet_id;
+          if (targetBouquetId) {
+            itm.recipe_flowers = sqliteDb.prepare(bouquetFlowersSql).all(targetBouquetId);
+          }
+          enrichItem(itm);
+        }
         return { ...ord, items };
       });
     }
@@ -1981,15 +2145,31 @@ module.exports = {
 
       const newBouquetId = bRes.insertId;
 
-      // 3. إدراج الورود في جدول bouquet_flowers
+      // 3. تجميع ودمج أي أصناف مكررة لنفس الوردة لمنع خطأ Unique Key
+      const mergedFlowersMap = new Map();
       for (const item of recipeItems) {
         const fId = Number(item.flower_id || item.flowerId || item.id);
+        if (!fId) continue;
         const qty = Number(item.quantity_stems || item.qty || item.quantity || 1);
-        const notes = item.notes ? String(item.notes).trim() : null;
+        const note = item.notes ? String(item.notes).trim() : '';
 
+        if (mergedFlowersMap.has(fId)) {
+          const existing = mergedFlowersMap.get(fId);
+          existing.qty += qty;
+          if (note && !existing.notes.includes(note)) {
+            existing.notes = existing.notes ? `${existing.notes} + ${note}` : note;
+          }
+        } else {
+          mergedFlowersMap.set(fId, { fId, qty, notes: note || null });
+        }
+      }
+
+      // إدراج الورود في جدول bouquet_flowers
+      for (const { fId, qty, notes } of mergedFlowersMap.values()) {
         await mysqlPool.execute(`
           INSERT INTO bouquet_flowers (bouquet_id, flower_id, quantity_stems, notes)
           VALUES (?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE quantity_stems = quantity_stems + VALUES(quantity_stems), notes = VALUES(notes)
         `, [newBouquetId, fId, qty, notes]);
       }
 
@@ -2036,15 +2216,31 @@ module.exports = {
           }
         }
 
-        // استبدال الوصفة
-        await mysqlPool.execute(`DELETE FROM bouquet_flowers WHERE bouquet_id = ?`, [id]);
+        // استبدال الوصفة مع دمج أي أصناف مكررة لنفس الوردة
+        const mergedFlowersMap = new Map();
         for (const item of data.flowers) {
           const fId = Number(item.flower_id || item.flowerId || item.id);
+          if (!fId) continue;
           const qty = Number(item.quantity_stems || item.qty || item.quantity || 1);
-          const notes = item.notes ? String(item.notes).trim() : null;
+          const note = item.notes ? String(item.notes).trim() : '';
+
+          if (mergedFlowersMap.has(fId)) {
+            const existing = mergedFlowersMap.get(fId);
+            existing.qty += qty;
+            if (note && !existing.notes.includes(note)) {
+              existing.notes = existing.notes ? `${existing.notes} + ${note}` : note;
+            }
+          } else {
+            mergedFlowersMap.set(fId, { fId, qty, notes: note || null });
+          }
+        }
+
+        await mysqlPool.execute(`DELETE FROM bouquet_flowers WHERE bouquet_id = ?`, [id]);
+        for (const { fId, qty, notes } of mergedFlowersMap.values()) {
           await mysqlPool.execute(`
             INSERT INTO bouquet_flowers (bouquet_id, flower_id, quantity_stems, notes)
             VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE quantity_stems = quantity_stems + VALUES(quantity_stems), notes = VALUES(notes)
           `, [id, fId, qty, notes]);
         }
       }
@@ -2391,5 +2587,77 @@ module.exports = {
     } else {
       return [];
     }
+  },
+
+  // 40. إدارة خيارات التغليف والأشرطة والختم الشمعي
+  async getPackagingMaterials(category = null) {
+    if (isMySQL) {
+      let query = 'SELECT * FROM packaging_materials WHERE is_active = 1';
+      const params = [];
+      if (category) {
+        query += ' AND category = ?';
+        params.push(category);
+      }
+      query += ' ORDER BY sort_order ASC, id ASC';
+      const [rows] = await mysqlPool.query(query, params);
+      return rows;
+    }
+    return [];
+  },
+
+  async getAllPackagingMaterials() {
+    if (isMySQL) {
+      const [rows] = await mysqlPool.query('SELECT * FROM packaging_materials ORDER BY category ASC, sort_order ASC, id ASC');
+      return rows;
+    }
+    return [];
+  },
+
+  async addPackagingMaterial(data) {
+    if (isMySQL) {
+      const { category, code, name_ar, color, dark_color, price, sort_order } = data;
+      const cleanCode = (code || name_ar || 'pack_' + Date.now()).toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
+      const [res] = await mysqlPool.query(`
+        INSERT INTO packaging_materials (category, code, name_ar, color, dark_color, price, sort_order, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        ON DUPLICATE KEY UPDATE 
+          name_ar = VALUES(name_ar),
+          color = VALUES(color),
+          dark_color = VALUES(dark_color),
+          price = VALUES(price),
+          sort_order = VALUES(sort_order),
+          is_active = 1
+      `, [category, cleanCode, name_ar, color, dark_color || null, Number(price) || 0, Number(sort_order) || 0]);
+      return { id: res.insertId, category, code: cleanCode, name_ar, color, dark_color, price, sort_order };
+    }
+    return null;
+  },
+
+  async updatePackagingMaterial(id, data) {
+    if (isMySQL) {
+      const fields = [];
+      const values = [];
+      if (data.name_ar !== undefined) { fields.push('name_ar = ?'); values.push(data.name_ar); }
+      if (data.color !== undefined) { fields.push('color = ?'); values.push(data.color); }
+      if (data.dark_color !== undefined) { fields.push('dark_color = ?'); values.push(data.dark_color); }
+      if (data.price !== undefined) { fields.push('price = ?'); values.push(Number(data.price)); }
+      if (data.sort_order !== undefined) { fields.push('sort_order = ?'); values.push(Number(data.sort_order)); }
+      if (data.is_active !== undefined) { fields.push('is_active = ?'); values.push(data.is_active ? 1 : 0); }
+      if (data.code !== undefined) { fields.push('code = ?'); values.push(data.code); }
+      if (fields.length === 0) return null;
+      values.push(id);
+      await mysqlPool.query(`UPDATE packaging_materials SET ${fields.join(', ')} WHERE id = ?`, values);
+      const [rows] = await mysqlPool.query('SELECT * FROM packaging_materials WHERE id = ?', [id]);
+      return rows[0] || null;
+    }
+    return null;
+  },
+
+  async deletePackagingMaterial(id) {
+    if (isMySQL) {
+      await mysqlPool.query('DELETE FROM packaging_materials WHERE id = ?', [id]);
+      return { success: true, deletedId: id };
+    }
+    return { success: false };
   }
 };

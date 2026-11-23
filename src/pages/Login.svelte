@@ -29,7 +29,9 @@
         auth.login(res.user);
         if (res.user.role_name === 'driver') {
           router.navigate('/driver');
-        } else if (res.user.role_name === 'admin' || res.user.role_name === 'florist') {
+        } else if (res.user.role_name === 'florist') {
+          router.navigate('/florist');
+        } else if (res.user.role_name === 'admin') {
           router.navigate('/admin');
         } else {
           router.navigate('/');

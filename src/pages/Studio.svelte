@@ -4,6 +4,7 @@
   import { cart } from '../stores/cart.js';
   import { api } from '../lib/api.js';
   import { pendingBouquetDesign } from '../stores/aiChatStore.js';
+  import { auth, isFlorist, isAdmin } from '../stores/auth.js';
 
   // 1. خيارات الزهور الافتراضية مع دعم زوايا الرؤية المتعددة
   let flowers = [
@@ -100,7 +101,7 @@
   ];
 
   // 2. خيارات التغليف الملكي
-  const wrapOptions = [
+  let wrapOptions = [
     { id: 'kraft', name: 'ورق كرافت فاخر', price: 10, color: '#c8a882', darkColor: '#8a6e4d' },
     { id: 'olive', name: 'زيتي مسكة ملكي', price: 12, color: '#5e6b2c', darkColor: '#3a441b' },
     { id: 'blush', name: 'وردي مخملي ناعم', price: 12, color: '#f2c0cc', darkColor: '#b87586' },
@@ -111,7 +112,7 @@
   let selectedWrap = wrapOptions[0];
 
   // 3. خيارات شريط الساتان
-  const ribbonOptions = [
+  let ribbonOptions = [
     { id: 'gold_rose', name: 'وردي مذهب', color: '#d4889c' },
     { id: 'sage', name: 'زيتي مسكة', color: '#5e6b2c' },
     { id: 'crimson', name: 'أحمر قرمزي', color: '#963547' },
@@ -121,7 +122,7 @@
   let selectedRibbon = ribbonOptions[0];
 
   // 4. خيارات الختم الشمعي
-  const waxSealColors = [
+  let waxSealColors = [
     { id: 'red', name: 'أحمر قرمزي ملكي', hex: '#851b2f' },
     { id: 'gold', name: 'ذهبي عتيق', hex: '#c59b27' },
     { id: 'olive', name: 'أخضر زيتي مسكة', hex: '#48551f' },
@@ -135,6 +136,30 @@
   let showGrid = false;
   let activeTab = 'flowers'; // 'flowers' | 'ai' | 'stems' | 'packaging'
   let addedToast = false;
+
+  // المشهد المرئي للباقة: علوي لقبة الزهور الملكية (top) أو أمامي مغلف بالشريط (front)
+  let viewMode = 'top'; // 'top' | 'front'
+
+  // تفعيل المشهد تلقائياً بناءً على مرحلة التصميم:
+  // في مرحلة تصميم الورد والسيقان: مشهد علوي لتوزيع الورود، وفي التغليف والشريط: مشهد أمامي مغلف (زي توا)
+  let prevActiveTab = activeTab;
+  $: if (activeTab !== prevActiveTab) {
+    if (activeTab === 'packaging') {
+      viewMode = 'front';
+      aiStatusMessage = 'المشهد الأمامي: معاينة التغليف والشريط والختم الشمعي الملكي.';
+    } else if (activeTab === 'flowers' || activeTab === 'stems' || activeTab === 'ai') {
+      viewMode = 'top';
+      aiStatusMessage = 'المشهد العلوي: قبة الزهور الملكية لتوزيع وتنسيق الورود بحرية من الأعلى.';
+    }
+    prevActiveTab = activeTab;
+  }
+
+  function toggleViewMode() {
+    viewMode = viewMode === 'top' ? 'front' : 'top';
+    aiStatusMessage = viewMode === 'top'
+      ? 'تم التبديل إلى المشهد العلوي (تنسيق الزهور كقبة ملكية من الأعلى)'
+      : 'تم التبديل إلى المشهد الأمامي (معاينة التغليف والشريط كمنتج نهائي)';
+  }
 
   // 5. سيقان الزهور الحية على اللوحة (Live Stems Canvas State)
   let stems = [];
@@ -168,21 +193,37 @@
     return 'red-rose';
   }
 
-  // الحصول على رابط صورة الزاوية النظيفة للوردة
+  // الحصول على رابط صورة الزاوية النظيفة للوردة (مع ضمان الشفافية التامة وعدم وجود خلفيات أو سيقان طويلة في المشهد العلوي)
   function getFlowerAngleImage(flower, angle = 'front') {
-    if (angle === 'front' && flower.image_front) return flower.image_front;
-    if (angle === 'side' && flower.image_side) return flower.image_side;
-    if (angle === 'top' && flower.image_top) return flower.image_top;
-    if (angle === 'stem' && flower.image_stem) return flower.image_stem;
+    const key = flower.key || getFlowerKey(flower.name, flower.color);
+
+    // في المشهد العلوي لقبة الزهور: رأس الزهرة والبتلات فقط من الأعلى بدون ساق وبدون أي خلفية
+    if (angle === 'top') {
+      if (flower.image_top && !flower.image_top.endsWith('.jpg') && !flower.image_top.endsWith('.jpeg') && !flower.image_top.includes('/uploads/')) {
+        return flower.image_top;
+      }
+      return `/assets/flowers/clean/${key}-top.svg`;
+    }
+
+    if (angle === 'front' && flower.image_front && !flower.image_front.endsWith('.jpg') && !flower.image_front.endsWith('.jpeg') && !flower.image_front.includes('/uploads/')) {
+      return flower.image_front;
+    }
+    if (angle === 'side' && flower.image_side && !flower.image_side.endsWith('.jpg') && !flower.image_side.endsWith('.jpeg') && !flower.image_side.includes('/uploads/')) {
+      return flower.image_side;
+    }
+    if (angle === 'stem' && flower.image_stem && !flower.image_stem.endsWith('.jpg') && !flower.image_stem.endsWith('.jpeg') && !flower.image_stem.includes('/uploads/')) {
+      return flower.image_stem;
+    }
     
     if (flower.images_angles_json) {
       try {
         const parsed = typeof flower.images_angles_json === 'string' ? JSON.parse(flower.images_angles_json) : flower.images_angles_json;
-        if (parsed && parsed[angle]) return parsed[angle];
+        if (parsed && parsed[angle] && !parsed[angle].endsWith('.jpg') && !parsed[angle].endsWith('.jpeg') && !parsed[angle].includes('/uploads/')) {
+          return parsed[angle];
+        }
       } catch (e) {}
     }
 
-    const key = flower.key || getFlowerKey(flower.name, flower.color);
     return `/assets/flowers/clean/${key}-${angle}.svg`;
   }
 
@@ -231,7 +272,7 @@
           x: Math.round(jitterX * 1.3),
           y: Math.round(15 + jitterY),
           rotation: Math.round(jitterRot * 2),
-          angle: 'stem',
+          angle: 'front',
           scale: 0.92
         };
     }
@@ -273,26 +314,64 @@
     try {
       const res = await api.getInventory();
       if (res && res.data && res.data.length > 0) {
-        flowers = flowers.map(f => {
-          const matched = res.data.find(inv => inv.id === f.id || inv.name_ar.includes(f.name.split(' ')[0]));
-          if (matched) {
-            return {
-              ...f,
-              name: matched.name_ar,
-              unit_price: matched.unit_price,
-              stock_quantity: matched.stock_quantity,
-              image_front: matched.image_front,
-              image_side: matched.image_side,
-              image_top: matched.image_top,
-              image_stem: matched.image_stem,
-              images_angles_json: matched.images_angles_json
-            };
-          }
-          return f;
+        // نضمن أن كل صنف من المخزون يظهر لمرة واحدة فقط بمعرفه الدقيق لمنع تكرار المعرفات
+        const invList = res.data;
+        flowers = invList.map((inv, idx) => {
+          const old = flowers.find(f => f.id === inv.id || f.name.includes(inv.name_ar.split(' ')[0]) || inv.name_ar.includes(f.name.split(' ')[0]));
+          return {
+            id: inv.id,
+            name: inv.name_ar,
+            color: inv.color || old?.color || '#c02741',
+            key: getFlowerKey(inv.name_ar, inv.color),
+            unit_price: Number(inv.unit_price),
+            qty: old ? old.qty : (idx < 3 ? 2 : 0),
+            stock_quantity: inv.stock_quantity,
+            section: old?.section || (idx === 0 ? 'center' : idx === 1 ? 'top' : idx === 2 ? 'left' : 'bottom'),
+            image_front: inv.image_front,
+            image_side: inv.image_side,
+            image_top: inv.image_top,
+            image_stem: inv.image_stem,
+            images_angles_json: inv.images_angles_json
+          };
         });
       }
     } catch (e) {
       console.log('Using default flower inventory in Studio');
+    }
+
+    // جلب خيارات التغليف وأشرطة الساتان والختم الشمعي المحدثة ديناميكياً من قاعدة البيانات
+    try {
+      const packRes = await api.getPackaging();
+      if (packRes) {
+        if (packRes.wraps && packRes.wraps.length > 0) {
+          wrapOptions = packRes.wraps.map(w => ({
+            id: w.code,
+            name: w.name_ar,
+            price: Number(w.price) || 0,
+            color: w.color,
+            darkColor: w.dark_color || w.color
+          }));
+          selectedWrap = wrapOptions[0];
+        }
+        if (packRes.ribbons && packRes.ribbons.length > 0) {
+          ribbonOptions = packRes.ribbons.map(r => ({
+            id: r.code,
+            name: r.name_ar,
+            color: r.color
+          }));
+          selectedRibbon = ribbonOptions[0];
+        }
+        if (packRes.wax_seals && packRes.wax_seals.length > 0) {
+          waxSealColors = packRes.wax_seals.map(x => ({
+            id: x.code,
+            name: x.name_ar,
+            hex: x.color
+          }));
+          selectedWaxColor = waxSealColors[0];
+        }
+      }
+    } catch (e) {
+      console.log('Using default packaging options in Studio');
     }
 
     initializeStemsFromQuantities();
@@ -676,16 +755,26 @@
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
 
-    const newX = Math.round(clientX - centerX - dragOffset.x);
-    const newY = Math.round(clientY - centerY - dragOffset.y);
+    let newX = Math.round(clientX - centerX - dragOffset.x);
+    let newY = Math.round(clientY - centerY - dragOffset.y);
 
-    // قيود الحركة داخل حدود المسرح الموسعة لتمنح حرية كاملة لليد
-    const clampedX = Math.max(-155, Math.min(155, newX));
-    const clampedY = Math.max(-190, Math.min(85, newY));
+    if (viewMode === 'top') {
+      // قيود الحركة الدائرية الطبيعية لقبة الباقة في المشهد العلوي
+      const dist = Math.sqrt(newX * newX + newY * newY);
+      const maxRadius = 145;
+      if (dist > maxRadius) {
+        newX = Math.round((newX / dist) * maxRadius);
+        newY = Math.round((newY / dist) * maxRadius);
+      }
+    } else {
+      // قيود المشهد الأمامي الرأسي
+      newX = Math.max(-155, Math.min(155, newX));
+      newY = Math.max(-190, Math.min(85, newY));
+    }
 
     stems = stems.map(s => {
       if (s.id === dragStemId) {
-        return { ...s, x: clampedX, y: clampedY };
+        return { ...s, x: newX, y: newY };
       }
       return s;
     });
@@ -814,8 +903,6 @@
       } else if (s.y < -110) {
         angle = 'top';
         rot = Math.round((s.x / 40) * 12);
-      } else if (s.y > 5) {
-        angle = 'stem';
       } else {
         angle = 'front';
       }
@@ -975,6 +1062,118 @@
     }, 1200);
   }
 
+  // ===========================================================================
+  // اعتماد ونشر الباقة في الكتالوج (Florist & Admin Studio Catalog Creator)
+  // ===========================================================================
+  let floristCatalogActive = false;
+  $: isCatalogCreateMode = $router.params?.mode === 'catalog_create' || floristCatalogActive;
+
+  let catalogBouquet = {
+    title: '',
+    occasion_tag: 'عيد ميلاد',
+    price: null,
+    description: '',
+    image_svg_path: '/assets/bouquet-pink-spring.svg'
+  };
+
+  const occasionOptions = [
+    'عيد ميلاد',
+    'زفاف',
+    'تخرج',
+    'رومانسية',
+    'شكر وتقدير',
+    'مواليد',
+    'اعتذار',
+    'عام'
+  ];
+
+  const bouquetImageOptions = [
+    { path: '/assets/bouquet-pink-spring.svg', label: 'ربيع وردي كلاسيكي' },
+    { path: '/assets/bouquet-royal.svg', label: 'ملكي قرمزي فاخر' },
+    { path: '/assets/bouquet-ivory-elegance.svg', label: 'أناقة العاج والذهب' },
+    { path: '/assets/bouquet-sage-whisper.svg', label: 'زيتي مسكة الهادئ' },
+    { path: '/assets/bouquet.svg', label: 'باقة الأتيليه الشاملة' }
+  ];
+
+  let isPublishingToCatalog = false;
+  let catalogPublishError = '';
+  let catalogPublishSuccess = '';
+
+  // اقتراح السعر المعتمد تلقائياً عند تغيير الورود
+  $: if (isCatalogCreateMode && (!catalogBouquet.price || catalogBouquet.price <= 0)) {
+    if (grandTotal > 0) {
+      catalogBouquet.price = Math.round(grandTotal * 1.35);
+    }
+  }
+
+  async function handlePublishBouquetToCatalog() {
+    catalogPublishError = '';
+    catalogPublishSuccess = '';
+
+    if (!catalogBouquet.title.trim()) {
+      catalogPublishError = 'الرجاء إدخال اسم الباقة الشاعري للكتالوج';
+      return;
+    }
+
+    // دمج وتجميع أي زهور تحمل نفس المعرف لمنع التكرار
+    const flowersMap = new Map();
+    for (const f of flowers.filter(f => f.qty > 0)) {
+      if (flowersMap.has(f.id)) {
+        const item = flowersMap.get(f.id);
+        item.quantity_stems += f.qty;
+      } else {
+        flowersMap.set(f.id, {
+          flower_id: f.id,
+          quantity_stems: f.qty,
+          notes: `موقع التنسيق: ${f.section || 'وسط'}`
+        });
+      }
+    }
+    const selectedFlowers = Array.from(flowersMap.values());
+
+    if (selectedFlowers.length === 0) {
+      catalogPublishError = 'الرجاء اختيار وتوزيع زهرة واحدة على الأقل في الاستوديو';
+      return;
+    }
+
+    if (!catalogBouquet.price || Number(catalogBouquet.price) <= 0) {
+      catalogPublishError = 'سعر البيع المعتمد للباقة يجب أن يكون أكبر من صفر';
+      return;
+    }
+
+    isPublishingToCatalog = true;
+    try {
+      const payload = {
+        title: catalogBouquet.title.trim(),
+        price: Number(catalogBouquet.price),
+        occasion_tag: catalogBouquet.occasion_tag || 'عام',
+        description: catalogBouquet.description.trim() || `تنسيق ${catalogBouquet.title.trim()} الفاخر بالأستوديو، مكون من ${totalStems} ساق زهور طبيعية بتغليف ${selectedWrap.name} وشريط ${selectedRibbon.name}.`,
+        image_svg_path: catalogBouquet.image_svg_path || '/assets/bouquet-pink-spring.svg',
+        flowers: selectedFlowers
+      };
+
+      const res = await api.createBouquet(payload);
+      if (res && res.success) {
+        catalogPublishSuccess = `تم اعتماد وإضافة باقة "${payload.title}" بنجاح في كتالوج باقات مسكة! 🌸`;
+        setTimeout(() => {
+          if ($isFlorist) {
+            router.navigate('/florist');
+          } else if ($isAdmin) {
+            router.navigate('/admin');
+          } else {
+            router.navigate('/catalog');
+          }
+        }, 1500);
+      } else {
+        catalogPublishError = res?.message || 'تعذر نشر الباقة، يرجى مراجعة البيانات';
+      }
+    } catch (e) {
+      catalogPublishError = e.message || 'حدث خطأ أثناء اعتماد ونشر الباقة';
+    } finally {
+      isPublishingToCatalog = false;
+    }
+  }
+
   // 6. محادثة خبير مسكة للذكاء الاصطناعي في الأسفل (AI Florist Live Chat Stream)
   let chatInput = '';
   let chatIsLoading = false;
@@ -1079,13 +1278,18 @@
       <div class="badge-cluster">
         <span class="badge badge-lime">استوديو التصميم الحي</span>
         <span class="badge badge-gold">مدعوم بالذكاء الاصطناعي</span>
+        {#if $isFlorist}
+          <span class="badge badge-florist">🌸 الأتيليه الملكي للمنسقة</span>
+        {/if}
       </div>
-      <h1 class="page-title">صمّم باقتك وردة بوردة وتغليفاً</h1>
+      <h1 class="page-title">{isCatalogCreateMode ? 'تصميم واعتماد باقة جديدة للكتالوج' : 'صمّم باقتك وردة بوردة وتغليفاً'}</h1>
       <p class="page-subtitle">
-        شاهد كل وردة تضاف وتتحرك حياً على اللوحة، وزّع الزهور في القمة أو الوسط أو الأطراف، حرّكها يدوياً أو دع الذكاء الاصطناعي يشكّلها ببراعة من جميع زوايا التصوير.
+        {isCatalogCreateMode 
+          ? 'استخدمي الاستوديو التفاعلي لتنسيق الورود واختيار التغليف والسعر، ثم اعتمديها لتضاف فوراً في كتالوج باقات مسكة'
+          : 'شاهد كل وردة تضاف وتتحرك حياً على اللوحة، وزّع الزهور في القمة أو الوسط أو الأطراف، حرّكها يدوياً أو دع الذكاء الاصطناعي يشكّلها ببراعة من جميع زوايا التصوير.'}
       </p>
 
-      <!-- أزرار الدخول السريع للشات والذكاء الاصطناعي -->
+      <!-- أزرار الدخول السريع للشات والذكاء الاصطناعي والتبديل للكتالوج -->
       <div class="header-action-pills">
         <button type="button" class="action-pill-chat" on:click={() => activeTab = 'chat'}>
           💬 فتح شات الذكاء الاصطناعي للزهور
@@ -1093,8 +1297,138 @@
         <button type="button" class="action-pill-scroll" on:click={scrollToChat}>
           ⬇️ النزول إلى الشات المباشر بالأسفل
         </button>
+        {#if $isFlorist || $isAdmin}
+          <button 
+            type="button" 
+            class="action-pill-mode"
+            class:active-mode={isCatalogCreateMode}
+            on:click={() => floristCatalogActive = !floristCatalogActive}
+          >
+            {isCatalogCreateMode ? '✕ إغلاق وضع الكتالوج' : '✨ وضع اعتماد باقة للكتالوج'}
+          </button>
+        {/if}
       </div>
     </div>
+
+    <!-- لوحة اعتماد باقة جديدة للكتالوج (الأتيليه الرسمي) -->
+    {#if isCatalogCreateMode}
+      <div class="florist-catalog-creator-banner fade-in">
+        <div class="f-banner-top">
+          <div class="f-banner-title-box">
+            <span class="f-live-indicator">🌸 وضع اعتماد باقة جديدة للكتالوج الرسمي</span>
+            <h2 class="f-banner-heading">أتيليه تصميم وإضافة الباقات للمتجر</h2>
+            <p class="f-banner-sub">نسقي الورود مباشرة على اللوحة ثلاثية الأبعاد، حددي الغلاف والشريط، وضعي السعر المعتمد لتضاف فوراً في الكتالوج.</p>
+          </div>
+          <div class="f-banner-quick-actions">
+            {#if $isFlorist}
+              <button type="button" class="btn btn-outline btn-sm" on:click={() => router.navigate('/florist')}>
+                ← العودة لورشة المنسقة
+              </button>
+            {:else if $isAdmin}
+              <button type="button" class="btn btn-outline btn-sm" on:click={() => router.navigate('/admin')}>
+                ← العودة لإدارة الباقات
+              </button>
+            {/if}
+          </div>
+        </div>
+
+        {#if catalogPublishError}
+          <div class="f-alert-box error fade-in">{catalogPublishError}</div>
+        {/if}
+        {#if catalogPublishSuccess}
+          <div class="f-alert-box success fade-in">{catalogPublishSuccess}</div>
+        {/if}
+
+        <div class="f-catalog-fields-grid">
+          <div class="f-field">
+            <label for="catalog-title">اسم الباقة الشاعري: *</label>
+            <input 
+              id="catalog-title"
+              type="text" 
+              class="input-field styled-input" 
+              placeholder="مثال: سحر الفاوانيا الربيعية" 
+              bind:value={catalogBouquet.title}
+            />
+          </div>
+
+          <div class="f-field">
+            <label for="catalog-occasion">المناسبة الأساسية: *</label>
+            <select id="catalog-occasion" class="input-field styled-select" bind:value={catalogBouquet.occasion_tag}>
+              {#each occasionOptions as occ}
+                <option value={occ}>{occ}</option>
+              {/each}
+            </select>
+          </div>
+
+          <div class="f-field">
+            <label for="catalog-price">سعر البيع المعتمد بالمتجر (د.ل): *</label>
+            <div class="f-price-input-wrapper">
+              <input 
+                id="catalog-price"
+                type="number" 
+                min="5" 
+                step="1" 
+                class="input-field styled-input price-input" 
+                bind:value={catalogBouquet.price}
+              />
+              <span class="currency-tag">د.ل</span>
+            </div>
+          </div>
+
+          <div class="f-field">
+            <label for="catalog-img">نموذج العرض بالكتالوج:</label>
+            <select id="catalog-img" class="input-field styled-select" bind:value={catalogBouquet.image_svg_path}>
+              {#each bouquetImageOptions as opt}
+                <option value={opt.path}>{opt.label}</option>
+              {/each}
+            </select>
+          </div>
+
+          <div class="f-field full-row">
+            <label for="catalog-desc">الوصف الفني والتسويقي للباقة:</label>
+            <input 
+              id="catalog-desc"
+              type="text" 
+              class="input-field styled-input" 
+              placeholder="توليفة فاخرة من الورود الطبيعية بتنسيق شاعري أنيق وغلاف ملكي..." 
+              bind:value={catalogBouquet.description}
+            />
+          </div>
+        </div>
+
+        <div class="f-banner-footer">
+          <div class="f-financial-metrics">
+            <div class="metric-chip">
+              <span class="m-lbl">مجموع السيقان:</span>
+              <b class="m-val">{totalStems} ساق</b>
+            </div>
+            <div class="metric-chip">
+              <span class="m-lbl">تكلفة الورود:</span>
+              <b class="m-val">{flowersCost} د.ل</b>
+            </div>
+            <div class="metric-chip">
+              <span class="m-lbl">سعر الغلاف:</span>
+              <b class="m-val">{selectedWrap.price || 0} د.ل</b>
+            </div>
+            <div class="metric-chip highlight">
+              <span class="m-lbl">هامش الربح المتوقع:</span>
+              <b class="m-val profit">{((Number(catalogBouquet.price) || 0) - grandTotal).toFixed(1)} د.ل</b>
+            </div>
+          </div>
+
+          <div class="f-publish-btn-box">
+            <button 
+              type="button" 
+              class="btn btn-primary btn-publish-now"
+              disabled={isPublishingToCatalog || totalStems < 1}
+              on:click={handlePublishBouquetToCatalog}
+            >
+              {isPublishingToCatalog ? 'جاري الاعتماد والنشر...' : 'اعتماد ونشر الباقة في الكتالوج 🌸'}
+            </button>
+          </div>
+        </div>
+      </div>
+    {/if}
 
     {#if addedToast}
       <div class="studio-toast fade-in">
@@ -1521,7 +1855,15 @@
               {#each flowers as f (f.id)}
                 <div class="flower-row" class:has-qty={f.qty > 0}>
                   <div class="flower-meta">
-                    <span class="color-dot" style="background-color: {f.color};"></span>
+                    <div class="flower-blossom-preview" title="{f.name} - بتلات طبيعية نقية بدون خلفية">
+                      <img 
+                        src={getFlowerAngleImage(f, 'top')} 
+                        alt={f.name} 
+                        class="blossom-thumb-img" 
+                        loading="lazy" 
+                      />
+                      <span class="blossom-color-dot" style="background-color: {f.color};"></span>
+                    </div>
                     <div>
                       <h4 class="flower-name">{f.name}</h4>
                       <span class="flower-stock">المخزون المتوفر: {f.stock_quantity} ساق</span>
@@ -1832,17 +2174,47 @@
           
           <div class="preview-header">
             <div>
-              <h3 class="preview-title">معاينة الباقة الحية</h3>
-              <span class="preview-subtitle">{stems.length} وردة منسقة | {selectedWrap.name}</span>
+              <div class="preview-title-row">
+                <h3 class="preview-title">معاينة الباقة الحية</h3>
+                <span class="scene-mode-badge" class:top={viewMode === 'top'} class:front={viewMode === 'front'}>
+                  {#if viewMode === 'top'}
+                    🪷 مشهد علوي • قبة الزهور الملكية
+                  {:else}
+                    🎀 مشهد أمامي • باقة مغلفة
+                  {/if}
+                </span>
+              </div>
+              <span class="preview-subtitle">
+                {#if viewMode === 'top'}
+                  {stems.length} وردة منسقة | رؤية علوية لتنسيق وتوزيع الزهور بحرية
+                {:else}
+                  {stems.length} وردة منسقة | {selectedWrap.name} ({selectedRibbon.name})
+                {/if}
+              </span>
             </div>
 
             <!-- أزرار التحكم بالمسرح -->
             <div class="stage-actions">
+              <!-- زر تبديل المشهد بين علوي (تنسيق الزهور) وأمامي (التغليف والشريط) -->
+              <button 
+                type="button" 
+                class="stage-tool-btn view-toggle-btn" 
+                class:active={viewMode === 'top'}
+                title={viewMode === 'top' ? 'التبديل للمشهد الأمامي المغلف (زي توا)' : 'التبديل للمشهد العلوي لقبة الزهور'}
+                on:click={toggleViewMode}
+              >
+                {#if viewMode === 'top'}
+                  🪷 علوي
+                {:else}
+                  🎀 أمامي
+                {/if}
+              </button>
+
               <button 
                 type="button" 
                 class="stage-tool-btn" 
                 class:active={showGrid}
-                title="إظهار/إخفاء شبكة التوجيه"
+                title="إظهار/إخفاء شبكة التوجيه الحرفية"
                 on:click={() => showGrid = !showGrid}
               >
                 📐
@@ -1874,32 +2246,89 @@
           <div 
             class="stage-viewport" 
             class:rotating={is3DRotating}
-            class:with-grid={showGrid}
+            class:with-grid={showGrid && viewMode === 'front'}
+            class:is-top-view={viewMode === 'top'}
+            class:is-front-view={viewMode === 'front'}
             bind:this={canvasContainer}
           >
-            <!-- 1. خلفية ورق التغليف الملكي (Back Wrap Folds) -->
-            <svg class="wrap-back-svg" viewBox="0 0 340 400" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="wrapBackGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stop-color="{selectedWrap.color}" stop-opacity="0.9" />
-                  <stop offset="60%" stop-color="{selectedWrap.color}" />
-                  <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.95" />
-                </linearGradient>
-                <filter id="wrapShadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity="0.25"/>
-                </filter>
-              </defs>
-              
-              <!-- الجناح الأيسر لورق التغليف -->
-              <path d="M 30,70 L 135,270 L 170,350 L 90,230 Z" fill="url(#wrapBackGrad)" opacity="0.9" />
-              <!-- الجناح الأيمن لورق التغليف -->
-              <path d="M 310,70 L 205,270 L 170,350 L 250,230 Z" fill="url(#wrapBackGrad)" opacity="0.9" />
-              <!-- مخروط الحزام الخلفي -->
-              <path d="M 60,110 Q 170,30 280,110 L 225,320 Q 170,360 115,320 Z" fill="url(#wrapBackGrad)" filter="url(#wrapShadow)" />
-            </svg>
+            <!-- 0. ياقة ورق التغليف الملكية الفاخرة في المشهد العلوي (Top-Down Luxury Wrap Collar) -->
+            {#if viewMode === 'top'}
+              <svg class="wrap-top-svg fade-in" viewBox="0 0 380 380">
+                <defs>
+                  <radialGradient id="wrapTopCollarGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.95" />
+                    <stop offset="65%" stop-color="{selectedWrap.color}" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.9" />
+                  </radialGradient>
+                  <filter id="topCollarShadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="8" stdDeviation="14" flood-opacity="0.25" />
+                  </filter>
+                </defs>
 
-            <!-- 2. طبقة سيقان الزهور الحية التفاعلية (Draggable Stems Layer) -->
-            <div class="stems-layer">
+                <!-- طيات ورق التغليف الـ 12 المتداخلة بانسيابية ملكية حول قبة الورد -->
+                <g transform="translate(190, 190)" filter="url(#topCollarShadow)">
+                  {#each Array(12) as _, i}
+                    <g transform="rotate({i * 30})">
+                      <path 
+                        d="M -34,-140 Q 0,-182 34,-140 Q 42,-80 0,-70 Q -42,-80 -34,-140 Z" 
+                        fill="{i % 2 === 0 ? selectedWrap.color : selectedWrap.darkColor}"
+                        opacity="{i % 2 === 0 ? 0.96 : 0.88}"
+                        stroke="rgba(255,255,255,0.25)"
+                        stroke-width="1.2"
+                      />
+                      <line x1="0" y1="-70" x2="0" y2="-175" stroke="#ffffff" stroke-width="1" opacity="0.32" />
+                    </g>
+                  {/each}
+
+                  <!-- بطانة قاع الباقة الداخلي التي تستند عليها سيقان الزهور -->
+                  <circle r="92" fill="{selectedWrap.darkColor}" opacity="0.55" />
+                  <circle r="90" fill="url(#wrapTopCollarGrad)" opacity="0.85" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />
+                  <circle r="65" fill="none" stroke="rgba(255,255,255,0.18)" stroke-dasharray="4 4" stroke-width="1" />
+                </g>
+              </svg>
+
+              <!-- شبكة التوجيه الدائرية الحرفية في المشهد العلوي (عند تفعيل شبكة التوجيه) -->
+              {#if showGrid}
+                <svg class="radial-guide-grid fade-in" viewBox="0 0 380 380">
+                  <g transform="translate(190, 190)">
+                    <circle r="30" fill="none" stroke="var(--olive)" stroke-dasharray="3 3" opacity="0.55" stroke-width="1.2" />
+                    <circle r="80" fill="none" stroke="var(--olive)" stroke-dasharray="4 4" opacity="0.55" stroke-width="1.2" />
+                    <circle r="130" fill="none" stroke="var(--olive)" stroke-dasharray="5 5" opacity="0.45" stroke-width="1.2" />
+                    <line x1="-155" y1="0" x2="155" y2="0" stroke="var(--olive)" stroke-dasharray="2 4" opacity="0.4" />
+                    <line x1="0" y1="-155" x2="0" y2="155" stroke="var(--olive)" stroke-dasharray="2 4" opacity="0.4" />
+                    <text x="6" y="-34" fill="var(--olive)" font-size="11" font-weight="800" opacity="0.85">المركز</text>
+                    <text x="6" y="-84" fill="var(--olive)" font-size="11" font-weight="800" opacity="0.85">الوسط</text>
+                    <text x="6" y="-134" fill="var(--olive)" font-size="11" font-weight="800" opacity="0.85">المحيط</text>
+                  </g>
+                </svg>
+              {/if}
+            {/if}
+
+            <!-- 1. خلفية ورق التغليف الملكي (Back Wrap Folds) في المشهد الأمامي المغلف -->
+            {#if viewMode === 'front'}
+              <svg class="wrap-back-svg fade-in" viewBox="0 0 340 400" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="wrapBackGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.color}" stop-opacity="0.9" />
+                    <stop offset="60%" stop-color="{selectedWrap.color}" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.95" />
+                  </linearGradient>
+                  <filter id="wrapShadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity="0.25"/>
+                  </filter>
+                </defs>
+                
+                <!-- الجناح الأيسر لورق التغليف -->
+                <path d="M 30,70 L 135,270 L 170,350 L 90,230 Z" fill="url(#wrapBackGrad)" opacity="0.9" />
+                <!-- الجناح الأيمن لورق التغليف -->
+                <path d="M 310,70 L 205,270 L 170,350 L 250,230 Z" fill="url(#wrapBackGrad)" opacity="0.9" />
+                <!-- مخروط الحزام الخلفي -->
+                <path d="M 60,110 Q 170,30 280,110 L 225,320 Q 170,360 115,320 Z" fill="url(#wrapBackGrad)" filter="url(#wrapShadow)" />
+              </svg>
+            {/if}
+
+            <!-- 2. طبقة سيقان وزهور الباقة الحية التفاعلية (Draggable Stems & Flowers Layer) -->
+            <div class="stems-layer" class:top-spinning={is3DRotating && viewMode === 'top'}>
               {#if stems.length === 0}
                 <div class="canvas-empty-hint">
                   <span>الباقة فارغة حالياً</span>
@@ -1924,10 +2353,10 @@
                   on:click={() => { selectedStemId = stem.id; }}
                   role="button"
                   tabindex="0"
-                  title="{stem.flowerName} ({getAngleLabelAr(stem.angle)}) - اسحب باليد للتحريك أو انقر للتعديل"
+                  title="{stem.flowerName} ({getAngleLabelAr(viewMode === 'top' ? 'top' : stem.angle)}) - اسحب باليد للتحريك أو انقر للتعديل"
                 >
                   <img 
-                    src={getFlowerAngleImage(flowers.find(f => f.id === stem.flowerId) || { key: stem.flowerKey }, stem.angle)} 
+                    src={getFlowerAngleImage(flowers.find(f => f.id === stem.flowerId) || { key: stem.flowerKey, name: stem.flowerName, color: stem.color }, viewMode === 'top' ? 'top' : stem.angle)} 
                     alt={stem.flowerName}
                     class="stem-img"
                     draggable="false"
@@ -1946,50 +2375,52 @@
               {/each}
             </div>
 
-            <!-- 3. مقدمة ورق التغليف الملكي (Front Wrap Cone Folds) -->
-            <svg class="wrap-front-svg" viewBox="0 0 340 240">
-              <defs>
-                <linearGradient id="wrapFrontGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="{selectedWrap.color}" />
-                  <stop offset="100%" stop-color="{selectedWrap.darkColor}" />
-                </linearGradient>
-                <filter id="frontFoldShadow">
-                  <feDropShadow dx="0" dy="5" stdDeviation="6" flood-opacity="0.28"/>
-                </filter>
-              </defs>
-              <!-- الثنية اليسرى فوق السيقان -->
-              <path d="M 50,20 L 170,180 L 145,235 L 100,210 L 65,115 Z" fill="url(#wrapFrontGrad)" filter="url(#frontFoldShadow)" />
-              <!-- الثنية اليمنى متداخلة بنعومة -->
-              <path d="M 290,20 L 125,185 L 150,235 L 210,210 L 275,115 Z" fill="{selectedWrap.color}" opacity="0.95" filter="url(#frontFoldShadow)" />
-              <!-- خط لمعان وطيات أنيقة -->
-              <line x1="290" y1="20" x2="140" y2="195" stroke="#ffffff" stroke-width="1.8" opacity="0.35" />
-            </svg>
+            <!-- 3. مقدمة ورق التغليف الملكي (Front Wrap Cone Folds) في المشهد الأمامي المغلف -->
+            {#if viewMode === 'front'}
+              <svg class="wrap-front-svg fade-in" viewBox="0 0 340 240">
+                <defs>
+                  <linearGradient id="wrapFrontGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.color}" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" />
+                  </linearGradient>
+                  <filter id="frontFoldShadow">
+                    <feDropShadow dx="0" dy="5" stdDeviation="6" flood-opacity="0.28"/>
+                  </filter>
+                </defs>
+                <!-- الثنية اليسرى فوق السيقان -->
+                <path d="M 50,20 L 170,180 L 145,235 L 100,210 L 65,115 Z" fill="url(#wrapFrontGrad)" filter="url(#frontFoldShadow)" />
+                <!-- الثنية اليمنى متداخلة بنعومة -->
+                <path d="M 290,20 L 125,185 L 150,235 L 210,210 L 275,115 Z" fill="{selectedWrap.color}" opacity="0.95" filter="url(#frontFoldShadow)" />
+                <!-- خط لمعان وطيات أنيقة -->
+                <line x1="290" y1="20" x2="140" y2="195" stroke="#ffffff" stroke-width="1.8" opacity="0.35" />
+              </svg>
 
-            <!-- 4. شريط الساتان والختم الشمعي الملكي المدمج -->
-            <div class="ribbon-wax-wrap">
-              <!-- شريط الساتان الملفوف -->
-              <div class="satin-ribbon-band" style="background: {selectedRibbon.color};"></div>
-              
-              <!-- ذيول الشريط المتدلية -->
-              <div class="ribbon-tails-container">
-                <span class="ribbon-tail tail-left" style="background: {selectedRibbon.color};"></span>
-                <span class="ribbon-tail tail-right" style="background: {selectedRibbon.color};"></span>
-              </div>
+              <!-- 4. شريط الساتان والختم الشمعي الملكي المدمج في المشهد الأمامي -->
+              <div class="ribbon-wax-wrap fade-in">
+                <!-- شريط الساتان الملفوف -->
+                <div class="satin-ribbon-band" style="background: {selectedRibbon.color};"></div>
+                
+                <!-- ذيول الشريط المتدلية -->
+                <div class="ribbon-tails-container">
+                  <span class="ribbon-tail tail-left" style="background: {selectedRibbon.color};"></span>
+                  <span class="ribbon-tail tail-right" style="background: {selectedRibbon.color};"></span>
+                </div>
 
-              <!-- الختم الشمعي الملكي الفاخر -->
-              <div 
-                class="wax-seal-emblem" 
-                style="background: radial-gradient(circle at 35% 35%, #fff 0%, {selectedWaxColor.hex} 40%, #1a0006 100%);"
-                title="الختم الشمعي: {selectedWaxColor.name} | {sealStamp}"
-              >
-                <div class="wax-seal-rim">
-                  <span class="wax-seal-text">{sealStamp}</span>
+                <!-- الختم الشمعي الملكي الفاخر -->
+                <div 
+                  class="wax-seal-emblem" 
+                  style="background: radial-gradient(circle at 35% 35%, #fff 0%, {selectedWaxColor.hex} 40%, #1a0006 100%);"
+                  title="الختم الشمعي: {selectedWaxColor.name} | {sealStamp}"
+                >
+                  <div class="wax-seal-rim">
+                    <span class="wax-seal-text">{sealStamp}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- قاعدة العرض الرخامية في الأسفل -->
-            <div class="stage-pedestal"></div>
+              <!-- قاعدة العرض الرخامية في الأسفل (في المشهد الرأسي فقط) -->
+              <div class="stage-pedestal fade-in"></div>
+            {/if}
 
             <!-- 5. شريط التعديل باليد المباشر فوق الباقة الحية -->
             {#if activeTab === 'stems' || selectedStem}
@@ -2037,13 +2468,24 @@
               <span class="total-price">{grandTotal} د.ل</span>
             </div>
 
-            <button 
-              type="button" 
-              class="btn btn-primary btn-block btn-lg cta-cart-btn" 
-              on:click={handleAddCustomToCart}
-            >
-              أضف الباقة المنسقة للسلة 🛍️
-            </button>
+            {#if isCatalogCreateMode}
+              <button 
+                type="button" 
+                class="btn btn-primary btn-block btn-lg cta-cart-btn florist-cta-publish" 
+                disabled={isPublishingToCatalog || totalStems < 1}
+                on:click={handlePublishBouquetToCatalog}
+              >
+                {isPublishingToCatalog ? 'جاري الاعتماد والنشر...' : 'اعتماد ونشر الباقة في الكتالوج 🌸'}
+              </button>
+            {:else}
+              <button 
+                type="button" 
+                class="btn btn-primary btn-block btn-lg cta-cart-btn" 
+                on:click={handleAddCustomToCart}
+              >
+                أضف الباقة المنسقة للسلة 🛍️
+              </button>
+            {/if}
           </div>
 
         </div>
@@ -2399,13 +2841,36 @@
     align-items: center;
     gap: 12px;
   }
-  .color-dot {
-    width: 22px;
-    height: 22px;
+  .flower-blossom-preview {
+    position: relative;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    border: 2px solid #fff;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    background: radial-gradient(circle, rgba(255,255,255,0.92) 0%, rgba(246,242,235,0.55) 100%);
+    border: 1.5px solid rgba(197, 155, 39, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     flex-shrink: 0;
+  }
+  .blossom-thumb-img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+    pointer-events: none;
+    user-select: none;
+  }
+  .blossom-color-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
   .flower-name {
     font-size: 0.95rem;
@@ -3136,8 +3601,35 @@
     align-items: center;
     margin-bottom: 12px;
   }
+  .preview-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .scene-mode-badge {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: var(--radius-full);
+    background: rgba(94, 107, 44, 0.1);
+    color: var(--olive);
+    border: 1px solid rgba(94, 107, 44, 0.2);
+    transition: all 0.3s ease;
+  }
+  .scene-mode-badge.top {
+    background: #2d3812;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 10px rgba(45, 56, 18, 0.35);
+  }
+  .scene-mode-badge.front {
+    background: rgba(197, 155, 39, 0.14);
+    color: #855d10;
+    border-color: rgba(197, 155, 39, 0.35);
+  }
   .preview-title {
-    margin: 0 0 2px;
+    margin: 0;
     font-size: 1.25rem;
     color: var(--olive);
     font-weight: 800;
@@ -3149,6 +3641,7 @@
   .stage-actions {
     display: flex;
     gap: 6px;
+    align-items: center;
   }
   .stage-tool-btn {
     width: 34px;
@@ -3162,6 +3655,16 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+  }
+  .stage-tool-btn.view-toggle-btn {
+    width: auto;
+    padding: 0 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+    font-weight: 800;
+    white-space: nowrap;
+    gap: 4px;
+    border: 1.5px solid var(--line-strong);
   }
   .stage-tool-btn.active {
     background: var(--olive);
@@ -3189,16 +3692,27 @@
   /* مسرح المعاينة الحية للوحة التفاعلية */
   .stage-viewport {
     width: 100%;
-    height: 410px;
+    height: 420px;
     background: radial-gradient(circle at 50% 40%, #ffffff 0%, #f7f4ee 70%, #ede7dc 100%);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     position: relative;
     overflow: hidden;
     margin-bottom: 20px;
-    border: 1px solid var(--line-strong);
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.04);
+    border: 1.5px solid var(--line-strong);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.06);
     user-select: none;
     touch-action: none;
+    transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+  }
+  .stage-viewport.is-top-view {
+    background-color: #f7f4ee;
+    background-image: 
+      radial-gradient(circle at 50% 50%, #ffffff 0%, #faf8f4 45%, #eee7da 80%, #dfd6c6 100%);
+    border-color: rgba(197, 155, 39, 0.45);
+    box-shadow: inset 0 2px 18px rgba(94, 107, 44, 0.12), 0 10px 32px rgba(0,0,0,0.08);
+  }
+  .stage-viewport.is-front-view {
+    background-image: radial-gradient(circle at 50% 36%, #ffffff 0%, #f7f4ee 65%, #ede6da 100%);
   }
   .stage-viewport.with-grid {
     background-image: 
@@ -3206,8 +3720,54 @@
       linear-gradient(to bottom, rgba(94, 107, 44, 0.08) 1px, transparent 1px);
     background-size: 24px 24px;
   }
-  .stage-viewport.rotating .stems-layer,
-  .stage-viewport.rotating .wrap-back-svg,
+
+  /* ياقة ورق التغليف في المشهد العلوي */
+  .wrap-top-svg {
+    position: absolute;
+    width: 380px;
+    height: 380px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;
+    transition: all 0.4s ease;
+  }
+  .radial-guide-grid {
+    position: absolute;
+    width: 380px;
+    height: 380px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* تكبير وتألق الورود في المشهد العلوي */
+  .stage-viewport.is-top-view .stem-canvas-node {
+    width: 104px;
+    height: 104px;
+  }
+  .stage-viewport.is-top-view .stem-img {
+    filter: drop-shadow(0 8px 18px rgba(0,0,0,0.26));
+    transition: transform 0.2s ease, filter 0.2s ease;
+  }
+  .stage-viewport.is-top-view .stem-canvas-node:hover .stem-img {
+    transform: scale(1.08);
+    filter: drop-shadow(0 14px 28px rgba(0,0,0,0.36));
+  }
+
+  .stems-layer.top-spinning {
+    animation: spinTopBouquet 16s linear infinite;
+    transform-origin: 50% 50%;
+  }
+  @keyframes spinTopBouquet {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .stage-viewport.rotating:not(.is-top-view) .stems-layer,
   .stage-viewport.rotating .wrap-front-svg,
   .stage-viewport.rotating .ribbon-wax-wrap {
     animation: gentleSway 8s infinite ease-in-out;
@@ -3397,6 +3957,7 @@
     flex-direction: column;
     align-items: center;
     pointer-events: none;
+    transition: all 0.4s ease;
   }
   .satin-ribbon-band {
     width: 120px;
@@ -3976,6 +4537,189 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 18px rgba(94, 107, 44, 0.45);
     background: #465020;
+  }
+
+  /* =========================================================================
+     Florist Catalog Creator Banner Styles
+     ========================================================================= */
+  .badge-florist {
+    background: #059669;
+    color: #fff;
+  }
+
+  .action-pill-mode {
+    background: #fdf2f8;
+    color: #be123c;
+    border: 1.5px solid #fbcfe8;
+    padding: 8px 18px;
+    border-radius: var(--radius-full);
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .action-pill-mode:hover, .action-pill-mode.active-mode {
+    background: #be123c;
+    color: #fff;
+    border-color: #be123c;
+  }
+
+  .florist-catalog-creator-banner {
+    background: linear-gradient(135deg, #ffffff 0%, #fdf8f6 100%);
+    border: 2px solid #059669;
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 25px rgba(5, 150, 105, 0.08);
+  }
+
+  .f-banner-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(5, 150, 105, 0.15);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .f-live-indicator {
+    display: inline-block;
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .f-banner-heading {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 4px 0;
+  }
+
+  .f-banner-sub {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  .f-alert-box {
+    padding: 12px 18px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    margin-bottom: 16px;
+    font-size: 0.95rem;
+  }
+  .f-alert-box.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #f87171;
+  }
+  .f-alert-box.success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+  }
+
+  .f-catalog-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .f-catalog-fields-grid .full-row {
+    grid-column: 1 / -1;
+  }
+
+  .f-field label {
+    display: block;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .f-price-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .f-price-input-wrapper .price-input {
+    padding-left: 45px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--primary);
+  }
+  .f-price-input-wrapper .currency-tag {
+    position: absolute;
+    left: 14px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--text-muted);
+  }
+
+  .f-banner-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: var(--radius-md);
+    padding: 14px 20px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .f-financial-metrics {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .metric-chip {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.82rem;
+  }
+  .metric-chip .m-lbl {
+    color: var(--text-muted);
+  }
+  .metric-chip .m-val {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .metric-chip.highlight .m-val.profit {
+    color: #059669;
+  }
+
+  .btn-publish-now {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    color: #fff;
+    padding: 12px 26px;
+    border-radius: var(--radius-full);
+    font-weight: 800;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+    transition: all 0.2s;
+  }
+  .btn-publish-now:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
+  }
+
+  .florist-cta-publish {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    border-color: #059669 !important;
   }
 
   @media (max-width: 768px) {

@@ -41,5 +41,6 @@ export const isAuthenticated = derived(auth, $auth => !!$auth);
 export const userRole = derived(auth, $auth => $auth ? $auth.role_name : null);
 export const isAdmin = derived(auth, $auth => $auth && ($auth.role_name === 'admin' || $auth.roles?.includes('admin')));
 export const isDriver = derived(auth, $auth => $auth && ($auth.role_name === 'driver' || $auth.roles?.includes('driver')));
+export const isFlorist = derived(auth, $auth => $auth && ($auth.role_name === 'florist' || $auth.roles?.includes('florist')));
 export const isStaff = derived(auth, $auth => $auth && ['admin', 'florist', 'manager'].includes($auth.role_name));
 

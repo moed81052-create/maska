@@ -1,6 +1,6 @@
 <script>
   import { router } from '../stores/router.js';
-  import { auth, isAuthenticated, isStaff, isDriver } from '../stores/auth.js';
+  import { auth, isAuthenticated, isStaff, isDriver, isFlorist, isAdmin } from '../stores/auth.js';
   import { cartCount } from '../stores/cart.js';
   import { openGlobalChat } from '../stores/aiChatStore.js';
   import ThemeToggle from './ThemeToggle.svelte';
@@ -35,6 +35,19 @@
         <div class="logo-text">
           <span class="logo-ar">مَـسْـكَة | كابتن التوصيل</span>
           <span class="logo-en">MASKA FLEET & LOGISTICS</span>
+        </div>
+      </a>
+    {:else if $isFlorist}
+      <a href="/florist" class="brand-logo" on:click|preventDefault={() => go('/florist')}>
+        <span class="logo-symbol">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+            <path d="M12 6c-2 2-3 4-3 6 0 2.2 1.8 4 4 4 2.5 0 3.5-2 3.5-4 0-3-2.5-4-4.5-6z" fill="currentColor" fill-opacity="0.25"></path>
+          </svg>
+        </span>
+        <div class="logo-text">
+          <span class="logo-ar">مَـسْـكَة | أتيليه المنسقة</span>
+          <span class="logo-en">MASKA FLORIST ATELIER</span>
         </div>
       </a>
     {:else}
@@ -109,7 +122,18 @@
           <span class="pulse-dot-ai"></span>
         </button>
 
-        {#if $isStaff}
+        {#if $isFlorist}
+          <button 
+            type="button" 
+            class="nav-link florist-pill" 
+            class:active={$router.path === '/florist'} 
+            on:click={() => go('/florist')}
+          >
+            🌸 ورشة المنسقة
+          </button>
+        {/if}
+
+        {#if $isAdmin}
           <button 
             type="button" 
             class="nav-link admin-pill" 
@@ -201,7 +225,10 @@
           شات الذكاء الاصطناعي للزهور
         </button>
         
-        {#if $isStaff}
+        {#if $isFlorist}
+          <button type="button" class="m-link florist" on:click={() => go('/florist')}>🌸 ورشة المنسقة</button>
+        {/if}
+        {#if $isAdmin}
           <button type="button" class="m-link admin" on:click={() => go('/admin')}>لوحة الإدارة</button>
         {/if}
       {/if}
@@ -291,6 +318,15 @@
   .nav-link.active {
     color: var(--card-solid);
     background: var(--olive);
+  }
+  .nav-link.florist-pill {
+    color: #065f46;
+    background: #d1fae5;
+    border: 1px solid #a7f3d0;
+  }
+  .nav-link.florist-pill.active {
+    background: #059669;
+    color: #ffffff;
   }
   .nav-link.admin-pill {
     color: #963547;

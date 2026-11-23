@@ -2,7 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import 'leaflet/dist/leaflet.css';
   import L from 'leaflet';
-  import { auth, isStaff, isAdmin } from '../stores/auth.js';
+  import { auth, isStaff, isAdmin, isFlorist, isDriver } from '../stores/auth.js';
   import { router } from '../stores/router.js';
   import { api } from '../lib/api.js';
   import {
@@ -25,6 +25,7 @@
       case 'users': return 'الطاقم والمستخدمون';
       case 'inventory': return 'مخزون الورود والزوايا';
       case 'bouquets': return 'كتالوج الباقات';
+      case 'packaging': return 'أغلفة وأشرطة وشمع التغليف 🎀';
       case 'coupons': return 'الكوبونات والخصومات';
       case 'reviews': return 'التقييمات والملاحظات ⭐';
       case 'pricing': return 'أسعار التوصيل والرقابة';
@@ -1131,18 +1132,161 @@
   let priceHistory = [];
 
   onMount(async () => {
-    // التحقق من صلاحيات الدخول
-    if (!$isStaff) {
-      // توجيه لصفحة تسجيل الدخول
+    // التحقق الصارم من صلاحيات الدخول: لوحة الإدارة والمستخدمين محصورة في إدارة النظام فقط
+    if (!$isAdmin) {
+      if ($isFlorist) {
+        router.navigate('/florist');
+        return;
+      }
+      if ($isDriver) {
+        router.navigate('/driver');
+        return;
+      }
+      router.navigate('/login');
+      return;
     }
 
     await loadAllAdminData();
   });
 
+  // خيارات التغليف وأشرطة الساتان والختم الشمعي
+  let packagingMaterials = [];
+  let packagingFilterCategory = 'all'; // 'all' | 'wrap' | 'ribbon' | 'wax_seal'
+  let packagingModal = {
+    open: false,
+    isEdit: false,
+    id: null,
+    category: 'wrap',
+    code: '',
+    name_ar: '',
+    color: '#5e6b2c',
+    dark_color: '#3a441b',
+    price: 12,
+    sort_order: 1,
+    is_active: 1,
+    saving: false,
+    errorMsg: '',
+    successMsg: ''
+  };
+
+  function openAddPackagingModal(category = 'wrap') {
+    const count = packagingMaterials.filter(p => p.category === category).length;
+    let defColor = '#5e6b2c';
+    let defDark = '#3a441b';
+    let defPrice = 12;
+    if (category === 'ribbon') {
+      defColor = '#d4889c';
+      defDark = null;
+      defPrice = 0;
+    } else if (category === 'wax_seal') {
+      defColor = '#851b2f';
+      defDark = null;
+      defPrice = 0;
+    }
+
+    packagingModal = {
+      open: true,
+      isEdit: false,
+      id: null,
+      category,
+      code: '',
+      name_ar: '',
+      color: defColor,
+      dark_color: defDark,
+      price: defPrice,
+      sort_order: count + 1,
+      is_active: 1,
+      saving: false,
+      errorMsg: '',
+      successMsg: ''
+    };
+  }
+
+  function openEditPackagingModal(item) {
+    packagingModal = {
+      open: true,
+      isEdit: true,
+      id: item.id,
+      category: item.category,
+      code: item.code,
+      name_ar: item.name_ar,
+      color: item.color,
+      dark_color: item.dark_color || '',
+      price: Number(item.price) || 0,
+      sort_order: Number(item.sort_order) || 1,
+      is_active: item.is_active ? 1 : 0,
+      saving: false,
+      errorMsg: '',
+      successMsg: ''
+    };
+  }
+
+  async function handleSavePackaging() {
+    if (!packagingModal.name_ar.trim()) {
+      packagingModal.errorMsg = 'يرجى إدخال اسم الخيار باللغة العربية';
+      return;
+    }
+    packagingModal.saving = true;
+    packagingModal.errorMsg = '';
+    packagingModal.successMsg = '';
+
+    try {
+      const payload = {
+        category: packagingModal.category,
+        code: packagingModal.code ? packagingModal.code.trim() : undefined,
+        name_ar: packagingModal.name_ar.trim(),
+        color: packagingModal.color,
+        dark_color: packagingModal.category === 'wrap' ? (packagingModal.dark_color || packagingModal.color) : null,
+        price: Number(packagingModal.price) || 0,
+        sort_order: Number(packagingModal.sort_order) || 0,
+        is_active: packagingModal.is_active
+      };
+
+      if (packagingModal.isEdit) {
+        await api.updatePackaging(packagingModal.id, payload);
+      } else {
+        await api.addPackaging(payload);
+      }
+
+      packagingModal.successMsg = 'تم حفظ خيار التغليف بنجاح!';
+      const res = await api.getPackaging(null, true);
+      if (res && res.data) packagingMaterials = res.data;
+
+      setTimeout(() => {
+        packagingModal.open = false;
+      }, 700);
+    } catch (err) {
+      packagingModal.errorMsg = err.message || 'حدث خطأ أثناء حفظ خيار التغليف';
+    } finally {
+      packagingModal.saving = false;
+    }
+  }
+
+  async function handleDeletePackaging(id, name) {
+    if (!confirm(`هل أنت متأكد من حذف خيار (${name})؟`)) return;
+    try {
+      await api.deletePackaging(id);
+      packagingMaterials = packagingMaterials.filter(p => p.id !== id);
+    } catch (err) {
+      alert(err.message || 'تعذر الحذف');
+    }
+  }
+
+  async function handleTogglePackagingActive(item) {
+    try {
+      const newActive = item.is_active ? 0 : 1;
+      await api.updatePackaging(item.id, { is_active: newActive });
+      item.is_active = newActive;
+      packagingMaterials = [...packagingMaterials];
+    } catch (err) {
+      alert(err.message || 'تعذر تحديث الحالة');
+    }
+  }
+
   async function loadAllAdminData() {
     loading = true;
     try {
-      const [sRes, oRes, dRes, flRes, invRes, bRes, cRes, rRes, fbRes, zRes, hRes, finRes, setRes, uRes] = await Promise.allSettled([
+      const [sRes, oRes, dRes, flRes, invRes, bRes, cRes, rRes, fbRes, zRes, hRes, finRes, setRes, uRes, packRes] = await Promise.allSettled([
         api.getStats(),
         api.getOrders(100),
         api.getDrivers(),
@@ -1156,7 +1300,8 @@
         api.getPriceHistory(20),
         api.getDriversFinancials(),
         api.getSettlementsHistory(50),
-        api.getUsers()
+        api.getUsers(),
+        api.getPackaging(null, true)
       ]);
 
       if (sRes.status === 'fulfilled' && sRes.value.data) stats = sRes.value.data;
@@ -1173,6 +1318,7 @@
       if (finRes.status === 'fulfilled' && finRes.value.data) driversFinancials = finRes.value.data;
       if (setRes.status === 'fulfilled' && setRes.value.data) settlementsHistory = setRes.value.data;
       if (uRes.status === 'fulfilled' && uRes.value.data) allUsers = uRes.value.data;
+      if (packRes.status === 'fulfilled' && packRes.value.data) packagingMaterials = packRes.value.data;
     } catch (e) {
       console.error('Error loading admin data:', e);
     } finally {
@@ -2080,6 +2226,17 @@
             <span class="nav-btn-badge">{bouquets.length}</span>
           </button>
 
+          <button 
+            type="button" 
+            class="sidebar-nav-btn" 
+            class:active={currentTab === 'packaging'}
+            on:click={() => { currentTab = 'packaging'; mobileSidebarOpen = false; }}
+          >
+            <span class="nav-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8v12"/><path d="M19 12a4 4 0 0 0-7-2.6 4 4 0 0 0-7 2.6"/></svg></span>
+            <span class="nav-btn-title">أغلفة وأشرطة وشمع التغليف</span>
+            <span class="nav-btn-badge">{packagingMaterials.length}</span>
+          </button>
+
           <div class="nav-group-header">التسويق والإعدادات</div>
 
           <button 
@@ -2760,8 +2917,8 @@
               <h3>كتالوج الباقات وتوليفات الورود الدقيقة</h3>
               <p class="tab-subtext">تحديد مكونات كل باقة بعدد الورود من كل نوع بناءً على قائمة مخزون الورود المعتمدة</p>
             </div>
-            <button type="button" class="btn btn-primary" on:click={openAddBouquetModal}>
-              + إضافة باقة جديدة بتوليفة مخصصة
+            <button type="button" class="btn btn-primary" on:click={() => router.navigate('/studio', { mode: 'catalog_create' })}>
+              + تصميم وإضافة باقة جديدة في الاستوديو 🎨
             </button>
           </div>
 
@@ -2831,6 +2988,136 @@
                   <button type="button" class="btn-sm-action danger" on:click={() => handleDeleteBouquet(b.id)}>
                     حذف
                   </button>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- 3c. تبويب أغلفة وأشرطة وشمع التغليف -->
+      {#if currentTab === 'packaging'}
+        <div class="card table-card">
+          <div class="table-head-flex">
+            <div>
+              <h3>خيارات التغليف وأشرطة الساتان وأختام الشمع الملكية 🎀</h3>
+              <p class="tab-subtext">إدارة خيارات ورق التغليف الملكي، ألوان أشرطة الساتان، وأختام الشمع مع ظهورها الفوري في الاستوديو ولدى المنسقة</p>
+            </div>
+            <div class="header-actions-group">
+              <button type="button" class="btn btn-outline btn-sm" on:click={() => openAddPackagingModal('wrap')}>
+                + إضافة ورق تغليف 📜
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" on:click={() => openAddPackagingModal('ribbon')}>
+                + إضافة شريط ساتان 🎀
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" on:click={() => openAddPackagingModal('wax_seal')}>
+                + إضافة ختم شمعي 🕯️
+              </button>
+            </div>
+          </div>
+
+          <!-- شريط الفلاتر والتصنيفات -->
+          <div class="pack-tabs-bar">
+            <button 
+              type="button" 
+              class="pack-filter-btn" 
+              class:active={packagingFilterCategory === 'all'}
+              on:click={() => packagingFilterCategory = 'all'}
+            >
+              الكل ({packagingMaterials.length})
+            </button>
+            <button 
+              type="button" 
+              class="pack-filter-btn" 
+              class:active={packagingFilterCategory === 'wrap'}
+              on:click={() => packagingFilterCategory = 'wrap'}
+            >
+              أوراق التغليف الملكية ({packagingMaterials.filter(p => p.category === 'wrap').length})
+            </button>
+            <button 
+              type="button" 
+              class="pack-filter-btn" 
+              class:active={packagingFilterCategory === 'ribbon'}
+              on:click={() => packagingFilterCategory = 'ribbon'}
+            >
+              أشرطة الساتان والحرير ({packagingMaterials.filter(p => p.category === 'ribbon').length})
+            </button>
+            <button 
+              type="button" 
+              class="pack-filter-btn" 
+              class:active={packagingFilterCategory === 'wax_seal'}
+              on:click={() => packagingFilterCategory = 'wax_seal'}
+            >
+              أختام الشمع الفاخرة ({packagingMaterials.filter(p => p.category === 'wax_seal').length})
+            </button>
+          </div>
+
+          <!-- شبكة عناصر التغليف -->
+          <div class="packaging-admin-grid">
+            {#each packagingMaterials.filter(p => packagingFilterCategory === 'all' || p.category === packagingFilterCategory) as item (item.id)}
+              <div class="pack-admin-card" class:inactive={!item.is_active}>
+                <div class="pack-card-media">
+                  {#if item.category === 'wrap'}
+                    <!-- محاكاة دائرية مصغرة للياقة الملكية -->
+                    <div class="wrap-preview-circle" style="background: radial-gradient(circle at 50% 50%, {item.dark_color || item.color} 0%, {item.color} 75%); border: 3px solid {item.dark_color || item.color};">
+                      <span class="wrap-badge-icon">📜</span>
+                    </div>
+                  {:else if item.category === 'ribbon'}
+                    <!-- محاكاة بصرية لشريط ساتان لامع -->
+                    <div class="ribbon-preview-bar" style="background: linear-gradient(135deg, {item.color} 0%, #ffffff 45%, {item.color} 65%); box-shadow: 0 4px 12px {item.color}55;">
+                      <span class="ribbon-preview-bow">🎀</span>
+                    </div>
+                  {:else}
+                    <!-- محاكاة ختم شمعي ثلاثي الأبعاد -->
+                    <div class="wax-preview-seal" style="background: radial-gradient(circle at 35% 35%, {item.color}dd, {item.color} 70%, #00000044); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                      <span class="wax-stamp-text">MASKA</span>
+                    </div>
+                  {/if}
+
+                  <span class="pack-cat-tag pack-tag-{item.category}">
+                    {item.category === 'wrap' ? 'ورق تغليف' : item.category === 'ribbon' ? 'شريط ساتان' : 'ختم شمعي'}
+                  </span>
+                </div>
+
+                <div class="pack-card-details">
+                  <div class="pack-title-row">
+                    <h4 class="pack-title">{item.name_ar}</h4>
+                    <span class="pack-code-badge">#{item.code}</span>
+                  </div>
+
+                  <div class="pack-colors-row">
+                    <span class="pack-color-pill" style="background-color: {item.color};" title="اللون الأساسي: {item.color}"></span>
+                    {#if item.dark_color}
+                      <span class="pack-color-pill" style="background-color: {item.dark_color};" title="تدرج الظل والعمق: {item.dark_color}"></span>
+                    {/if}
+                    <code class="pack-hex-code">{item.color}</code>
+                  </div>
+
+                  <div class="pack-meta-row">
+                    {#if item.category === 'wrap'}
+                      <span class="pack-price-tag">+{item.price} د.ل</span>
+                    {:else}
+                      <span class="pack-free-tag">مشمول بالباقة</span>
+                    {/if}
+                    <button 
+                      type="button" 
+                      class="pack-status-chip" 
+                      class:active={item.is_active} 
+                      on:click={() => handleTogglePackagingActive(item)}
+                      title="انقر لتفعيل أو تعطيل الخيار"
+                    >
+                      {item.is_active ? '✓ متاح' : '✕ معطل'}
+                    </button>
+                  </div>
+
+                  <div class="pack-card-actions">
+                    <button type="button" class="btn-sm-action" on:click={() => openEditPackagingModal(item)}>
+                      تعديل ✏️
+                    </button>
+                    <button type="button" class="btn-sm-action danger" on:click={() => handleDeletePackaging(item.id, item.name_ar)}>
+                      حذف 🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
             {/each}
@@ -4737,6 +5024,161 @@
             {bouquetModal.saving ? 'جاري الحفظ...' : (bouquetModal.isEdit ? 'تحديث الباقة والتركيبة ' : 'اعتماد وإنشاء الباقة ')}
           </button>
           <button type="button" class="btn btn-outline" on:click={() => bouquetModal.open = false}>إلغاء</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- مودال إضافة / تعديل خيار تغليف أو شريط أو ختم شمعي -->
+  {#if packagingModal.open}
+    <div class="modal-backdrop fade-in" on:click|self={() => packagingModal.open = false}>
+      <div class="modal-card pack-modal-card">
+        <div class="modal-header-styled">
+          <div class="modal-title-box">
+            <span class="modal-icon-badge">🎀</span>
+            <div>
+              <h3>{packagingModal.isEdit ? 'تعديل خيار التغليف' : 'إضافة خيار تغليف جديد'}</h3>
+              <p>تخصيص اللون والاسم والتدرج وسيظهر فوراً في استوديو التصميم للزبائن والمنسقة</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" on:click={() => packagingModal.open = false}>✕</button>
+        </div>
+
+        {#if packagingModal.errorMsg}
+          <div class="alert-error">{packagingModal.errorMsg}</div>
+        {/if}
+        {#if packagingModal.successMsg}
+          <div class="alert-success">{packagingModal.successMsg}</div>
+        {/if}
+
+        <div class="modal-body-styled">
+          <!-- 1. اختيار التصنيف -->
+          <div class="form-group full-width">
+            <label>نوع عنصر التغليف: *</label>
+            <div class="cat-pill-selector">
+              <button 
+                type="button" 
+                class="cat-select-btn" 
+                class:active={packagingModal.category === 'wrap'}
+                on:click={() => packagingModal.category = 'wrap'}
+              >
+                📜 ورق تغليف ملكي
+              </button>
+              <button 
+                type="button" 
+                class="cat-select-btn" 
+                class:active={packagingModal.category === 'ribbon'}
+                on:click={() => packagingModal.category = 'ribbon'}
+              >
+                🎀 شريط ساتان وحرير
+              </button>
+              <button 
+                type="button" 
+                class="cat-select-btn" 
+                class:active={packagingModal.category === 'wax_seal'}
+                on:click={() => packagingModal.category = 'wax_seal'}
+              >
+                🕯️ ختم شمعي ملكي
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. الاسم والرمز -->
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>الاسم باللغة العربية: *</label>
+              <input 
+                type="text" 
+                class="input-field" 
+                bind:value={packagingModal.name_ar} 
+                placeholder="مثال: ورق عنابي مخملي ملكي" 
+              />
+            </div>
+            <div class="form-group">
+              <label>المعرف الداخلي (Code الإنجليزي):</label>
+              <input 
+                type="text" 
+                class="input-field" 
+                bind:value={packagingModal.code} 
+                placeholder="مثال: burgundy (يولّد تلقائياً إذا تُرك فارغاً)" 
+              />
+            </div>
+          </div>
+
+          <!-- 3. الألوان والظلال -->
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>اللون الأساسي: *</label>
+              <div class="color-picker-input-group">
+                <input type="color" class="color-picker-native" bind:value={packagingModal.color} />
+                <input type="text" class="input-field hex-text-input" bind:value={packagingModal.color} placeholder="#5e6b2c" />
+                <span class="color-swatch-box" style="background-color: {packagingModal.color};"></span>
+              </div>
+            </div>
+
+            {#if packagingModal.category === 'wrap'}
+              <div class="form-group">
+                <label>تدرج الظل والعمق (Dark Color):</label>
+                <div class="color-picker-input-group">
+                  <input type="color" class="color-picker-native" bind:value={packagingModal.dark_color} />
+                  <input type="text" class="input-field hex-text-input" bind:value={packagingModal.dark_color} placeholder="#3a441b" />
+                  <span class="color-swatch-box" style="background-color: {packagingModal.dark_color};"></span>
+                </div>
+              </div>
+            {:else}
+              <div class="form-group">
+                <label>ترتيب الظهور في القائمة:</label>
+                <input type="number" class="input-field" bind:value={packagingModal.sort_order} min="1" />
+              </div>
+            {/if}
+          </div>
+
+          {#if packagingModal.category === 'wrap'}
+            <div class="form-row-2">
+              <div class="form-group">
+                <label>السعر الإضافي للتغليف (د.ل):</label>
+                <input type="number" class="input-field" bind:value={packagingModal.price} min="0" step="1" />
+              </div>
+              <div class="form-group">
+                <label>ترتيب الظهور في القائمة:</label>
+                <input type="number" class="input-field" bind:value={packagingModal.sort_order} min="1" />
+              </div>
+            </div>
+          {/if}
+
+          <!-- 4. بطاقة المعاينة المباشرة -->
+          <div class="live-pack-preview-box">
+            <span class="preview-mini-title">المعاينة الحية الفورية:</span>
+            <div class="preview-flex-row">
+              {#if packagingModal.category === 'wrap'}
+                <div class="wrap-modal-preview" style="background: radial-gradient(circle at 50% 50%, {packagingModal.dark_color || packagingModal.color} 0%, {packagingModal.color} 75%); border: 3px solid {packagingModal.dark_color || packagingModal.color};">
+                  <span class="wrap-icon-lg">📜</span>
+                </div>
+              {:else if packagingModal.category === 'ribbon'}
+                <div class="ribbon-modal-preview" style="background: linear-gradient(135deg, {packagingModal.color} 0%, #ffffff 45%, {packagingModal.color} 65%); box-shadow: 0 4px 14px {packagingModal.color}66;">
+                  <span>🎀</span>
+                </div>
+              {:else}
+                <div class="wax-modal-preview" style="background: radial-gradient(circle at 35% 35%, {packagingModal.color}ee, {packagingModal.color} 70%, #00000044); box-shadow: 0 6px 16px rgba(0,0,0,0.35);">
+                  <span>MASKA</span>
+                </div>
+              {/if}
+              <div class="preview-text-info">
+                <h4>{packagingModal.name_ar || 'اسم الخيار'}</h4>
+                <p>اللون: <code>{packagingModal.color}</code> {packagingModal.dark_color ? ` | الظل: ${packagingModal.dark_color}` : ''}</p>
+                {#if packagingModal.category === 'wrap'}
+                  <b class="pack-price-lbl">+{packagingModal.price || 0} د.ل</b>
+                {/if}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions-styled">
+          <button type="button" class="btn btn-primary" disabled={packagingModal.saving} on:click={handleSavePackaging}>
+            {packagingModal.saving ? 'جاري الحفظ...' : (packagingModal.isEdit ? 'تحديث الخيار 💾' : 'إضافة واعتماد الخيار ✨')}
+          </button>
+          <button type="button" class="btn btn-outline" on:click={() => packagingModal.open = false}>إلغاء</button>
         </div>
       </div>
     </div>
@@ -9521,6 +9963,325 @@
   }
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* =========================================================================
+     أغلفة وأشرطة وشمع التغليف الملكي (Packaging Materials Styles)
+     ========================================================================= */
+  .pack-tabs-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    border-bottom: 1.5px solid var(--line);
+    padding-bottom: 12px;
+  }
+  .pack-filter-btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-full, 9999px);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-muted);
+  }
+  .pack-filter-btn:hover {
+    background: var(--bg-surface);
+    color: var(--text);
+  }
+  .pack-filter-btn.active {
+    background: var(--olive);
+    color: #ffffff;
+    border-color: var(--olive);
+    box-shadow: 0 2px 8px rgba(94, 107, 44, 0.25);
+  }
+
+  .packaging-admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 18px;
+  }
+  .pack-admin-card {
+    background: var(--card-bg, #ffffff);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-lg, 16px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  }
+  .pack-admin-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    border-color: rgba(94, 107, 44, 0.4);
+  }
+  .pack-admin-card.inactive {
+    opacity: 0.6;
+    filter: grayscale(0.5);
+  }
+  .pack-card-media {
+    position: relative;
+    height: 120px;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.7) 0%, rgba(243,239,232,0.6) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .pack-cat-tag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .pack-tag-wrap { background: #fef3c7; color: #92400e; }
+  .pack-tag-ribbon { background: #fce7f3; color: #9d174d; }
+  .pack-tag-wax_seal { background: #fee2e2; color: #991b1b; }
+
+  .wrap-preview-circle {
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  }
+  .wrap-badge-icon {
+    font-size: 1.4rem;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  .ribbon-preview-bar {
+    width: 140px;
+    height: 38px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .ribbon-preview-bow {
+    font-size: 1.5rem;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+  }
+  .wax-preview-seal {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    font-size: 0.68rem;
+    border: 2px dashed rgba(255,255,255,0.4);
+  }
+
+  .pack-card-details {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+  }
+  .pack-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .pack-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text);
+  }
+  .pack-code-badge {
+    font-size: 0.72rem;
+    background: rgba(0,0,0,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: var(--text-muted);
+  }
+  .pack-colors-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pack-color-pill {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .pack-hex-code {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    font-family: monospace;
+  }
+  .pack-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px dashed var(--line);
+  }
+  .pack-price-tag {
+    font-weight: 800;
+    color: var(--olive);
+    font-size: 0.88rem;
+  }
+  .pack-free-tag {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .pack-status-chip {
+    border: none;
+    background: rgba(0,0,0,0.06);
+    color: var(--text-muted);
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .pack-status-chip.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .pack-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 8px;
+  }
+
+  /* Modal styling */
+  .pack-modal-card {
+    max-width: 580px;
+  }
+  .cat-pill-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .cat-select-btn {
+    padding: 10px 8px;
+    border-radius: var(--radius-md, 10px);
+    border: 1.5px solid var(--line);
+    background: var(--bg);
+    font-weight: 700;
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cat-select-btn.active {
+    border-color: var(--olive);
+    background: rgba(94, 107, 44, 0.08);
+    color: var(--olive);
+    box-shadow: 0 0 0 1px var(--olive);
+  }
+  .color-picker-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .color-picker-native {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1.5px solid var(--line);
+    cursor: pointer;
+    padding: 0;
+    background: none;
+  }
+  .hex-text-input {
+    flex: 1;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  .color-swatch-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  }
+  .live-pack-preview-box {
+    background: var(--bg-surface, #fcfbf9);
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius-md, 12px);
+    padding: 14px;
+    margin-top: 8px;
+  }
+  .preview-mini-title {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 10px;
+  }
+  .preview-flex-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .wrap-modal-preview {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .ribbon-modal-preview {
+    width: 90px;
+    height: 34px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+  }
+  .wax-modal-preview {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 900;
+    letter-spacing: 1px;
+    font-size: 0.65rem;
+  }
+  .preview-text-info h4 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 800;
+  }
+  .preview-text-info p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .pack-price-lbl {
+    font-size: 0.92rem;
+    color: var(--olive);
+    margin-top: 4px;
+    display: inline-block;
   }
 </style>
 

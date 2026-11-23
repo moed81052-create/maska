@@ -9,8 +9,8 @@
       <feDropShadow dx="0" dy="6" stdDeviation="6" flood-opacity="0.12"/>
     </filter>
   </defs>
-  <rect width="300" height="300" rx="24" fill="#faf6f0"/>
-  <text x="150" y="32" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#7d786d">زاوية علوية ماكرو (Top / Petals View)</text>
+  
+  
   <!-- Full top view petals array -->
   <g filter="url(#shadow)" transform="translate(150, 150)">
     <!-- Outer ring of petals -->
@@ -27,5 +27,5 @@
     <ellipse cx="6" cy="5" rx="20" ry="16" fill="#b83b5e" opacity="0.9"/>
     <circle cx="0" cy="0" r="10" fill="#ffd166"/>
   </g>
-  <text x="150" y="285" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#5e6b2c">🌸 مسكة أتيليه | زاوية بتلات علوية</text>
+  
 </svg>

@@ -64,6 +64,7 @@ export const api = {
   // 4. السائقين ومنسقي الورد والتتبع بالـ GPS
   getDrivers: () => request('/drivers'),
   getFlorists: () => request('/florists'),
+  getFloristOrders: (floristId = null) => request(`/florist/orders${floristId ? `?floristId=${floristId}` : ''}`),
   getDriverOrders: (driverId = null) => request(`/driver/orders${driverId ? `?driverId=${driverId}` : ''}`),
   updateDriverStatus: (driverId, status) => request('/driver/status', { method: 'PATCH', body: { driverId, status } }),
   updateDriverLocation: (data) => request('/drivers/location', { method: 'POST', body: data }),
@@ -127,7 +128,19 @@ export const api = {
     request(`/pricing/bouquets/${id}`, { method: 'PATCH', body: { price, reason, adminId } }),
   getPriceHistory: (limit = 50) => request(`/pricing/history?limit=${limit}`),
 
-  // 10. محادثة خبير مسكة للذكاء الاصطناعي (AI Florist Chat)
+  // 10. إدارة خيارات التغليف وأشرطة الساتان والختم الشمعي
+  getPackaging: (category = null, all = false) => {
+    const q = new URLSearchParams();
+    if (category) q.append('category', category);
+    if (all) q.append('all', 'true');
+    const qs = q.toString();
+    return request(`/packaging${qs ? `?${qs}` : ''}`);
+  },
+  addPackaging: (data) => request('/packaging', { method: 'POST', body: data }),
+  updatePackaging: (id, data) => request(`/packaging/${id}`, { method: 'PUT', body: data }),
+  deletePackaging: (id) => request(`/packaging/${id}`, { method: 'DELETE' }),
+
+  // 11. محادثة خبير مسكة للذكاء الاصطناعي (AI Florist Chat)
   aiChat: (message, history = [], context = {}) => 
     request('/ai/chat', { method: 'POST', body: { message, history, context } }),
   getAiStatus: () => request('/ai/status'),

@@ -387,6 +387,23 @@ CREATE TABLE `driver_custody_transactions` (
     FOREIGN KEY (`driver_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 23. جدول خيارات التغليف وأشرطة الساتان وأختام الشمع الملكية (Packaging Materials)
+DROP TABLE IF EXISTS `packaging_materials`;
+CREATE TABLE `packaging_materials` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `category` ENUM('wrap', 'ribbon', 'wax_seal') NOT NULL,
+    `code` VARCHAR(64) NOT NULL,
+    `name_ar` VARCHAR(150) NOT NULL,
+    `color` VARCHAR(32) NOT NULL,
+    `dark_color` VARCHAR(32) NULL,
+    `price` DECIMAL(10, 2) DEFAULT 0.00,
+    `is_active` TINYINT(1) DEFAULT 1,
+    `sort_order` INT DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `unique_category_code` (`category`, `code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- الفهارس المتقدمة للسرعة القصوى
@@ -399,4 +416,5 @@ CREATE INDEX `idx_reviews_order` ON `customer_reviews`(`order_id`);
 CREATE INDEX `idx_reviews_featured` ON `customer_reviews`(`is_featured`, `is_approved`);
 CREATE INDEX `idx_coupons_code` ON `coupons`(`code`, `is_active`);
 CREATE INDEX `idx_tracking_order` ON `delivery_tracking_logs`(`order_id`);
+CREATE INDEX `idx_packaging_cat` ON `packaging_materials`(`category`, `is_active`);
 

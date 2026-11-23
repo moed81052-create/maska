@@ -1,6 +1,6 @@
 <script>
   import { router } from './stores/router.js';
-  import { isDriver } from './stores/auth.js';
+  import { isDriver, isFlorist, isAdmin } from './stores/auth.js';
   import Navbar from './components/Navbar.svelte';
   import Footer from './components/Footer.svelte';
   import GlobalAIChatWidget from './components/GlobalAIChatWidget.svelte';
@@ -14,10 +14,16 @@
   import Login from './pages/Login.svelte';
   import Admin from './pages/Admin.svelte';
   import Driver from './pages/Driver.svelte';
+  import Florist from './pages/Florist.svelte';
 
   // حماية مسار السائق: إذا كان المستخدم سائقاً، يتم حصره فقط في واجهة السائق
   $: if ($isDriver && $router.path !== '/driver') {
     router.navigate('/driver');
+  }
+
+  // عند دخول المنسقة، يتم توجيهها إلى صفحة الأتيليه الرئيسية وحظرها التام من لوحة الإدارة والمستخدمين
+  $: if ($isFlorist && ($router.path === '/' || $router.path === '' || $router.path === '/admin')) {
+    router.navigate('/florist');
   }
 </script>
 
@@ -27,6 +33,10 @@
   <main class="main-content">
     {#if $isDriver}
       <Driver />
+    {:else if $isFlorist && ($router.path === '/' || $router.path === '/florist')}
+      <Florist />
+    {:else if $router.path === '/florist'}
+      <Florist />
     {:else if $router.path === '/' || $router.path === ''}
       <Home />
     {:else if $router.path === '/studio'}
@@ -40,7 +50,13 @@
     {:else if $router.path === '/login'}
       <Login />
     {:else if $router.path === '/admin'}
-      <Admin />
+      {#if $isAdmin}
+        <Admin />
+      {:else if $isFlorist}
+        <Florist />
+      {:else}
+        <Login />
+      {/if}
     {:else if $router.path === '/driver'}
       <Driver />
     {:else}

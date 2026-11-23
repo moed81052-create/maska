@@ -373,6 +373,28 @@ apiRouter.post('/orders/:orderNumber/assign', async (req, res, next) => {
   }
 });
 
+// جلب الطلبات الموجهة لمنسقة الزهور حصرياً مع تفاصيل الباقة وتوزيع السيقان
+apiRouter.get('/florist/orders', async (req, res, next) => {
+  try {
+    const floristId = req.query.floristId || null;
+    if (!floristId) {
+      return res.json({
+        success: true,
+        count: 0,
+        data: []
+      });
+    }
+    const floristOrders = await db.getFloristOrders(floristId);
+    res.json({
+      success: true,
+      count: floristOrders.length,
+      data: floristOrders
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // -----------------------------------------------------------------------------
 // د. السائقون والتتبع الجغرافي بالـ GPS (Drivers & Live Tracking)
 // -----------------------------------------------------------------------------
@@ -868,6 +890,97 @@ apiRouter.delete('/inventory/:id', async (req, res, next) => {
       success: false,
       message: err.message
     });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// هـ1b. خيارات التغليف وأشرطة الساتان والختم الشمعي (Packaging & Materials)
+// -----------------------------------------------------------------------------
+
+// جلب خيارات التغليف والأشرطة والختم الشمعي
+apiRouter.get('/packaging', async (req, res, next) => {
+  try {
+    const { category, all } = req.query;
+    const items = all === 'true' 
+      ? await db.getAllPackagingMaterials()
+      : await db.getPackagingMaterials(category || null);
+
+    const wraps = items.filter(i => i.category === 'wrap');
+    const ribbons = items.filter(i => i.category === 'ribbon');
+    const waxSeals = items.filter(i => i.category === 'wax_seal');
+
+    res.json({
+      success: true,
+      count: items.length,
+      data: items,
+      wraps,
+      ribbons,
+      wax_seals: waxSeals
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إضافة خيار تغليف / شريط / ختم شمعي جديد
+apiRouter.post('/packaging', async (req, res, next) => {
+  try {
+    const { category, name_ar, color, dark_color, price, sort_order, code } = req.body;
+    if (!category || !name_ar || !color) {
+      return res.status(400).json({
+        success: false,
+        message: 'التصنيف، الاسم العربي، ولون العنصر مطلوبة'
+      });
+    }
+    const created = await db.addPackagingMaterial({
+      category,
+      code,
+      name_ar,
+      color,
+      dark_color,
+      price,
+      sort_order
+    });
+    res.status(201).json({
+      success: true,
+      message: 'تمت إضافة خيار التغليف بنجاح',
+      data: created
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تعديل خيار تغليف
+apiRouter.put('/packaging/:id', async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const updated = await db.updatePackagingMaterial(id, req.body);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'العنصر غير موجود' });
+    }
+    res.json({
+      success: true,
+      message: 'تم تعديل خيار التغليف بنجاح',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// حذف خيار تغليف
+apiRouter.delete('/packaging/:id', async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const result = await db.deletePackagingMaterial(id);
+    res.json({
+      success: true,
+      message: 'تم حذف خيار التغليف بنجاح',
+      data: result
+    });
+  } catch (err) {
+    next(err);
   }
 });
 
