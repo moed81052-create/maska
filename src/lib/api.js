@@ -144,6 +144,26 @@ export const api = {
   aiChat: (message, history = [], context = {}) => 
     request('/ai/chat', { method: 'POST', body: { message, history, context } }),
   getAiStatus: () => request('/ai/status'),
-  saveAiKey: (apiKey) => request('/ai/key', { method: 'POST', body: { apiKey } })
+  saveAiKey: (apiKey) => request('/ai/key', { method: 'POST', body: { apiKey } }),
+
+  // 12. خدمات الحساب الشخصي وتتبع الطلبات وتقييم السائق
+  getUserProfile: (userId) => request(`/user/profile?userId=${encodeURIComponent(userId)}`),
+  updateUserProfile: (data) => request('/user/profile', { method: 'PUT', body: data }),
+  getUserOrders: (userId, phone = null) => {
+    const q = new URLSearchParams();
+    if (userId) q.append('userId', userId);
+    if (phone) q.append('phone', phone);
+    return request(`/user/orders?${q.toString()}`);
+  },
+  getUserAddresses: (userId) => request(`/user/addresses?userId=${encodeURIComponent(userId)}`),
+  addUserAddress: (data) => request('/user/addresses', { method: 'POST', body: data }),
+  deleteUserAddress: (id, userId) => request(`/user/addresses/${id}?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+  rateDriver: (data) => request('/user/rate-driver', { method: 'POST', body: data }),
+  getUserNotifications: (userId, phone = null) => {
+    const q = new URLSearchParams();
+    if (userId) q.append('userId', userId);
+    if (phone) q.append('phone', phone);
+    return request(`/user/notifications?${q.toString()}`);
+  }
 };
 

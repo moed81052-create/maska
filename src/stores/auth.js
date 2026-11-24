@@ -31,6 +31,17 @@ function createAuthStore() {
         } catch (e) {}
       }
       set(null);
+    },
+    updateUser(newData) {
+      update(current => {
+        const merged = { ...current, ...newData };
+        if (isBrowser) {
+          try {
+            localStorage.setItem(AUTH_KEY, JSON.stringify(merged));
+          } catch (e) {}
+        }
+        return merged;
+      });
     }
   };
 }

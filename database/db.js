@@ -2659,5 +2659,298 @@ module.exports = {
       return { success: true, deletedId: id };
     }
     return { success: false };
+  },
+
+  // ---------------------------------------------------------------------------
+  // 24. خدمات الحساب الشخصي للزبون (Customer Profile, Addresses, Orders & Ratings)
+  // ---------------------------------------------------------------------------
+  async getUserProfile(userId) {
+    if (isMySQL) {
+      const [rows] = await mysqlPool.execute(`
+        SELECT u.id, u.full_name, u.phone, u.email, u.avatar_url, u.status, u.created_at,
+               r.name as role_name, r.display_name as role_display
+        FROM users u
+        LEFT JOIN user_roles ur ON u.id = ur.user_id
+        LEFT JOIN roles r ON ur.role_id = r.id
+        WHERE u.id = ?
+      `, [userId]);
+      return rows[0] || null;
+    } else {
+      return sqliteDb.prepare(`
+        SELECT u.id, u.full_name, u.phone, u.email, u.avatar_url, u.status, u.created_at,
+               r.name as role_name, r.display_name as role_display
+        FROM users u
+        LEFT JOIN user_roles ur ON u.id = ur.user_id
+        LEFT JOIN roles r ON ur.role_id = r.id
+        WHERE u.id = ?
+      `).get(userId) || null;
+    }
+  },
+
+  async updateUserProfile(userId, { fullName, phone, email, password }) {
+    if (isMySQL) {
+      const fields = [];
+      const values = [];
+      if (fullName) { fields.push('full_name = ?'); values.push(fullName); }
+      if (phone) { fields.push('phone = ?'); values.push(phone); }
+      if (email !== undefined) { fields.push('email = ?'); values.push(email || null); }
+      if (password) {
+        fields.push('password_hash = ?');
+        values.push(hashPassword(password));
+      }
+      if (fields.length === 0) return this.getUserProfile(userId);
+      values.push(userId);
+      await mysqlPool.execute(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+      return this.getUserProfile(userId);
+    } else {
+      if (fullName) sqliteDb.prepare(`UPDATE users SET full_name = ? WHERE id = ?`).run(fullName, userId);
+      if (phone) sqliteDb.prepare(`UPDATE users SET phone = ? WHERE id = ?`).run(phone, userId);
+      if (email !== undefined) sqliteDb.prepare(`UPDATE users SET email = ? WHERE id = ?`).run(email, userId);
+      if (password) sqliteDb.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hashPassword(password), userId);
+      return this.getUserProfile(userId);
+    }
+  },
+
+  async getUserOrders(userId, phone = null) {
+    const orderSql = `
+      SELECT 
+        o.*,
+        d.full_name as driver_name,
+        d.phone as driver_phone,
+        dp.vehicle_type as driver_vehicle,
+        dp.plate_number as driver_plate,
+        dp.rating as driver_rating,
+        dp.current_lat as driver_lat,
+        dp.current_lng as driver_lng,
+        cr.id as review_id,
+        cr.rating_overall,
+        cr.rating_delivery,
+        cr.rating_flowers,
+        cr.customer_comment as review_comment
+      FROM orders o
+      LEFT JOIN users d ON o.assigned_driver_id = d.id
+      LEFT JOIN driver_profiles dp ON d.id = dp.user_id
+      LEFT JOIN customer_reviews cr ON o.id = cr.order_id
+      WHERE o.customer_id = ? OR (o.recipient_phone = ? AND ? IS NOT NULL AND ? != '')
+      ORDER BY o.created_at DESC
+    `;
+
+    let orders = [];
+    if (isMySQL) {
+      const [rows] = await mysqlPool.execute(orderSql, [userId || '', phone || '', phone || '', phone || '']);
+      orders = rows;
+    } else {
+      orders = sqliteDb.prepare(orderSql).all(userId || '', phone || '', phone || '', phone || '');
+    }
+
+    // جلب عناصر كل طلب
+    for (const order of orders) {
+      if (isMySQL) {
+        const [items] = await mysqlPool.execute(`
+          SELECT oi.*, b.title as catalog_title, b.image_svg_path as bouquet_image
+          FROM order_items oi
+          LEFT JOIN bouquets b ON oi.bouquet_id = b.id
+          WHERE oi.order_id = ?
+        `, [order.id]);
+        order.items = items;
+      } else {
+        order.items = sqliteDb.prepare(`
+          SELECT oi.*, b.title as catalog_title, b.image_svg_path as bouquet_image
+          FROM order_items oi
+          LEFT JOIN bouquets b ON oi.bouquet_id = b.id
+          WHERE oi.order_id = ?
+        `).all(order.id);
+      }
+    }
+
+    return orders;
+  },
+
+  async getUserAddresses(userId) {
+    if (isMySQL) {
+      const [rows] = await mysqlPool.execute(`
+        SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, created_at DESC
+      `, [userId]);
+      return rows;
+    } else {
+      return sqliteDb.prepare(`
+        SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, created_at DESC
+      `).all(userId);
+    }
+  },
+
+  async addUserAddress(userId, data) {
+    const id = crypto.randomUUID ? crypto.randomUUID() : ('addr-' + Math.random().toString(36).substr(2, 9));
+    const title = data.title || 'عنوان التوصيل';
+    const recipientName = data.recipientName || '';
+    const recipientPhone = data.recipientPhone || '';
+    const city = data.city || 'طرابلس';
+    const zone = data.zone || 'المركز';
+    const street = data.street || '';
+    const landmark = data.landmark || '';
+    const latitude = Number(data.latitude || data.lat) || 32.8872;
+    const longitude = Number(data.longitude || data.lng) || 13.1913;
+    const isDefault = data.isDefault ? 1 : 0;
+    const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+    if (isMySQL) {
+      if (isDefault) {
+        await mysqlPool.execute(`UPDATE addresses SET is_default = 0 WHERE user_id = ?`, [userId]);
+      }
+      await mysqlPool.execute(`
+        INSERT INTO addresses (id, user_id, title, recipient_name, recipient_phone, city, zone, street, landmark, latitude, longitude, google_maps_url, is_default)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [id, userId, title, recipientName, recipientPhone, city, zone, street, landmark, latitude, longitude, mapsUrl, isDefault]);
+      const [rows] = await mysqlPool.execute(`SELECT * FROM addresses WHERE id = ?`, [id]);
+      return rows[0];
+    } else {
+      if (isDefault) {
+        sqliteDb.prepare(`UPDATE addresses SET is_default = 0 WHERE user_id = ?`).run(userId);
+      }
+      sqliteDb.prepare(`
+        INSERT INTO addresses (id, user_id, title, recipient_name, recipient_phone, city, zone, street, landmark, latitude, longitude, google_maps_url, is_default)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, userId, title, recipientName, recipientPhone, city, zone, street, landmark, latitude, longitude, mapsUrl, isDefault);
+      return sqliteDb.prepare(`SELECT * FROM addresses WHERE id = ?`).get(id);
+    }
+  },
+
+  async deleteUserAddress(addressId, userId) {
+    if (isMySQL) {
+      await mysqlPool.execute(`DELETE FROM addresses WHERE id = ? AND user_id = ?`, [addressId, userId]);
+      return { success: true };
+    } else {
+      sqliteDb.prepare(`DELETE FROM addresses WHERE id = ? AND user_id = ?`).run(addressId, userId);
+      return { success: true };
+    }
+  },
+
+  async rateDriverAndOrder({ orderId, orderNumber, customerId, ratingDelivery, ratingFlowers = 5, comment = '', customerName = '' }) {
+    const id = crypto.randomUUID ? crypto.randomUUID() : ('rev-' + Math.random().toString(36).substr(2, 9));
+    
+    // إيجاد الطلب لمعرفة السائق والمدينة
+    let order = null;
+    if (isMySQL) {
+      const [orders] = await mysqlPool.execute(`SELECT * FROM orders WHERE id = ? OR order_number = ?`, [orderId || '', orderNumber || '']);
+      order = orders[0];
+    } else {
+      order = sqliteDb.prepare(`SELECT * FROM orders WHERE id = ? OR order_number = ?`).get(orderId || '', orderNumber || '');
+    }
+
+    if (!order) {
+      throw new Error('الطلب غير موجود');
+    }
+
+    const driverId = order.assigned_driver_id || null;
+    const finalRatingDelivery = Math.max(1, Math.min(5, Number(ratingDelivery) || 5));
+    const finalRatingFlowers = Math.max(1, Math.min(5, Number(ratingFlowers) || 5));
+    const overallRating = Math.round((finalRatingDelivery + finalRatingFlowers) / 2);
+    const city = order.delivery_city || 'طرابلس';
+    const displayName = customerName || order.recipient_name || 'زبون مسكة';
+
+    if (isMySQL) {
+      // إدخال التقييم
+      await mysqlPool.execute(`
+        INSERT INTO customer_reviews (
+          id, order_id, customer_id, driver_id,
+          rating_overall, rating_flowers, rating_delivery, rating_packaging,
+          customer_comment, customer_name_display, city, is_approved
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 5, ?, ?, ?, 1)
+        ON DUPLICATE KEY UPDATE 
+          rating_overall = VALUES(rating_overall),
+          rating_delivery = VALUES(rating_delivery),
+          rating_flowers = VALUES(rating_flowers),
+          customer_comment = VALUES(customer_comment)
+      `, [id, order.id, customerId || order.customer_id, driverId, overallRating, finalRatingFlowers, finalRatingDelivery, comment, displayName, city]);
+
+      // تحديث تقييم السائق التراكمي في driver_profiles
+      if (driverId) {
+        await mysqlPool.execute(`
+          UPDATE driver_profiles 
+          SET rating = COALESCE((
+            SELECT ROUND(AVG(rating_delivery), 2) 
+            FROM customer_reviews 
+            WHERE driver_id = ? AND rating_delivery > 0
+          ), 5.00)
+          WHERE user_id = ?
+        `, [driverId, driverId]);
+      }
+
+      return { success: true, reviewId: id, rating: overallRating };
+    } else {
+      sqliteDb.prepare(`
+        INSERT OR REPLACE INTO customer_reviews (
+          id, order_id, customer_id, driver_id,
+          rating_overall, rating_flowers, rating_delivery, rating_packaging,
+          customer_comment, customer_name_display, city, is_approved
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 5, ?, ?, ?, 1)
+      `).run(id, order.id, customerId || order.customer_id, driverId, overallRating, finalRatingFlowers, finalRatingDelivery, comment, displayName, city);
+
+      if (driverId) {
+        sqliteDb.prepare(`
+          UPDATE driver_profiles 
+          SET rating = COALESCE((
+            SELECT ROUND(AVG(rating_delivery), 2) 
+            FROM customer_reviews 
+            WHERE driver_id = ? AND rating_delivery > 0
+          ), 5.00)
+          WHERE user_id = ?
+        `).run(driverId, driverId);
+      }
+
+      return { success: true, reviewId: id, rating: overallRating };
+    }
+  },
+
+  async getUserNotifications(userId, phone = null) {
+    const orders = await this.getUserOrders(userId, phone);
+    const notifications = [];
+
+    // إشعار ترحيبي دائم
+    notifications.push({
+      id: 'welcome-notif',
+      title: 'أهلاً بك في عالم مسكة للزهور الفاخرة 🌸',
+      message: 'شكراً لانضمامك إلى مسكة. استمتع بتصميم باقاتك الخاصة والمتابعة الحية لأسطول التوصيل.',
+      type: 'promo',
+      time: 'منذ يوم',
+      is_read: true
+    });
+
+    // توليد إشعارات ذكية من واقع الطلبات الفعلية
+    for (const ord of orders.slice(0, 5)) {
+      if (ord.status === 'out_for_delivery') {
+        notifications.push({
+          id: `notif-out-${ord.id}`,
+          title: `الكابتن ${ord.driver_name || 'مسكة'} في الطريق إليك 🚗`,
+          message: `طلبك رقم #${ord.order_number} خرج للتوصيل الآن بسيارة مبردة. يمكنك متابعة مسار السائق بالـ GPS مباشرة.`,
+          type: 'delivery',
+          orderNumber: ord.order_number,
+          time: 'الآن',
+          is_read: false
+        });
+      } else if (ord.status === 'preparing') {
+        notifications.push({
+          id: `notif-prep-${ord.id}`,
+          title: `جاري تنسيق باقتك في الأتيليه ✂️🌸`,
+          message: `يقوم خبراء التنسيق بتجهيز طلبك رقم #${ord.order_number} وتزيين الكرت بالختم الشمعي الملكي.`,
+          type: 'order',
+          orderNumber: ord.order_number,
+          time: 'منذ قليل',
+          is_read: false
+        });
+      } else if (ord.status === 'delivered') {
+        notifications.push({
+          id: `notif-del-${ord.id}`,
+          title: `تم تسليم باقتك بنجاح! 🌸🎉`,
+          message: `وصلت باقتك رقم #${ord.order_number} بحمد الله. نرجو منك تقييم تجربة التوصيل والكابتن لإسعادنا برأيك.`,
+          type: 'review',
+          orderNumber: ord.order_number,
+          time: 'مكتمل',
+          is_read: !!ord.review_id
+        });
+      }
+    }
+
+    return notifications;
   }
 };

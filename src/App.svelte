@@ -1,6 +1,6 @@
 <script>
   import { router } from './stores/router.js';
-  import { isDriver, isFlorist, isAdmin } from './stores/auth.js';
+  import { isDriver, isFlorist, isAdmin, isAuthenticated } from './stores/auth.js';
   import Navbar from './components/Navbar.svelte';
   import Footer from './components/Footer.svelte';
   import GlobalAIChatWidget from './components/GlobalAIChatWidget.svelte';
@@ -15,6 +15,7 @@
   import Admin from './pages/Admin.svelte';
   import Driver from './pages/Driver.svelte';
   import Florist from './pages/Florist.svelte';
+  import Profile from './pages/Profile.svelte';
 
   // حماية مسار السائق: إذا كان المستخدم سائقاً، يتم حصره فقط في واجهة السائق
   $: if ($isDriver && $router.path !== '/driver') {
@@ -47,6 +48,12 @@
       <Cart />
     {:else if $router.path === '/track'}
       <Track />
+    {:else if $router.path === '/profile'}
+      {#if $isAuthenticated}
+        <Profile />
+      {:else}
+        <Login />
+      {/if}
     {:else if $router.path === '/login'}
       <Login />
     {:else if $router.path === '/admin'}

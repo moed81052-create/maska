@@ -237,6 +237,139 @@ apiRouter.post('/florists', async (req, res, next) => {
 });
 
 // -----------------------------------------------------------------------------
+// أ-3. واجهات الحساب الشخصي للزبون (Customer Profile, Orders, Addresses & Ratings)
+// -----------------------------------------------------------------------------
+
+// جلب بيانات الملف الشخصي
+apiRouter.get('/user/profile', async (req, res, next) => {
+  try {
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'معرف المستخدم مطلوب' });
+    }
+    const user = await db.getUserProfile(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
+    }
+    res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تحديث بيانات الملف الشخصي
+apiRouter.put('/user/profile', async (req, res, next) => {
+  try {
+    const { userId, fullName, phone, email, password } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'معرف المستخدم مطلوب' });
+    }
+    const updatedUser = await db.updateUserProfile(userId, { fullName, phone, email, password });
+    res.json({
+      success: true,
+      message: 'تم تحديث بيانات حسابك بنجاح ✨',
+      data: updatedUser
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// جلب طلبات الزبون وتتبعها اللحظي
+apiRouter.get('/user/orders', async (req, res, next) => {
+  try {
+    const { userId, phone } = req.query;
+    if (!userId && !phone) {
+      return res.status(400).json({ success: false, message: 'معرف المستخدم أو رقم الهاتف مطلوب' });
+    }
+    const orders = await db.getUserOrders(userId, phone);
+    res.json({ success: true, count: orders.length, data: orders });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// جلب عناوين ومواقع الزبون المحفوظة
+apiRouter.get('/user/addresses', async (req, res, next) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'معرف المستخدم مطلوب' });
+    }
+    const addresses = await db.getUserAddresses(userId);
+    res.json({ success: true, count: addresses.length, data: addresses });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// إضافة موقع / عنوان توصيل جديد
+apiRouter.post('/user/addresses', async (req, res, next) => {
+  try {
+    const { userId, ...addressData } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'معرف المستخدم مطلوب' });
+    }
+    const newAddr = await db.addUserAddress(userId, addressData);
+    res.status(201).json({
+      success: true,
+      message: 'تم حفظ الموقع والعنوان بنجاح 📍',
+      data: newAddr
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// حذف عنوان توصيل
+apiRouter.delete('/user/addresses/:id', async (req, res, next) => {
+  try {
+    const { userId } = req.query;
+    await db.deleteUserAddress(req.params.id, userId);
+    res.json({ success: true, message: 'تم حذف العنوان بنجاح' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// تقييم السائق والخدمة للطلب المسلّم
+apiRouter.post('/user/rate-driver', async (req, res, next) => {
+  try {
+    const { orderId, orderNumber, customerId, ratingDelivery, ratingFlowers, comment, customerName } = req.body;
+    if (!orderId && !orderNumber) {
+      return res.status(400).json({ success: false, message: 'رقم الطلب مطلوب لإجراء التقييم' });
+    }
+    const result = await db.rateDriverAndOrder({
+      orderId,
+      orderNumber,
+      customerId,
+      ratingDelivery,
+      ratingFlowers,
+      comment,
+      customerName
+    });
+    res.json({
+      success: true,
+      message: 'شكراً لك! تم تسجيل تقييمك للكابتن والخدمة بنجاح ⭐',
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// جلب إشعارات وتنبيهات الزبون
+apiRouter.get('/user/notifications', async (req, res, next) => {
+  try {
+    const { userId, phone } = req.query;
+    const notifs = await db.getUserNotifications(userId, phone);
+    res.json({ success: true, count: notifs.length, data: notifs });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// -----------------------------------------------------------------------------
 // ب. إحصائيات الداشبورد ولوحة التحكم (Admin & Coordinator Dashboard)
 // -----------------------------------------------------------------------------
 

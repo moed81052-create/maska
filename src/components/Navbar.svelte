@@ -174,13 +174,32 @@
       <!-- حالة تسجيل الدخول / المستخدم -->
       {#if $isAuthenticated && $auth}
         <div class="user-pill desktop-only">
-          <span class="user-avatar">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-          </span>
-          <span class="user-name">{$auth.full_name}</span>
+          <button 
+            type="button" 
+            class="user-profile-btn" 
+            class:active={$router.path === '/profile'}
+            on:click={() => go('/profile')} 
+            title="فتح حسابي وطلباتي وين"
+          >
+            <span class="user-avatar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </span>
+            <span class="user-name">{$auth.full_name}</span>
+          </button>
+          
+          <button 
+            type="button" 
+            class="my-account-btn" 
+            class:active={$router.path === '/profile'}
+            on:click={() => go('/profile')} 
+            title="حسابي وطلباتي وين"
+          >
+            حسابي 👤
+          </button>
+
           <button type="button" class="logout-btn" on:click={handleLogout} title="تسجيل الخروج">
             خروج
           </button>
@@ -236,8 +255,12 @@
       <div class="m-divider"></div>
 
       {#if $isAuthenticated && $auth}
+        <button type="button" class="m-link profile-link" on:click={() => go('/profile')}>
+          <span>👤 حسابي وطلباتي وين ({$auth.full_name})</span>
+          <span class="m-badge">الملف الشخصي</span>
+        </button>
         <div class="m-user-info">
-          <span>مرحباً، {$auth.full_name} ({$auth.role_display || $auth.role_name})</span>
+          <span>{$auth.role_display || $auth.role_name}</span>
           <button type="button" class="m-logout-btn" on:click={handleLogout}>تسجيل خروج</button>
         </div>
       {:else}
@@ -459,12 +482,68 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 14px;
+    padding: 4px 10px;
     background: var(--card);
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-full);
     font-size: 0.88rem;
     font-weight: 600;
+    transition: all 0.2s ease;
+  }
+  .user-profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--radius-full);
+    transition: all 0.2s ease;
+  }
+  .user-profile-btn:hover {
+    color: var(--olive);
+    background: var(--surface-2);
+  }
+  .user-profile-btn.active {
+    color: var(--olive);
+  }
+  .my-account-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--gold-border, var(--line-strong));
+    color: var(--gold-dark, var(--olive));
+    font-size: 0.8rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .my-account-btn:hover, .my-account-btn.active {
+    background: var(--gold, #c59b27);
+    color: #ffffff;
+    border-color: var(--gold, #c59b27);
+    box-shadow: 0 2px 8px rgba(197, 155, 39, 0.25);
+  }
+  .profile-link {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: var(--surface-2) !important;
+    font-weight: 800 !important;
+    color: var(--olive) !important;
+    border: 1px solid var(--gold-border, var(--line)) !important;
+  }
+  .m-badge {
+    background: var(--olive);
+    color: #fff;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
   }
   .logout-btn {
     background: none;
