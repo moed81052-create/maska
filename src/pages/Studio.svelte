@@ -307,51 +307,51 @@
     return `/assets/flowers/clean/${key}-${angle}.svg`;
   }
 
-  // توليد إحداثيات مبدئية طبيعية لكل قسم (Section Placement Coordinates)
+  // توليد إحداثيات مبدئية طبيعية لكل قسم داخل حدود ورق التغليف الملكي
   function getSectionCoordinates(section) {
-    const jitterX = (Math.random() - 0.5) * 40;
-    const jitterY = (Math.random() - 0.5) * 30;
-    const jitterRot = (Math.random() - 0.5) * 16;
+    const jitterX = (Math.random() - 0.5) * 16;
+    const jitterY = (Math.random() - 0.5) * 14;
+    const jitterRot = (Math.random() - 0.5) * 12;
 
     switch (section) {
       case 'top':
         return {
           x: Math.round(jitterX),
-          y: Math.round(-140 + jitterY),
+          y: Math.round(-98 + jitterY),
           rotation: Math.round(jitterRot),
           angle: 'front',
-          scale: 0.95
+          scale: 0.98
         };
       case 'center':
         return {
-          x: Math.round(jitterX * 1.2),
-          y: Math.round(-55 + jitterY),
-          rotation: Math.round(jitterRot * 1.5),
+          x: Math.round(jitterX * 0.8),
+          y: Math.round(-62 + jitterY),
+          rotation: Math.round(jitterRot),
           angle: 'front',
-          scale: 1.15
+          scale: 1.05
         };
       case 'left':
         return {
-          x: Math.round(-85 + jitterX * 0.8),
-          y: Math.round(-65 + jitterY),
-          rotation: Math.round(-24 + jitterRot),
+          x: Math.round(-28 + jitterX * 0.6),
+          y: Math.round(-52 + jitterY),
+          rotation: Math.round(-18 + jitterRot),
           angle: 'side',
-          scale: 0.98
+          scale: 0.96
         };
       case 'right':
         return {
-          x: Math.round(85 + jitterX * 0.8),
-          y: Math.round(-65 + jitterY),
-          rotation: Math.round(24 + jitterRot),
+          x: Math.round(28 + jitterX * 0.6),
+          y: Math.round(-52 + jitterY),
+          rotation: Math.round(18 + jitterRot),
           angle: 'side',
-          scale: 0.98
+          scale: 0.96
         };
       case 'bottom':
       default:
         return {
-          x: Math.round(jitterX * 1.3),
-          y: Math.round(15 + jitterY),
-          rotation: Math.round(jitterRot * 2),
+          x: Math.round(jitterX * 0.8),
+          y: Math.round(-24 + jitterY),
+          rotation: Math.round(jitterRot),
           angle: 'front',
           scale: 0.92
         };
@@ -889,44 +889,38 @@
 
     if (templateId === 'round_dome') {
       // 1. قالب التغليف الدائري الملكي (قبة الزهور المتناسقة في طوق التغليف - مشهد علوي)
+      // الورود تكون محتواة بالكامل داخل طوق التغليف الدائري بعمق وتناغم حلزوني
       newStems = sortedStems.map((s, idx) => {
         let x, y, rot, scale;
         if (total === 1 || idx === 0) {
-          x = 0; y = 0; rot = 0; scale = 1.25;
-        } else {
-          const phi = (idx * 137.5 * Math.PI) / 180;
-          const radiusRatio = Math.sqrt(idx / (total - 0.3));
-          const r = 36 + radiusRatio * 82;
+          x = 0; y = 0; rot = 0; scale = 1.15;
+        } else if (total <= 6) {
+          // حلقة واحدة محكمة داخل طوق الغلاف
+          const phi = (idx * 360 / (total - 1)) * (Math.PI / 180);
+          const r = 30;
           x = Math.cos(phi) * r;
           y = Math.sin(phi) * r;
           rot = Math.round((phi * 180 / Math.PI) + 45) % 360;
-          scale = 1.18 - (radiusRatio * 0.18);
-        }
-        return {
-          ...s,
-          x: Math.round(x),
-          y: Math.round(y),
-          rotation: rot,
-          scale: Math.max(0.9, Math.min(1.25, Math.round(scale * 100) / 100)),
-          angle: 'top',
-          zIndex: 10 + (total - idx)
-        };
-      });
-      aiStatusMessage = `تم تنسيق الزهور في "قالب التغليف الدائري الملكي" (مشهد علوي) بتوزيع حلزوني ذهبي متناسق.`;
-
-    } else if (templateId === 'compact_posy') {
-      // 2. قالب باقة اليد المدمجة (Parisian Posy - مشهد علوي كثيف)
-      newStems = sortedStems.map((s, idx) => {
-        let x, y, rot, scale;
-        if (idx === 0) {
-          x = 0; y = 0; rot = 0; scale = 1.2;
-        } else {
-          const phi = (idx * 137.5 * Math.PI) / 180;
-          const r = 26 + Math.sqrt(idx / total) * 62;
-          x = Math.cos(phi) * r;
-          y = Math.sin(phi) * r;
-          rot = Math.round(phi * 180 / Math.PI) % 360;
           scale = 1.05;
+        } else {
+          // حلقتان متوازنتان تماماً داخل قطر الطوق الداخلي (أقصى نصف قطر 52 بكسل)
+          if (idx <= 5) {
+            const phi = (idx * 360 / 5) * (Math.PI / 180);
+            const r = 26;
+            x = Math.cos(phi) * r;
+            y = Math.sin(phi) * r;
+            rot = Math.round((phi * 180 / Math.PI) + 30) % 360;
+            scale = 1.05;
+          } else {
+            const outerIdx = idx - 6;
+            const outerCount = total - 6;
+            const phi = ((outerIdx * 360 / outerCount) + 36) * (Math.PI / 180);
+            const r = 50;
+            x = Math.cos(phi) * r;
+            y = Math.sin(phi) * r;
+            rot = Math.round((phi * 180 / Math.PI) + 45) % 360;
+            scale = 0.95;
+          }
         }
         return {
           ...s,
@@ -938,82 +932,67 @@
           zIndex: 10 + (total - idx)
         };
       });
-      aiStatusMessage = `تم تنسيق الزهور في "قالب باقة اليد المدمجة" بكثافة واحتواء باريسي رقيق.`;
+      aiStatusMessage = `تم تنسيق الزهور واحتوائها بالكامل داخل "طوق التغليف الدائري الملكي" (مشهد علوي).`;
+
+    } else if (templateId === 'compact_posy') {
+      // 2. باقة اليد المدمجة (مشهد علوي محتضن بالكامل)
+      newStems = sortedStems.map((s, idx) => {
+        let x, y, rot, scale;
+        if (idx === 0) {
+          x = 0; y = 0; rot = 0; scale = 1.1;
+        } else {
+          const phi = (idx * 137.5 * Math.PI) / 180;
+          const r = 18 + Math.sqrt(idx / total) * 32;
+          x = Math.cos(phi) * r;
+          y = Math.sin(phi) * r;
+          rot = Math.round(phi * 180 / Math.PI) % 360;
+          scale = 0.95;
+        }
+        return {
+          ...s,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: rot,
+          scale: scale,
+          angle: 'top',
+          zIndex: 10 + (total - idx)
+        };
+      });
+      aiStatusMessage = `تم تنسيق الزهور في "قالب باقة اليد المدمجة" باحتواء كثيف داخل الغلاف.`;
 
     } else if (templateId === 'classic_front') {
-      // 3. قالب الباقة الطولية الكلاسيكية (مشهد أمامي مغلف بالورق والشريط)
+      // 3. قالب الباقة الطولية الكلاسيكية (مشهد أمامي - داخل طيات الغلاف الورقي والشريط)
       const apexCount = Math.max(1, Math.ceil(total * 0.25));
       const midCount = Math.max(1, Math.ceil(total * 0.5));
       
       newStems = sortedStems.map((s, idx) => {
         let x, y, rot, angle, scale;
         if (idx < apexCount) {
-          // القمة الشاهقة
+          // القمة (محتواة تحت تاج ورق التغليف الخلفي العالي)
           const offset = (idx - (apexCount - 1) / 2);
-          x = offset * 28;
-          y = -145 + Math.abs(offset) * 12;
-          rot = Math.round(offset * 8);
+          x = offset * 20;
+          y = -110 + Math.abs(offset) * 10;
+          rot = Math.round(offset * 6);
           angle = 'front';
-          scale = 1.05;
+          scale = 1.0;
         } else if (idx < apexCount + midCount) {
-          // قلب الباقة ووسطها بين طيات الغلاف
+          // قلب الباقة (محتضن بين الأجنحة الجانبية للورق)
           const midIdx = idx - apexCount;
           const row = Math.floor(midIdx / 3);
-          const col = (midIdx % 3) - 1;
-          x = col * 44 + (row % 2 === 1 ? 12 : -12);
-          y = -95 + row * 34;
-          rot = Math.round(col * 14);
-          angle = Math.abs(x) > 35 ? 'side' : 'front';
-          scale = 1.15;
+          const col = (midIdx % 3) - 1; // -1, 0, 1
+          x = col * 34 + (row % 2 === 1 ? 8 : -8);
+          y = -78 + row * 28;
+          rot = Math.round(col * 10);
+          angle = Math.abs(x) > 28 ? 'side' : 'front';
+          scale = 1.05;
         } else {
-          // الأطراف المتدلية وفروع التغليف
+          // الورود السفلية المندمجة والمحتواة داخل المخروط الأمامي للغلاف
           const flankIdx = idx - (apexCount + midCount);
           const side = flankIdx % 2 === 0 ? -1 : 1;
           const row = Math.floor(flankIdx / 2);
-          x = side * (68 + row * 20);
-          y = -45 + row * 26;
-          rot = side * (24 + row * 8);
-          angle = 'side';
-          scale = 0.98;
-        }
-        return {
-          ...s,
-          x: Math.round(x),
-          y: Math.round(y),
-          rotation: rot,
-          scale: scale,
-          angle: angle,
-          zIndex: 10 + idx
-        };
-      });
-      aiStatusMessage = `تم تنسيق الزهور في "قالب الباقة الطولية الكلاسيكية" (مشهد أمامي مغلف بالشريط).`;
-
-    } else if (templateId === 'royal_cascade') {
-      // 4. قالب التنسيق الهرمي الملكي (Cascade Royal)
-      newStems = sortedStems.map((s, idx) => {
-        let x, y, rot, angle, scale;
-        const tier = idx / total;
-        if (tier < 0.22) {
-          x = (idx - 0.5) * 22;
-          y = -158 + idx * 10;
-          rot = Math.round(x * 0.4);
-          angle = 'front';
-          scale = 1.05;
-        } else if (tier < 0.65) {
-          const localIdx = idx - Math.ceil(total * 0.22);
-          const spread = Math.ceil(localIdx / 2);
-          const side = localIdx % 2 === 0 ? -1 : 1;
-          x = side * (spread * 28);
-          y = -105 + spread * 24;
-          rot = Math.round(side * (12 + spread * 6));
-          angle = Math.abs(x) > 45 ? 'side' : 'front';
-          scale = 1.18;
-        } else {
-          const localIdx = idx - Math.ceil(total * 0.65);
-          const side = localIdx % 2 === 0 ? -1 : 1;
-          x = side * (75 + localIdx * 18);
-          y = -25 + localIdx * 20;
-          rot = Math.round(side * 34);
+          x = side * (26 + row * 12);
+          y = -42 + row * 20;
+          rot = side * (14 + row * 6);
           angle = 'side';
           scale = 0.95;
         }
@@ -1027,15 +1006,56 @@
           zIndex: 10 + idx
         };
       });
-      aiStatusMessage = `تم تطبيق "قالب التنسيق الهرمي الملكي" بتدرج طبقي فخم.`;
+      aiStatusMessage = `تم تنسيق الزهور واحتوائها بالكامل داخل طيات ورق التغليف الملكي (مشهد أمامي).`;
+
+    } else if (templateId === 'royal_cascade') {
+      // 4. قالب التنسيق الهرمي الملكي (داخل الغلاف الملكي)
+      newStems = sortedStems.map((s, idx) => {
+        let x, y, rot, angle, scale;
+        const tier = idx / total;
+        if (tier < 0.22) {
+          x = (idx - 0.5) * 16;
+          y = -115 + idx * 8;
+          rot = Math.round(x * 0.3);
+          angle = 'front';
+          scale = 1.0;
+        } else if (tier < 0.65) {
+          const localIdx = idx - Math.ceil(total * 0.22);
+          const spread = Math.ceil(localIdx / 2);
+          const side = localIdx % 2 === 0 ? -1 : 1;
+          x = side * (spread * 22);
+          y = -82 + spread * 22;
+          rot = Math.round(side * (8 + spread * 5));
+          angle = Math.abs(x) > 30 ? 'side' : 'front';
+          scale = 1.08;
+        } else {
+          const localIdx = idx - Math.ceil(total * 0.65);
+          const side = localIdx % 2 === 0 ? -1 : 1;
+          x = side * (24 + localIdx * 10);
+          y = -35 + localIdx * 16;
+          rot = Math.round(side * 18);
+          angle = 'side';
+          scale = 0.95;
+        }
+        return {
+          ...s,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: rot,
+          scale: scale,
+          angle: angle,
+          zIndex: 10 + idx
+        };
+      });
+      aiStatusMessage = `تم تطبيق "قالب التنسيق الهرمي الملكي" محتوياً داخل طيات الغلاف الفاخر.`;
 
     } else if (templateId === 'boho_garden') {
-      // 5. قالب الباقة البوهيمية الحرة
+      // 5. قالب الباقة البوهيمية الحرة (محتواة داخل إطار الغلاف)
       newStems = sortedStems.map((s, idx) => {
-        const sideFactor = idx % 2 === 0 ? -1 : 1.15;
-        const x = Math.round(sideFactor * (25 + (idx * 17) % 75));
-        const y = Math.round(-145 + ((idx * 31) % 135));
-        const rot = Math.round((((idx * 37) % 70) - 35));
+        const sideFactor = idx % 2 === 0 ? -1 : 1.1;
+        const x = Math.round(sideFactor * (16 + (idx * 11) % 28));
+        const y = Math.round(-108 + ((idx * 24) % 85));
+        const rot = Math.round((((idx * 29) % 40) - 20));
         const angles = ['front', 'side', 'front', 'side'];
         const angle = angles[idx % angles.length];
         return {
@@ -1043,33 +1063,33 @@
           x: x,
           y: y,
           rotation: rot,
-          scale: 1.02,
+          scale: 0.98,
           angle: angle,
           zIndex: 10 + idx
         };
       });
-      aiStatusMessage = `تم تشكيل "قالب الباقة البوهيمية الحرة" بجمالية الطبيعة البرية.`;
+      aiStatusMessage = `تم تشكيل "قالب الباقة البوهيمية الحرة" محتواة داخل الغلاف الورقي.`;
 
     } else if (templateId === 'heart_shape') {
-      // 6. قالب القلب الرومانسي
+      // 6. قالب القلب الرومانسي (محتوى داخل الغلاف)
       newStems = sortedStems.map((s, idx) => {
         const t = (idx / total) * Math.PI * 2;
         const hx = 16 * Math.pow(Math.sin(t), 3);
         const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-        const x = Math.round(hx * 5.8);
-        const y = Math.round(hy * 5.4 - 55);
-        const rot = Math.round((x / 110) * 22);
+        const x = Math.round(hx * 3.2);
+        const y = Math.round(hy * 3.2 - 62);
+        const rot = Math.round((x / 60) * 18);
         return {
           ...s,
           x: x,
           y: y,
           rotation: rot,
-          scale: 1.1,
+          scale: 1.0,
           angle: 'front',
           zIndex: 10 + idx
         };
       });
-      aiStatusMessage = `تم تشكيل "قالب القلب الرومانسي" بانحناءات متناغمة.`;
+      aiStatusMessage = `تم تشكيل "قالب القلب الرومانسي" بقلب الغلاف الورقي الفاخر.`;
     }
 
     stems = newStems;
@@ -2285,54 +2305,63 @@
             class:is-front-view={viewMode === 'front'}
             bind:this={canvasContainer}
           >
-            <!-- 0. ياقة ورق التغليف الملكية الفاخرة في المشهد العلوي (Top-Down Luxury Wrap Collar) -->
+            <!-- 0. ياقة ورق التغليف الملكية الفاخرة في المشهد العلوي (Top-Down Luxury Pleated Wrap Collar) -->
             {#if viewMode === 'top'}
-              <svg class="wrap-top-svg fade-in" viewBox="0 0 380 380">
+              <svg class="wrap-top-svg fade-in" viewBox="0 0 420 420">
                 <defs>
                   <radialGradient id="wrapTopCollarGrad" cx="50%" cy="50%" r="50%">
                     <stop offset="0%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.95" />
                     <stop offset="65%" stop-color="{selectedWrap.color}" />
                     <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.9" />
                   </radialGradient>
+                  <radialGradient id="wrapTopNestGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.85" />
+                    <stop offset="70%" stop-color="{selectedWrap.color}" stop-opacity="0.95" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="1" />
+                  </radialGradient>
                   <filter id="topCollarShadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="8" stdDeviation="14" flood-opacity="0.25" />
+                    <feDropShadow dx="0" dy="10" stdDeviation="16" flood-opacity="0.28" />
                   </filter>
                 </defs>
 
-                <!-- طيات ورق التغليف الـ 12 المتداخلة بانسيابية ملكية حول قبة الورد -->
-                <g transform="translate(190, 190)" filter="url(#topCollarShadow)">
-                  {#each Array(12) as _, i}
-                    <g transform="rotate({i * 30})">
+                <!-- طيات ورق التغليف الـ 16 المتداخلة بانسيابية ملكية وفخامة حول قبة الورد -->
+                <g transform="translate(210, 210)" filter="url(#topCollarShadow)">
+                  {#each Array(16) as _, i}
+                    <g transform="rotate({i * 22.5})">
                       <path 
-                        d="M -34,-140 Q 0,-182 34,-140 Q 42,-80 0,-70 Q -42,-80 -34,-140 Z" 
+                        d="M -38,-145 Q 0,-200 38,-145 Q 48,-85 0,-76 Q -48,-85 -38,-145 Z" 
                         fill="{i % 2 === 0 ? selectedWrap.color : selectedWrap.darkColor}"
-                        opacity="{i % 2 === 0 ? 0.96 : 0.88}"
-                        stroke="rgba(255,255,255,0.25)"
+                        opacity="{i % 2 === 0 ? 0.98 : 0.88}"
+                        stroke="rgba(255,255,255,0.28)"
                         stroke-width="1.2"
                       />
-                      <line x1="0" y1="-70" x2="0" y2="-175" stroke="#ffffff" stroke-width="1" opacity="0.32" />
+                      <line x1="0" y1="-76" x2="0" y2="-192" stroke="#ffffff" stroke-width="1" opacity="0.35" />
                     </g>
                   {/each}
 
-                  <!-- بطانة قاع الباقة الداخلي التي تستند عليها سيقان الزهور -->
-                  <circle r="92" fill="{selectedWrap.darkColor}" opacity="0.55" />
-                  <circle r="90" fill="url(#wrapTopCollarGrad)" opacity="0.85" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />
+                  <!-- بطانة قاع الباقة الداخلي التي تستند عليها سيقان الزهور بعمق ثلاثي الأبعاد -->
+                  <circle r="96" fill="{selectedWrap.darkColor}" opacity="0.6" />
+                  <circle r="92" fill="url(#wrapTopNestGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" />
+                  <circle r="85" fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="3" />
                   <circle r="65" fill="none" stroke="rgba(255,255,255,0.18)" stroke-dasharray="4 4" stroke-width="1" />
                 </g>
               </svg>
 
+              <!-- حلقة عمق الظل الداخلي فوق حواف الزهور لتبدو مغمورة بعمق داخل الغلاف -->
+              <div class="wrap-top-depth-ring"></div>
+
               <!-- شبكة التوجيه الدائرية الحرفية في المشهد العلوي (عند تفعيل شبكة التوجيه) -->
               {#if showGrid}
-                <svg class="radial-guide-grid fade-in" viewBox="0 0 380 380">
-                  <g transform="translate(190, 190)">
+                <svg class="radial-guide-grid fade-in" viewBox="0 0 420 420">
+                  <g transform="translate(210, 210)">
                     <circle r="30" fill="none" stroke="var(--olive)" stroke-dasharray="3 3" opacity="0.55" stroke-width="1.2" />
                     <circle r="80" fill="none" stroke="var(--olive)" stroke-dasharray="4 4" opacity="0.55" stroke-width="1.2" />
-                    <circle r="130" fill="none" stroke="var(--olive)" stroke-dasharray="5 5" opacity="0.45" stroke-width="1.2" />
-                    <line x1="-155" y1="0" x2="155" y2="0" stroke="var(--olive)" stroke-dasharray="2 4" opacity="0.4" />
-                    <line x1="0" y1="-155" x2="0" y2="155" stroke="var(--olive)" stroke-dasharray="2 4" opacity="0.4" />
+                    <circle r="140" fill="none" stroke="var(--olive)" stroke-dasharray="5 5" opacity="0.45" stroke-width="1.2" />
+                    <line x1="-185" y1="0" x2="185" y2="0" stroke="var(--olive)" stroke-dasharray="2 4" opacity="0.4" />
+                    <line x1="0" y1="-185" x2="0" y2="185" stroke="var(--olive)" stroke-dasharray="2 4" opacity="0.4" />
                     <text x="6" y="-34" fill="var(--olive)" font-size="11" font-weight="800" opacity="0.85">المركز</text>
                     <text x="6" y="-84" fill="var(--olive)" font-size="11" font-weight="800" opacity="0.85">الوسط</text>
-                    <text x="6" y="-134" fill="var(--olive)" font-size="11" font-weight="800" opacity="0.85">المحيط</text>
+                    <text x="6" y="-144" fill="var(--olive)" font-size="11" font-weight="800" opacity="0.85">المحيط</text>
                   </g>
                 </svg>
               {/if}
@@ -2340,24 +2369,40 @@
 
             <!-- 1. خلفية ورق التغليف الملكي (Back Wrap Folds) في المشهد الأمامي المغلف -->
             {#if viewMode === 'front'}
-              <svg class="wrap-back-svg fade-in" viewBox="0 0 340 400" preserveAspectRatio="none">
+              <svg class="wrap-back-svg fade-in" viewBox="0 0 360 440">
                 <defs>
-                  <linearGradient id="wrapBackGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stop-color="{selectedWrap.color}" stop-opacity="0.9" />
+                  <linearGradient id="wrapBackGradMain" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.color}" stop-opacity="0.95" />
                     <stop offset="60%" stop-color="{selectedWrap.color}" />
-                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.95" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.98" />
+                  </linearGradient>
+                  <linearGradient id="wrapBackTissueGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.75" />
+                    <stop offset="100%" stop-color="{selectedWrap.color}" stop-opacity="0.85" />
                   </linearGradient>
                   <filter id="wrapShadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity="0.25"/>
+                    <feDropShadow dx="0" dy="12" stdDeviation="14" flood-opacity="0.22"/>
                   </filter>
                 </defs>
                 
-                <!-- الجناح الأيسر لورق التغليف -->
-                <path d="M 30,70 L 135,270 L 170,350 L 90,230 Z" fill="url(#wrapBackGrad)" opacity="0.9" />
-                <!-- الجناح الأيمن لورق التغليف -->
-                <path d="M 310,70 L 205,270 L 170,350 L 250,230 Z" fill="url(#wrapBackGrad)" opacity="0.9" />
-                <!-- مخروط الحزام الخلفي -->
-                <path d="M 60,110 Q 170,30 280,110 L 225,320 Q 170,360 115,320 Z" fill="url(#wrapBackGrad)" filter="url(#wrapShadow)" />
+                <!-- التاج الأوسط العالي وقمة الغلاف الخلفي المتسع ليحيط بالورود بالكامل -->
+                <path 
+                  d="M 180,18 C 225,25 310,45 345,100 C 355,150 330,260 230,380 L 195,435 L 165,435 L 130,380 C 30,260 5,150 15,100 C 50,45 135,25 180,18 Z" 
+                  fill="url(#wrapBackGradMain)" 
+                  filter="url(#wrapShadow)" 
+                />
+
+                <!-- بطانة ورق الكريب الداخلي (Tissue Paper Layer) الفاخرة لإبراز العمق خلف الورد -->
+                <path 
+                  d="M 180,45 C 215,55 285,75 315,125 C 320,185 280,270 215,350 L 180,395 L 145,350 C 80,270 40,185 45,125 C 75,75 145,55 180,45 Z" 
+                  fill="url(#wrapBackTissueGrad)" 
+                  opacity="0.6" 
+                />
+
+                <!-- خطوط طيات الأوريغامي الحرفية في خلفية الغلاف -->
+                <path d="M 345,100 L 195,370" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />
+                <path d="M 15,100 L 165,370" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />
+                <path d="M 180,18 L 180,380" stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-dasharray="3 3" />
               </svg>
             {/if}
 
@@ -2406,22 +2451,44 @@
 
             <!-- 3. مقدمة ورق التغليف الملكي (Front Wrap Cone Folds) في المشهد الأمامي المغلف -->
             {#if viewMode === 'front'}
-              <svg class="wrap-front-svg fade-in" viewBox="0 0 340 240">
+              <svg class="wrap-front-svg fade-in" viewBox="0 0 340 260">
                 <defs>
-                  <linearGradient id="wrapFrontGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="wrapFrontGradLeft" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stop-color="{selectedWrap.color}" />
+                    <stop offset="50%" stop-color="{selectedWrap.color}" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" />
+                  </linearGradient>
+                  <linearGradient id="wrapFrontGradRight" x1="1" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.color}" />
+                    <stop offset="40%" stop-color="{selectedWrap.color}" />
                     <stop offset="100%" stop-color="{selectedWrap.darkColor}" />
                   </linearGradient>
                   <filter id="frontFoldShadow">
-                    <feDropShadow dx="0" dy="5" stdDeviation="6" flood-opacity="0.28"/>
+                    <feDropShadow dx="-2" dy="8" stdDeviation="8" flood-opacity="0.32"/>
+                  </filter>
+                  <filter id="frontLapShadow">
+                    <feDropShadow dx="3" dy="6" stdDeviation="7" flood-opacity="0.3"/>
                   </filter>
                 </defs>
-                <!-- الثنية اليسرى فوق السيقان -->
-                <path d="M 50,20 L 170,180 L 145,235 L 100,210 L 65,115 Z" fill="url(#wrapFrontGrad)" filter="url(#frontFoldShadow)" />
-                <!-- الثنية اليمنى متداخلة بنعومة -->
-                <path d="M 290,20 L 125,185 L 150,235 L 210,210 L 275,115 Z" fill="{selectedWrap.color}" opacity="0.95" filter="url(#frontFoldShadow)" />
-                <!-- خط لمعان وطيات أنيقة -->
-                <line x1="290" y1="20" x2="140" y2="195" stroke="#ffffff" stroke-width="1.8" opacity="0.35" />
+
+                <!-- طية الورق اليسرى المرتفعة لتحتضن باقة الورد وتستر السيقان بالكامل -->
+                <path 
+                  d="M 25,25 C 55,20 100,55 170,95 L 185,185 L 150,255 L 125,255 L 85,225 C 45,175 18,105 25,25 Z" 
+                  fill="url(#wrapFrontGradLeft)" 
+                  filter="url(#frontFoldShadow)" 
+                />
+
+                <!-- طية الورق اليمنى المتداخلة الملكية المطوية فوق الطية اليسرى بحرفية -->
+                <path 
+                  d="M 315,25 C 285,20 240,55 160,105 L 155,190 L 190,255 L 215,255 L 255,225 C 295,175 322,105 315,25 Z" 
+                  fill="url(#wrapFrontGradRight)" 
+                  opacity="0.98" 
+                  filter="url(#frontLapShadow)" 
+                />
+
+                <!-- خط اللمعان الحريري على حافة الثنية اليمنى المتقاطعة -->
+                <path d="M 315,25 C 240,55 160,105 155,190" stroke="#ffffff" stroke-width="1.8" opacity="0.4" />
+                <path d="M 25,25 C 100,55 170,95 185,185" stroke="#ffffff" stroke-width="1.2" opacity="0.25" />
               </svg>
 
               <!-- 4. شريط الساتان والختم الشمعي الملكي المدمج في المشهد الأمامي -->
@@ -4001,7 +4068,7 @@
   /* مسرح المعاينة الحية للوحة التفاعلية */
   .stage-viewport {
     width: 100%;
-    height: 420px;
+    height: 440px;
     background: radial-gradient(circle at 50% 40%, #ffffff 0%, #f7f4ee 70%, #ede7dc 100%);
     border-radius: var(--radius-lg);
     position: relative;
@@ -4033,8 +4100,8 @@
   /* ياقة ورق التغليف في المشهد العلوي */
   .wrap-top-svg {
     position: absolute;
-    width: 380px;
-    height: 380px;
+    width: 410px;
+    height: 410px;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
@@ -4042,10 +4109,22 @@
     z-index: 2;
     transition: all 0.4s ease;
   }
+  .wrap-top-depth-ring {
+    position: absolute;
+    width: 182px;
+    height: 182px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.38);
+    pointer-events: none;
+    z-index: 15;
+  }
   .radial-guide-grid {
     position: absolute;
-    width: 380px;
-    height: 380px;
+    width: 410px;
+    height: 410px;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
@@ -4055,11 +4134,11 @@
 
   /* تكبير وتألق الورود في المشهد العلوي */
   .stage-viewport.is-top-view .stem-canvas-node {
-    width: 104px;
-    height: 104px;
+    width: 72px;
+    height: 72px;
   }
   .stage-viewport.is-top-view .stem-img {
-    filter: drop-shadow(0 8px 18px rgba(0,0,0,0.26));
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.24));
     transition: transform 0.2s ease, filter 0.2s ease;
   }
   .stage-viewport.is-top-view .stem-canvas-node:hover .stem-img {
@@ -4089,14 +4168,14 @@
   /* 1. خلفية ورق التغليف الفاخر */
   .wrap-back-svg {
     position: absolute;
-    width: 270px;
-    height: 330px;
+    width: 350px;
+    height: 430px;
     left: 50%;
     top: 50%;
-    transform: translate(-50%, -46%);
+    transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 1;
-    filter: drop-shadow(0 14px 28px rgba(0,0,0,0.12));
+    filter: drop-shadow(0 14px 28px rgba(0,0,0,0.14));
     transition: all 0.4s ease;
   }
 
@@ -4123,8 +4202,8 @@
   }
   .stem-canvas-node {
     position: absolute;
-    width: 95px;
-    height: 95px;
+    width: 70px;
+    height: 70px;
     cursor: grab;
     transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
     display: flex;
@@ -4243,11 +4322,11 @@
   /* 3. مقدمة ورق التغليف الملكي */
   .wrap-front-svg {
     position: absolute;
-    width: 250px;
-    height: 190px;
+    width: 300px;
+    height: 240px;
     left: 50%;
     top: 50%;
-    transform: translate(-50%, -10%);
+    transform: translate(-50%, -20px);
     pointer-events: none;
     z-index: 80;
     transition: all 0.4s ease;
@@ -4256,11 +4335,11 @@
   /* 4. شريط الساتان والختم الشمعي */
   .ribbon-wax-wrap {
     position: absolute;
-    width: 130px;
+    width: 140px;
     height: 90px;
     left: 50%;
-    top: 66%;
-    transform: translate(-50%, 0);
+    top: 50%;
+    transform: translate(-50%, 75px);
     z-index: 95;
     display: flex;
     flex-direction: column;
@@ -4269,7 +4348,7 @@
     transition: all 0.4s ease;
   }
   .satin-ribbon-band {
-    width: 120px;
+    width: 130px;
     height: 18px;
     border-radius: 9px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.25);
