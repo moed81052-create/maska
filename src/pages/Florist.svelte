@@ -278,6 +278,86 @@
   }
 
   // =========================================================================
+  // عارض الزوايا الأربع الفني للباقة للمنسقة (4-Angle Bouquet Atelier Inspector)
+  // =========================================================================
+  let itemActiveAngles = {};
+  function getItemAngle(itemKey) {
+    return itemActiveAngles[itemKey] || 'front';
+  }
+  function setItemAngle(itemKey, angle) {
+    itemActiveAngles = { ...itemActiveAngles, [itemKey]: angle };
+  }
+
+  // تكبير ومعاينة الزوايا الأربع في نافذة فنية منبثقة
+  let showAngleModal = false;
+  let activeModalBouquet = null;
+  function openAngleModal(itm, blueprint, order) {
+    activeModalBouquet = {
+      itm,
+      blueprint,
+      order,
+      wrapColors: getWrapColor(itm.wrap_type || blueprint.wrapType),
+      ribbonColor: getRibbonColor(itm.ribbon_color || blueprint.ribbonColor)
+    };
+    showAngleModal = true;
+  }
+  function closeAngleModal() {
+    showAngleModal = false;
+    activeModalBouquet = null;
+  }
+
+  // استخراج ألوان التغليف
+  function getWrapColor(wrapName = '') {
+    const w = (wrapName || '').toLowerCase();
+    if (w.includes('أسود') || w.includes('فاحم') || w.includes('سهرة') || w.includes('black')) {
+      return { main: '#1e1e1e', dark: '#0a0a0a', border: '#d4af37', label: 'أسود سهرة فاحم' };
+    }
+    if (w.includes('عنابي') || w.includes('مخملي') || w.includes('burgundy')) {
+      return { main: '#541525', dark: '#2d0a12', border: '#d4af37', label: 'عنابي مخملي ملكي' };
+    }
+    if (w.includes('زيتي') || w.includes('مسكة') || w.includes('olive') || w.includes('sage')) {
+      return { main: '#4a5723', dark: '#2b3314', border: '#c59b27', label: 'زيتي مسكة ملكي' };
+    }
+    if (w.includes('وردي') || w.includes('blush') || w.includes('pink')) {
+      return { main: '#e8b2be', dark: '#a86576', border: '#ffffff', label: 'وردي مخملي ناعم' };
+    }
+    if (w.includes('أبيض') || w.includes('شفاف') || w.includes('عاجي') || w.includes('white')) {
+      return { main: '#f7f3ed', dark: '#d6cbc0', border: '#c59b27', label: 'أبيض عاجي شفاف' };
+    }
+    if (w.includes('كرافت') || w.includes('kraft')) {
+      return { main: '#c8a882', dark: '#8a6e4d', border: '#5a4228', label: 'ورق كرافت إيطالي' };
+    }
+    return { main: '#3a481c', dark: '#1c240d', border: '#c59b27', label: wrapName || 'زيتي مسكة ملكي' };
+  }
+
+  // استخراج لون شريط الساتان
+  function getRibbonColor(ribbonName = '') {
+    const r = (ribbonName || '').toLowerCase();
+    if (r.includes('ذهب') || r.includes('gold')) return '#c59b27';
+    if (r.includes('أحمر') || r.includes('قرمزي') || r.includes('crimson') || r.includes('red')) return '#963547';
+    if (r.includes('وردي') || r.includes('rose') || r.includes('pink')) return '#d4889c';
+    if (r.includes('أبيض') || r.includes('حرير') || r.includes('عاجي') || r.includes('white')) return '#fcf8f6';
+    if (r.includes('زيتي') || r.includes('sage') || r.includes('olive')) return '#5e6b2c';
+    return '#c59b27';
+  }
+
+  // نصيحة وإرشاد المنسقة لكل زاوية
+  function getAngleTip(angle) {
+    switch (angle) {
+      case 'front':
+        return 'المشهد الأمامي: إبراز الزهور الأكبر والأبهى فوق ياقة الكشكش وتدرج الارتفاع وتناغم ألوان البتلات مع الفيونكة.';
+      case 'back':
+        return 'المشهد الخلفي: طي الأجنحة الورقية بانتظام وتغطية الساق، والتأكد من إحكام ربطة شريط الساتان الخلفية وبطاقة MASKA.';
+      case 'side':
+        return 'المشهد الجانبي: زاوية ميلان 35° إلى 45° للسيقان الخارجية لإعطاء عمق ثلاثي الأبعاد وبروز أوراق الأوكالبتوس الخضراء.';
+      case 'top':
+        return 'المشهد العلوي: التوزيع الكروي الدائري المتناسق للقبة وسد الفراغات بالكامل 360° لملء محيط الغلاف.';
+      default:
+        return '';
+    }
+  }
+
+  // =========================================================================
   // بيانات تصميم باقة جديدة للكتالوج
   // =========================================================================
   let newBouquet = {
@@ -819,17 +899,332 @@
                     </div>
 
                     <div class="obs-items-grid">
-                      {#each (order.items || []) as itm}
+                      {#each (order.items || []) as itm, itemIdx}
+                        {@const itemKey = `${order.id || order.order_number}_${itm.id || itemIdx}`}
+                        {@const curAngle = getItemAngle(itemKey)}
+                        {@const wrapColors = getWrapColor(itm.wrap_type || blueprint.wrapType)}
+                        {@const ribbonHex = getRibbonColor(itm.ribbon_color || blueprint.ribbonColor)}
                         <div class="obs-item-card fade-in">
-                          <div class="obs-item-media">
-                            <img 
-                              src={itm.bouquet_image || itm.image_url || '/assets/bouquet-pink-spring.svg'} 
-                              alt={itm.item_title} 
-                              class="obs-bouquet-img"
-                            />
-                            {#if itm.occasion_tag}
-                              <span class="obs-occasion-tag">{itm.occasion_tag}</span>
-                            {/if}
+                          <!-- منظار الزوايا الأربع الفني لباقة الورد للمنسقة (من أمام، من خلف، من جنب، من أعلى) -->
+                          <div class="obs-multi-angle-box">
+                            <!-- 1. شريط أزرار تبديل الزوايا الأربع -->
+                            <div class="angle-nav-bar">
+                              <button 
+                                type="button" 
+                                class="angle-tab-btn" 
+                                class:active={curAngle === 'front'} 
+                                on:click={() => setItemAngle(itemKey, 'front')}
+                                title="المشهد الأمامي للواجهة"
+                              >
+                                🌸 أمام
+                              </button>
+                              <button 
+                                type="button" 
+                                class="angle-tab-btn" 
+                                class:active={curAngle === 'back'} 
+                                on:click={() => setItemAngle(itemKey, 'back')}
+                                title="المشهد الخلفي للغلاف والربطة"
+                              >
+                                🎀 خلف
+                              </button>
+                              <button 
+                                type="button" 
+                                class="angle-tab-btn" 
+                                class:active={curAngle === 'side'} 
+                                on:click={() => setItemAngle(itemKey, 'side')}
+                                title="المشهد الجانبي وبروز الطبقات"
+                              >
+                                🌿 جنب
+                              </button>
+                              <button 
+                                type="button" 
+                                class="angle-tab-btn" 
+                                class:active={curAngle === 'top'} 
+                                on:click={() => setItemAngle(itemKey, 'top')}
+                                title="المشهد العلوي للقبة الدائرية"
+                              >
+                                🪷 أعلى
+                              </button>
+                            </div>
+
+                            <!-- 2. نافذة عرض الزاوية المحددة -->
+                            <div class="angle-stage-display">
+                              {#if curAngle === 'front'}
+                                <!-- المشهد الأمامي الكامل -->
+                                <svg class="angle-render-svg fade-in" viewBox="0 0 240 260">
+                                  <defs>
+                                    <linearGradient id="flrFrontWingGrad_{itemKey}" x1="0" y1="0" x2="1" y2="1">
+                                      <stop offset="0%" stop-color="{wrapColors.main}" stop-opacity="0.95" />
+                                      <stop offset="100%" stop-color="{wrapColors.dark}" />
+                                    </linearGradient>
+                                    <radialGradient id="flrAtelierBack_{itemKey}" cx="50%" cy="40%" r="65%">
+                                      <stop offset="0%" stop-color="#ffffff" />
+                                      <stop offset="100%" stop-color="#f2ebe2" />
+                                    </radialGradient>
+                                  </defs>
+                                  <rect width="240" height="260" rx="14" fill="url(#flrAtelierBack_{itemKey})" />
+                                  <!-- أجنحة التغليف الخلفية -->
+                                  <path d="M 120,235 L 28,110 C 18,65 35,32 58,26 L 120,68 Z" fill="url(#flrFrontWingGrad_{itemKey})" stroke="{wrapColors.border}" stroke-width="1.6" />
+                                  <path d="M 120,235 L 212,110 C 222,65 205,32 182,26 L 120,68 Z" fill="url(#flrFrontWingGrad_{itemKey})" stroke="{wrapColors.border}" stroke-width="1.6" />
+                                  <path d="M 120,22 C 145,26 185,42 195,85 C 200,128 175,200 120,240 C 65,200 40,128 45,85 C 55,42 95,26 120,22 Z" fill="{wrapColors.dark}" stroke="{wrapColors.border}" stroke-width="1.4" opacity="0.9" />
+
+                                  <!-- زهور الواجهة المتراصة -->
+                                  <!-- القمة: براعم وورود عالية -->
+                                  <circle cx="120" cy="72" r="19" fill="#c02741" stroke="#fce4e8" stroke-width="1.2" />
+                                  <circle cx="98" cy="80" r="16" fill="#f7f4ed" stroke="#c59b27" stroke-width="1" />
+                                  <circle cx="142" cy="80" r="16" fill="#c02741" stroke="#fce4e8" stroke-width="1" />
+                                  <!-- أوراق خضراء جانبية -->
+                                  <ellipse cx="65" cy="88" rx="14" ry="7" transform="rotate(-30 65 88)" fill="#5e6b2c" />
+                                  <ellipse cx="175" cy="88" rx="14" ry="7" transform="rotate(30 175 88)" fill="#5e6b2c" />
+                                  <!-- الوسط: زهور مفتوحة كاملة النضارة -->
+                                  <circle cx="120" cy="108" r="24" fill="#a41832" stroke="#fff" stroke-width="1.4" />
+                                  <circle cx="86" cy="112" r="19" fill="#d4889c" stroke="#fff" stroke-width="1.2" />
+                                  <circle cx="154" cy="112" r="19" fill="#f28da5" stroke="#fff" stroke-width="1.2" />
+                                  <!-- زهور القاعدة والجبسوفيلا -->
+                                  <circle cx="100" cy="138" r="14" fill="#ffffff" stroke="#ddd" stroke-width="0.8" />
+                                  <circle cx="140" cy="138" r="14" fill="#ffffff" stroke="#ddd" stroke-width="0.8" />
+                                  <circle cx="120" cy="144" r="15" fill="#c02741" />
+
+                                  <!-- ياقة الكشكش الحريرية -->
+                                  <path d="M 52,142 C 72,128 92,150 120,135 C 148,150 168,128 188,142 C 180,165 155,182 120,185 C 85,182 60,165 52,142 Z" fill="#ffffff" opacity="0.9" stroke="{wrapColors.border}" stroke-width="1.2" />
+
+                                  <!-- المخروط الأمامي السفلي -->
+                                  <path d="M 68,160 L 120,240 L 172,160 Z" fill="url(#flrFrontWingGrad_{itemKey})" stroke="{wrapColors.border}" stroke-width="1.4" />
+
+                                  <!-- شريط الساتان والفيونكة -->
+                                  <path d="M 96,188 Q 120,192 144,188" stroke="{ribbonHex}" stroke-width="8" stroke-linecap="round" fill="none" />
+                                  <ellipse cx="110" cy="192" rx="12" ry="7" transform="rotate(-15 110 192)" fill="{ribbonHex}" />
+                                  <ellipse cx="130" cy="192" rx="12" ry="7" transform="rotate(15 130 192)" fill="{ribbonHex}" />
+                                  <circle cx="120" cy="192" r="4.5" fill="#ffd700" />
+                                  <path d="M 116,195 Q 105,215 102,235" stroke="{ribbonHex}" stroke-width="3" fill="none" />
+                                  <path d="M 124,195 Q 135,215 138,235" stroke="{ribbonHex}" stroke-width="3" fill="none" />
+                                </svg>
+                                <span class="angle-tag-floating front">🌸 مشهد أمامي (الواجهة)</span>
+
+                              {:else if curAngle === 'back'}
+                                <!-- المشهد الخلفي: طيات التغليف وربطة السيقان -->
+                                <svg class="angle-render-svg fade-in" viewBox="0 0 240 260">
+                                  <defs>
+                                    <radialGradient id="flrAtelierBackB_{itemKey}" cx="50%" cy="40%" r="65%">
+                                      <stop offset="0%" stop-color="#ffffff" />
+                                      <stop offset="100%" stop-color="#ece4d8" />
+                                    </radialGradient>
+                                  </defs>
+                                  <rect width="240" height="260" rx="14" fill="url(#flrAtelierBackB_{itemKey})" />
+
+                                  <!-- أطراف الزهور البارزة قليلاً من الأعلى خلف التغليف -->
+                                  <circle cx="120" cy="38" r="14" fill="#6d1222" opacity="0.6" />
+                                  <circle cx="95" cy="45" r="12" fill="#5e6b2c" opacity="0.7" />
+                                  <circle cx="145" cy="45" r="12" fill="#5e6b2c" opacity="0.7" />
+
+                                  <!-- ظهر ورق التغليف الكوري: طيات متداخلة أنيقة -->
+                                  <path d="M 120,24 C 150,28 190,48 200,95 C 205,150 170,225 120,235 C 70,225 35,150 40,95 C 50,48 90,28 120,24 Z" fill="{wrapColors.main}" stroke="{wrapColors.border}" stroke-width="1.8" />
+                                  
+                                  <!-- طية الجناح الأيسر الخلفي المتداخل -->
+                                  <path d="M 40,95 L 120,235 L 75,235 L 25,120 Z" fill="{wrapColors.dark}" opacity="0.95" stroke="{wrapColors.border}" stroke-width="1.2" />
+                                  <!-- طية الجناح الأيمن الخلفي المتداخل فوقه -->
+                                  <path d="M 200,95 L 120,235 L 165,235 L 215,120 Z" fill="{wrapColors.dark}" opacity="0.9" stroke="{wrapColors.border}" stroke-width="1.2" />
+                                  
+                                  <!-- خط الطي المركزي والدرزات الخلفية -->
+                                  <line x1="120" y1="24" x2="120" y2="185" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-dasharray="4 3" />
+                                  <line x1="40" y1="95" x2="120" y2="185" stroke="{wrapColors.border}" stroke-width="1.4" opacity="0.75" />
+                                  <line x1="200" y1="95" x2="120" y2="185" stroke="{wrapColors.border}" stroke-width="1.4" opacity="0.75" />
+
+                                  <!-- حزمة السيقان السفلية المربوطة بشريط التثبيت الأخضر -->
+                                  <rect x="108" y="205" width="24" height="42" rx="3" fill="#2d5a27" stroke="#1b3b17" stroke-width="1" />
+                                  <line x1="108" y1="215" x2="132" y2="215" stroke="#4a8542" stroke-width="1.5" />
+                                  <line x1="108" y1="228" x2="132" y2="228" stroke="#4a8542" stroke-width="1.5" />
+                                  <line x1="108" y1="240" x2="132" y2="240" stroke="#4a8542" stroke-width="1.5" />
+
+                                  <!-- ربطة شريط الساتان الخلفية المربوطة بإحكام -->
+                                  <rect x="96" y="185" width="48" height="12" rx="6" fill="{ribbonHex}" stroke="rgba(0,0,0,0.2)" stroke-width="1" />
+                                  <!-- عقدة الفيونكة الخلفية -->
+                                  <circle cx="120" cy="191" r="5" fill="{ribbonHex}" stroke="#ffd700" stroke-width="1" />
+                                  <path d="M 118,194 L 110,212" stroke="{ribbonHex}" stroke-width="3" />
+                                  <path d="M 122,194 L 130,212" stroke="{ribbonHex}" stroke-width="3" />
+
+                                  <!-- بطاقة MASKA الملكية المعلقة من الخلف -->
+                                  <g transform="translate(142, 160)">
+                                    <line x1="-12" y1="25" x2="0" y2="0" stroke="#d4af37" stroke-width="1" />
+                                    <rect x="-2" y="0" width="36" height="22" rx="3" fill="#fff" stroke="#c59b27" stroke-width="1" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.15))" />
+                                    <text x="16" y="10" font-size="6" font-weight="900" fill="#4a5723" text-anchor="middle">MASKA</text>
+                                    <text x="16" y="17" font-size="5" font-weight="700" fill="#c59b27" text-anchor="middle">ATELIER</text>
+                                  </g>
+                                </svg>
+                                <span class="angle-tag-floating back">🎀 مشهد خلفي (طيات الغلاف والربطة)</span>
+
+                              {:else if curAngle === 'side'}
+                                <!-- المشهد الجانبي: بروز الطبقات وزوايا ميلان السيقان 45° -->
+                                <svg class="angle-render-svg fade-in" viewBox="0 0 240 260">
+                                  <defs>
+                                    <radialGradient id="flrAtelierBackS_{itemKey}" cx="50%" cy="40%" r="65%">
+                                      <stop offset="0%" stop-color="#ffffff" />
+                                      <stop offset="100%" stop-color="#f0e7dc" />
+                                    </radialGradient>
+                                  </defs>
+                                  <rect width="240" height="260" rx="14" fill="url(#flrAtelierBackS_{itemKey})" />
+
+                                  <!-- خط توجيه زاوية 45° استرشادي -->
+                                  <line x1="65" y1="35" x2="175" y2="145" stroke="#c59b27" stroke-width="1" stroke-dasharray="3 3" opacity="0.45" />
+
+                                  <!-- الجدار الخلفي المرتفع للغلاف (يسار) -->
+                                  <path d="M 65,30 C 58,70 65,130 95,200 L 115,245 L 128,245 L 165,160 C 180,120 185,100 178,90 L 140,110 L 110,140 Z" fill="{wrapColors.main}" stroke="{wrapColors.border}" stroke-width="1.6" />
+                                  <path d="M 65,30 L 105,75 L 95,200 Z" fill="{wrapColors.dark}" opacity="0.9" />
+
+                                  <!-- الزهرة الخلفية العالية (عمودية 90° بطول 48 سم) -->
+                                  <circle cx="82" cy="52" r="18" fill="#c02741" stroke="#fff" stroke-width="1.2" />
+                                  <!-- زهرة الوسط المائلة 20° للأمام -->
+                                  <circle cx="115" cy="82" r="22" fill="#a41832" stroke="#fff" stroke-width="1.4" />
+                                  <!-- زهرة بيوني بارزة للأمام -->
+                                  <circle cx="142" cy="98" r="19" fill="#d4889c" stroke="#fff" stroke-width="1.2" />
+                                  <!-- زهرة القاعدة المائلة 40° فوق حافة الياقة -->
+                                  <circle cx="168" cy="118" r="15" fill="#f7f4ed" stroke="#c59b27" stroke-width="1" />
+
+                                  <!-- غصن أوكالبتوس ممتد جانبياً لليمين -->
+                                  <path d="M 125,95 Q 165,90 195,105" stroke="#5e6b2c" stroke-width="2.5" fill="none" />
+                                  <ellipse cx="160" cy="92" rx="9" ry="5" transform="rotate(-20 160 92)" fill="#5e6b2c" />
+                                  <ellipse cx="180" cy="98" rx="8" ry="4" transform="rotate(15 180 98)" fill="#5e6b2c" />
+                                  <ellipse cx="195" cy="105" rx="7" ry="4" transform="rotate(-10 195 105)" fill="#5e6b2c" />
+
+                                  <!-- ياقة التغليف الجانبية -->
+                                  <path d="M 98,140 C 120,130 145,135 175,125 C 165,155 140,175 110,185 Z" fill="#ffffff" opacity="0.88" stroke="{wrapColors.border}" stroke-width="1" />
+
+                                  <!-- مقطع الفيونكة الجانبي -->
+                                  <g transform="translate(112, 182)">
+                                    <ellipse cx="12" cy="0" rx="14" ry="7" transform="rotate(25 12 0)" fill="{ribbonHex}" stroke="#ffd700" stroke-width="0.8" />
+                                    <circle cx="0" cy="0" r="5" fill="{ribbonHex}" />
+                                    <path d="M 2,3 Q 15,25 22,48" stroke="{ribbonHex}" stroke-width="3" fill="none" />
+                                  </g>
+
+                                  <!-- قص السيقان المائل 45° في الأسفل -->
+                                  <path d="M 108,230 L 125,230 L 128,248 L 105,252 Z" fill="#2d5a27" stroke="#1b3b17" stroke-width="1" />
+                                  <line x1="105" y1="252" x2="128" y2="248" stroke="#ffd700" stroke-width="1.5" />
+                                </svg>
+                                <span class="angle-tag-floating side">🌿 مشهد جانبي (بروز الطبقات والميلان)</span>
+
+                              {:else if curAngle === 'top'}
+                                <!-- المشهد العلوي: القبة الدائرية وتغطية كامل القطر 360° -->
+                                <svg class="angle-render-svg fade-in" viewBox="0 0 240 260">
+                                  <defs>
+                                    <radialGradient id="flrAtelierBackT_{itemKey}" cx="50%" cy="40%" r="65%">
+                                      <stop offset="0%" stop-color="#ffffff" />
+                                      <stop offset="100%" stop-color="#ece2d2" />
+                                    </radialGradient>
+                                    <radialGradient id="flrDomeNest_{itemKey}" cx="50%" cy="50%" r="50%">
+                                      <stop offset="0%" stop-color="{wrapColors.dark}" />
+                                      <stop offset="80%" stop-color="{wrapColors.main}" />
+                                      <stop offset="100%" stop-color="{wrapColors.dark}" />
+                                    </radialGradient>
+                                  </defs>
+                                  <rect width="240" height="260" rx="14" fill="url(#flrAtelierBackT_{itemKey})" />
+
+                                  <g transform="translate(120, 130)">
+                                    <!-- طوق الأوريغامي المسنن الدائري الكامل 360° -->
+                                    {#each Array(16) as _, i}
+                                      <g transform="rotate({i * 22.5})">
+                                        <polygon points="0,-115 -22,-65 0,-65" fill="{wrapColors.main}" stroke="rgba(255,255,255,0.2)" stroke-width="0.6" />
+                                        <polygon points="0,-115 0,-65 22,-65" fill="{wrapColors.dark}" stroke="rgba(255,255,255,0.15)" stroke-width="0.6" />
+                                        <line x1="0" y1="-115" x2="0" y2="-65" stroke="{wrapColors.border}" stroke-width="1" opacity="0.8" />
+                                      </g>
+                                    {/each}
+
+                                    <!-- قاعدة الطوق الحاضنة -->
+                                    <circle r="72" fill="url(#flrDomeNest_{itemKey})" stroke="{wrapColors.border}" stroke-width="2" />
+                                    <circle r="68" fill="none" stroke="rgba(0,0,0,0.3)" stroke-width="3" />
+
+                                    <!-- حلقة الزهور الخارجية الملاصقة للطوق (8 ورود) -->
+                                    {#each Array(8) as _, i}
+                                      <circle 
+                                        cx="{Math.cos(i * 45 * Math.PI / 180) * 48}" 
+                                        cy="{Math.sin(i * 45 * Math.PI / 180) * 48}" 
+                                        r="15" 
+                                        fill="{i % 2 === 0 ? '#c02741' : (i % 3 === 0 ? '#f7f4ed' : '#d4889c')}" 
+                                        stroke="#ffffff" 
+                                        stroke-width="1" 
+                                      />
+                                    {/each}
+
+                                    <!-- حلقة الزهور الوسطى (6 ورود) -->
+                                    {#each Array(6) as _, i}
+                                      <circle 
+                                        cx="{Math.cos((i * 60 + 30) * Math.PI / 180) * 26}" 
+                                        cy="{Math.sin((i * 60 + 30) * Math.PI / 180) * 26}" 
+                                        r="16" 
+                                        fill="{i % 2 === 0 ? '#a41832' : '#f28da5'}" 
+                                        stroke="#ffffff" 
+                                        stroke-width="1.2" 
+                                      />
+                                    {/each}
+
+                                    <!-- الوردة المركزية في قلب القبة الدائرية -->
+                                    <circle cx="0" cy="0" r="18" fill="#880e24" stroke="#ffffff" stroke-width="1.4" />
+                                    <circle cx="0" cy="0" r="8" fill="#c02741" />
+
+                                    <!-- شارة MASKA DOME 360° على حافة الطوق -->
+                                    <g transform="translate(0, -96)">
+                                      <rect x="-30" y="-7" width="60" height="14" rx="7" fill="rgba(20,20,20,0.85)" stroke="{wrapColors.border}" stroke-width="1" />
+                                      <text x="0" y="3" fill="#d4af37" font-size="6.5" font-weight="900" text-anchor="middle" letter-spacing="0.5">MASKA 360°</text>
+                                    </g>
+                                  </g>
+                                </svg>
+                                <span class="angle-tag-floating top">🪷 مشهد علوي (القبة وسد الفراغات 360°)</span>
+                              {/if}
+
+                              <!-- زر تكبير ومعاينة الزوايا الأربع بدقة عالية -->
+                              <button 
+                                type="button" 
+                                class="btn-zoom-angles-floating" 
+                                on:click={() => openAngleModal(itm, blueprint, order)}
+                                title="تكبير ومعاينة الزوايا الأربع معاً بدقة عالية"
+                              >
+                                🔍 تكبير الزوايا 4
+                              </button>
+                            </div>
+
+                            <!-- 3. شريط المصغرات الأربعة بنقرة واحدة -->
+                            <div class="angle-thumbs-row">
+                              <button 
+                                type="button" 
+                                class="angle-mini-thumb" 
+                                class:active={curAngle === 'front'} 
+                                on:click={() => setItemAngle(itemKey, 'front')}
+                                title="من أمام 🌸"
+                              >
+                                <span>🌸 أمام</span>
+                              </button>
+                              <button 
+                                type="button" 
+                                class="angle-mini-thumb" 
+                                class:active={curAngle === 'back'} 
+                                on:click={() => setItemAngle(itemKey, 'back')}
+                                title="من خلف 🎀"
+                              >
+                                <span>🎀 خلف</span>
+                              </button>
+                              <button 
+                                type="button" 
+                                class="angle-mini-thumb" 
+                                class:active={curAngle === 'side'} 
+                                on:click={() => setItemAngle(itemKey, 'side')}
+                                title="من جنب 🌿"
+                              >
+                                <span>🌿 جنب</span>
+                              </button>
+                              <button 
+                                type="button" 
+                                class="angle-mini-thumb" 
+                                class:active={curAngle === 'top'} 
+                                on:click={() => setItemAngle(itemKey, 'top')}
+                                title="من أعلى 🪷"
+                              >
+                                <span>🪷 أعلى</span>
+                              </button>
+                            </div>
+
+                            <!-- 4. شريط إرشادي للزاوية النشطة -->
+                            <div class="angle-tip-strip">
+                              <small>{getAngleTip(curAngle)}</small>
+                            </div>
                           </div>
 
                           <div class="obs-item-details">
@@ -1401,6 +1796,288 @@
             </button>
             <button type="button" class="btn btn-outline btn-lg" on:click={() => editBouquetModal.open = false}>
               إلغاء
+            </button>
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    <!-- =====================================================================
+         مودل تكبير ومعاينة الزوايا الأربع معاً للمنسقة (4-Angle Atelier Lightbox Modal)
+         ===================================================================== -->
+    {#if showAngleModal && activeModalBouquet}
+      <div class="modal-backdrop fade-in" on:click|self={closeAngleModal}>
+        <div class="modal-card angle-lightbox-modal-card fade-in">
+          <div class="modal-header">
+            <div>
+              <h3>معاينة الزوايا الأربع للباقة الفاخرة (360° Atelier Inspector)</h3>
+              <p class="modal-sub">
+                تفاصيل التنسيق الشامل للمنسقة • طلب رقم #{activeModalBouquet.order.id} • {activeModalBouquet.itm.name}
+              </p>
+            </div>
+            <button type="button" class="btn-close-modal" on:click={closeAngleModal}>✕</button>
+          </div>
+
+          <!-- شريط المواصفات التقنية السريعة -->
+          <div class="angle-modal-specs-strip">
+            <span class="spec-pill"><b>نوع الغلاف:</b> {activeModalBouquet.itm.wrap_type || activeModalBouquet.blueprint.wrapType} ({activeModalBouquet.wrapColors.label})</span>
+            <span class="spec-pill"><b>شريط الساتان:</b> {activeModalBouquet.itm.ribbon_color || activeModalBouquet.blueprint.ribbonColor}</span>
+            <span class="spec-pill"><b>الختم الشمعي:</b> {activeModalBouquet.itm.wax_seal_text || activeModalBouquet.blueprint.sealText || 'MASKA'}</span>
+            <span class="spec-pill"><b>إجمالي السيقان:</b> {activeModalBouquet.blueprint.totalStems} ساق</span>
+          </div>
+
+          <div class="modal-body-scroll">
+            <div class="modal-4angles-grid">
+              <!-- 1. الزاوية الأمامية -->
+              <div class="angle-modal-card">
+                <div class="am-header">
+                  <span class="am-badge front">🌸 1. المشهد الأمامي (Front View)</span>
+                  <small>الواجهة الأساسية للزبون</small>
+                </div>
+                <div class="am-visual">
+                  <svg class="am-svg" viewBox="0 0 240 260">
+                    <defs>
+                      <linearGradient id="modalFrontWing" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="{activeModalBouquet.wrapColors.main}" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="{activeModalBouquet.wrapColors.dark}" />
+                      </linearGradient>
+                      <radialGradient id="modalAtelierBack" cx="50%" cy="40%" r="65%">
+                        <stop offset="0%" stop-color="#ffffff" />
+                        <stop offset="100%" stop-color="#f2ebe2" />
+                      </radialGradient>
+                    </defs>
+                    <rect width="240" height="260" rx="14" fill="url(#modalAtelierBack)" />
+                    <!-- أجنحة التغليف الخلفية -->
+                    <path d="M 120,235 L 28,110 C 18,65 35,32 58,26 L 120,68 Z" fill="url(#modalFrontWing)" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.6" />
+                    <path d="M 120,235 L 212,110 C 222,65 205,32 182,26 L 120,68 Z" fill="url(#modalFrontWing)" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.6" />
+                    <path d="M 120,22 C 145,26 185,42 195,85 C 200,128 175,200 120,240 C 65,200 40,128 45,85 C 55,42 95,26 120,22 Z" fill="{activeModalBouquet.wrapColors.dark}" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.4" opacity="0.9" />
+
+                    <!-- زهور الواجهة المتراصة -->
+                    <circle cx="120" cy="72" r="19" fill="#c02741" stroke="#fce4e8" stroke-width="1.2" />
+                    <circle cx="98" cy="80" r="16" fill="#f7f4ed" stroke="#c59b27" stroke-width="1" />
+                    <circle cx="142" cy="80" r="16" fill="#c02741" stroke="#fce4e8" stroke-width="1" />
+                    <ellipse cx="65" cy="88" rx="14" ry="7" transform="rotate(-30 65 88)" fill="#5e6b2c" />
+                    <ellipse cx="175" cy="88" rx="14" ry="7" transform="rotate(30 175 88)" fill="#5e6b2c" />
+                    <circle cx="120" cy="108" r="24" fill="#a41832" stroke="#fff" stroke-width="1.4" />
+                    <circle cx="86" cy="112" r="19" fill="#d4889c" stroke="#fff" stroke-width="1.2" />
+                    <circle cx="154" cy="112" r="19" fill="#f28da5" stroke="#fff" stroke-width="1.2" />
+                    <circle cx="100" cy="138" r="14" fill="#ffffff" stroke="#ddd" stroke-width="0.8" />
+                    <circle cx="140" cy="138" r="14" fill="#ffffff" stroke="#ddd" stroke-width="0.8" />
+                    <circle cx="120" cy="144" r="15" fill="#c02741" />
+
+                    <!-- ياقة الكشكش الحريرية -->
+                    <path d="M 52,142 C 72,128 92,150 120,135 C 148,150 168,128 188,142 C 180,165 155,182 120,185 C 85,182 60,165 52,142 Z" fill="#ffffff" opacity="0.9" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.2" />
+
+                    <!-- المخروط الأمامي السفلي -->
+                    <path d="M 68,160 L 120,240 L 172,160 Z" fill="url(#modalFrontWing)" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.4" />
+
+                    <!-- فيونكة الساتان -->
+                    <path d="M 96,188 Q 120,192 144,188" stroke="{activeModalBouquet.ribbonColor}" stroke-width="8" stroke-linecap="round" fill="none" />
+                    <ellipse cx="110" cy="192" rx="12" ry="7" transform="rotate(-15 110 192)" fill="{activeModalBouquet.ribbonColor}" />
+                    <ellipse cx="130" cy="192" rx="12" ry="7" transform="rotate(15 130 192)" fill="{activeModalBouquet.ribbonColor}" />
+                    <circle cx="120" cy="192" r="4.5" fill="#ffd700" />
+                    <path d="M 116,195 Q 105,215 102,235" stroke="{activeModalBouquet.ribbonColor}" stroke-width="3" fill="none" />
+                    <path d="M 124,195 Q 135,215 138,235" stroke="{activeModalBouquet.ribbonColor}" stroke-width="3" fill="none" />
+                  </svg>
+                </div>
+                <div class="am-checklist">
+                  <b>معايير التنسيق الأمامي:</b>
+                  <ul>
+                    <li>إبراز الزهور الأكبر والأبهى فوق ياقة الكشكش الشاش البيضاء.</li>
+                    <li>تدرج ارتفاع السيقان في المنتصف لملء قلب الباقة بدون فراغات.</li>
+                    <li>تثبيت فيونكة الساتان الملكية أسفل الياقة مباشرة.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- 2. الزاوية الخلفية -->
+              <div class="angle-modal-card">
+                <div class="am-header">
+                  <span class="am-badge back">🎀 2. المشهد الخلفي (Back View)</span>
+                  <small>هندسة طي الورق وتثبيت الساق</small>
+                </div>
+                <div class="am-visual">
+                  <svg class="am-svg" viewBox="0 0 240 260">
+                    <defs>
+                      <linearGradient id="modalBackWing" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="{activeModalBouquet.wrapColors.dark}" />
+                        <stop offset="100%" stop-color="{activeModalBouquet.wrapColors.main}" />
+                      </linearGradient>
+                    </defs>
+                    <rect width="240" height="260" rx="14" fill="#f8f6f0" />
+                    <!-- أوراق التغليف الكورية المتراكبة من الخلف -->
+                    <path d="M 120,240 L 35,90 L 60,35 L 120,70 Z" fill="url(#modalBackWing)" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.6" />
+                    <path d="M 120,240 L 205,90 L 180,35 L 120,70 Z" fill="url(#modalBackWing)" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.6" />
+                    <path d="M 120,240 L 50,60 L 120,30 L 190,60 Z" fill="{activeModalBouquet.wrapColors.main}" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.4" />
+
+                    <!-- حواف الأوراق الذهبية -->
+                    <line x1="60" y1="35" x2="120" y2="70" stroke="#d4af37" stroke-width="2" />
+                    <line x1="180" y1="35" x2="120" y2="70" stroke="#d4af37" stroke-width="2" />
+
+                    <!-- ظهور قمم السيقان الخضراء من الخلف -->
+                    <path d="M 110,65 L 105,45" stroke="#3d6b2c" stroke-width="4" stroke-linecap="round" />
+                    <path d="M 120,62 L 120,40" stroke="#3d6b2c" stroke-width="4" stroke-linecap="round" />
+                    <path d="M 130,65 L 135,45" stroke="#3d6b2c" stroke-width="4" stroke-linecap="round" />
+
+                    <!-- مقبض السيقان المربوط بشريط الفلورست الأخضر -->
+                    <rect x="106" y="160" width="28" height="75" rx="5" fill="#2d521d" stroke="#1d3813" stroke-width="1.2" />
+                    <line x1="106" y1="175" x2="134" y2="175" stroke="#487832" stroke-width="2" />
+                    <line x1="106" y1="195" x2="134" y2="195" stroke="#487832" stroke-width="2" />
+                    <line x1="106" y1="215" x2="134" y2="215" stroke="#487832" stroke-width="2" />
+
+                    <!-- عقدة شريط الساتان الخلفية وبطاقة MASKA -->
+                    <circle cx="120" cy="165" r="9" fill="{activeModalBouquet.ribbonColor}" stroke="#ffffff" stroke-width="1.2" />
+                    <rect x="95" y="198" width="50" height="26" rx="4" fill="#ffffff" stroke="#c59b27" stroke-width="1" />
+                    <text x="120" y="211" fill="#1e1e1e" font-size="7.5" font-weight="900" text-anchor="middle">MASKA</text>
+                    <text x="120" y="219" fill="#888888" font-size="5.5" font-weight="600" text-anchor="middle">ORIGINAL ATELIER</text>
+                  </svg>
+                </div>
+                <div class="am-checklist">
+                  <b>معايير التنسيق الخلفي:</b>
+                  <ul>
+                    <li>طي أجنحة الورق الكوري ذات الحواف الذهبية بانتظام وتراكب متناسق.</li>
+                    <li>لف عنق السيقان بإحكام بشريط الفلورست الأخضر لإخفاء جميع الأسلاك.</li>
+                    <li>عقدة شريط الساتان الخلفية وبطاقة أصالة MASKA الفاخرة.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- 3. الزاوية الجانبية -->
+              <div class="angle-modal-card">
+                <div class="am-header">
+                  <span class="am-badge side">🌿 3. المشهد الجانبي (Side 3D Profile)</span>
+                  <small>العمق وميلان السيقان 45°</small>
+                </div>
+                <div class="am-visual">
+                  <svg class="am-svg" viewBox="0 0 240 260">
+                    <defs>
+                      <linearGradient id="modalSideCone" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="{activeModalBouquet.wrapColors.main}" />
+                        <stop offset="100%" stop-color="{activeModalBouquet.wrapColors.dark}" />
+                      </linearGradient>
+                    </defs>
+                    <rect width="240" height="260" rx="14" fill="#f8f6f0" />
+                    <!-- مخروط التغليف المائل 45° -->
+                    <path d="M 140,240 L 70,120 C 60,85 75,40 110,30 L 175,100 Z" fill="url(#modalSideCone)" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.6" />
+                    <path d="M 140,240 L 165,115 C 180,95 190,60 175,45 L 135,35 Z" fill="{activeModalBouquet.wrapColors.dark}" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.2" opacity="0.8" />
+
+                    <!-- سيقان متدرجة الارتفاع ومائلة نحو الأمام -->
+                    <line x1="125" y1="210" x2="115" y2="70" stroke="#3d6b2c" stroke-width="5" stroke-linecap="round" />
+                    <line x1="130" y1="210" x2="140" y2="90" stroke="#4a8035" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="135" y1="210" x2="160" y2="115" stroke="#55913c" stroke-width="4" stroke-linecap="round" />
+
+                    <!-- زهور جانبية متدرجة المستويات -->
+                    <circle cx="112" cy="65" r="18" fill="#a41832" stroke="#fff" stroke-width="1.2" />
+                    <circle cx="138" cy="85" r="17" fill="#c02741" stroke="#fff" stroke-width="1.2" />
+                    <circle cx="162" cy="110" r="15" fill="#f28da5" stroke="#fff" stroke-width="1" />
+                    <circle cx="95" cy="95" r="13" fill="#ffffff" stroke="#ddd" stroke-width="0.8" />
+
+                    <!-- أوراق الأوكالبتوس الممتدة جانبياً -->
+                    <ellipse cx="80" cy="80" rx="15" ry="6" transform="rotate(-40 80 80)" fill="#5e6b2c" />
+                    <ellipse cx="68" cy="105" rx="13" ry="5" transform="rotate(-25 68 105)" fill="#5e6b2c" />
+
+                    <!-- ياقة الكشكش من الجنب -->
+                    <path d="M 85,130 C 110,145 140,140 170,125" stroke="#ffffff" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.9" />
+
+                    <!-- فيونكة الساتان الجانبية -->
+                    <ellipse cx="148" cy="165" rx="10" ry="14" transform="rotate(25 148 165)" fill="{activeModalBouquet.ribbonColor}" />
+                    <circle cx="140" cy="162" r="5" fill="#ffd700" />
+                    <path d="M 142,166 Q 155,190 152,225" stroke="{activeModalBouquet.ribbonColor}" stroke-width="3" fill="none" />
+                  </svg>
+                </div>
+                <div class="am-checklist">
+                  <b>معايير التنسيق الجانبي:</b>
+                  <ul>
+                    <li>ميلان السيقان بزاوية 35° إلى 45° لإعطاء عمق وتجسيم ثلاثي الأبعاد.</li>
+                    <li>مستويات تدريجية: السيقان الخلفية مرتفعة والأمامية متقدمة.</li>
+                    <li>امتداد خضرة الأوكالبتوس جانبياً لتأطير الباقة بانسيابية طبيعية.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- 4. الزاوية العلوية -->
+              <div class="angle-modal-card">
+                <div class="am-header">
+                  <span class="am-badge top">🪷 4. المشهد العلوي (Top View 360°)</span>
+                  <small>القبة الدائرية وسد الفراغات</small>
+                </div>
+                <div class="am-visual">
+                  <svg class="am-svg" viewBox="0 0 240 260">
+                    <defs>
+                      <radialGradient id="modalTopGrad" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="{activeModalBouquet.wrapColors.main}" />
+                        <stop offset="100%" stop-color="{activeModalBouquet.wrapColors.dark}" />
+                      </radialGradient>
+                    </defs>
+                    <rect width="240" height="260" rx="14" fill="#f8f6f0" />
+                    <g transform="translate(120, 130)">
+                      <!-- طوق الأوريغامي النجمي الخارجي المسنن (12 زاوية) -->
+                      <polygon 
+                        points="
+                          0,-105 27,-96 52,-88 74,-74 88,-52 96,-27 
+                          105,0 96,27 88,52 74,74 52,88 27,96 
+                          0,105 -27,96 -52,88 -74,74 -88,52 -96,27 
+                          -105,0 -96,-27 -88,-52 -74,-74 -52,-88 -27,-96
+                        " 
+                        fill="url(#modalTopGrad)" 
+                        stroke="{activeModalBouquet.wrapColors.border}" 
+                        stroke-width="2" 
+                      />
+
+                      <!-- حلقة بتلات التغليف الداخلية -->
+                      <circle cx="0" cy="0" r="82" fill="{activeModalBouquet.wrapColors.dark}" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1.2" opacity="0.8" />
+
+                      <!-- الحلقة الخارجية من زهور القبة (12 وردة متراصة) -->
+                      {#each Array(12) as _, i}
+                        <circle 
+                          cx="{Math.cos(i * 30 * Math.PI / 180) * 58}" 
+                          cy="{Math.sin(i * 30 * Math.PI / 180) * 58}" 
+                          r="15" 
+                          fill="{i % 3 === 0 ? '#c02741' : (i % 3 === 1 ? '#e88da2' : '#ffffff')}" 
+                          stroke="#ffffff" 
+                          stroke-width="1" 
+                        />
+                      {/each}
+
+                      <!-- الحلقة المتوسطة من زهور القبة (6 ورود) -->
+                      {#each Array(6) as _, i}
+                        <circle 
+                          cx="{Math.cos((i * 60 + 30) * Math.PI / 180) * 26}" 
+                          cy="{Math.sin((i * 60 + 30) * Math.PI / 180) * 26}" 
+                          r="16" 
+                          fill="{i % 2 === 0 ? '#a41832' : '#f28da5'}" 
+                          stroke="#ffffff" 
+                          stroke-width="1.2" 
+                        />
+                      {/each}
+
+                      <!-- الوردة المركزية -->
+                      <circle cx="0" cy="0" r="18" fill="#880e24" stroke="#ffffff" stroke-width="1.4" />
+                      <circle cx="0" cy="0" r="8" fill="#c02741" />
+
+                      <!-- شارة MASKA 360° -->
+                      <g transform="translate(0, -96)">
+                        <rect x="-30" y="-7" width="60" height="14" rx="7" fill="rgba(20,20,20,0.85)" stroke="{activeModalBouquet.wrapColors.border}" stroke-width="1" />
+                        <text x="0" y="3" fill="#d4af37" font-size="6.5" font-weight="900" text-anchor="middle" letter-spacing="0.5">MASKA 360°</text>
+                      </g>
+                    </g>
+                  </svg>
+                </div>
+                <div class="am-checklist">
+                  <b>معايير التنسيق العلوي:</b>
+                  <ul>
+                    <li>التوزيع الكروي المتناغم 360° لملء محيط الغلاف بالكامل.</li>
+                    <li>سد الفراغات بزهور الحشو (بيبي روز، نَفَس الطفل، أقحوان).</li>
+                    <li>ثبات الوردة المركزية في قلب القبة وتناغم الدوائر المحيطة.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-lg" on:click={closeAngleModal}>
+              تمت المعاينة والاعتماد ✓
             </button>
           </div>
         </div>
@@ -2660,37 +3337,263 @@
       flex-direction: column;
     }
   }
-  .obs-item-media {
-    position: relative;
-    width: 140px;
-    height: 140px;
+  /* =========================================================================
+     نظام استعراض زوايا الباقة الأربع للمنسقة (4-Angle Bouquet Inspector Styles)
+     ========================================================================= */
+  .obs-multi-angle-box {
+    width: 270px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid var(--line-strong);
     border-radius: var(--radius-md);
     overflow: hidden;
-    background: #f4ede4;
-    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   }
-  @media (max-width: 768px) {
-    .obs-item-media {
+  @media (max-width: 860px) {
+    .obs-multi-angle-box {
       width: 100%;
-      height: 180px;
     }
   }
-  .obs-bouquet-img {
+
+  /* 1. شريط أزرار الزوايا العلوي */
+  .angle-nav-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: #f8fafc;
+    padding: 4px;
+    gap: 4px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .angle-tab-btn {
+    border: none;
+    background: transparent;
+    padding: 7px 4px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .angle-tab-btn:hover {
+    color: var(--text);
+    background: rgba(0,0,0,0.03);
+  }
+  .angle-tab-btn.active {
+    background: #ffffff;
+    color: #065f46;
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(6, 95, 70, 0.15);
+  }
+
+  /* 2. مسرح عرض الزاوية */
+  .angle-stage-display {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    background: radial-gradient(circle at 50% 40%, #ffffff 0%, #faf8f5 80%, #f0ede5 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .angle-render-svg {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.08));
   }
-  .obs-occasion-tag {
+  .angle-tag-floating {
     position: absolute;
-    bottom: 6px;
-    right: 6px;
-    background: rgba(0,0,0,0.65);
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
+    top: 8px;
+    right: 8px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(4px);
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    pointer-events: none;
+  }
+  .btn-zoom-angles-floating {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--line-strong);
+    color: #0f172a;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 5px 9px;
+    border-radius: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+  }
+  .btn-zoom-angles-floating:hover {
+    background: #065f46;
+    color: #ffffff;
+    border-color: #065f46;
+  }
+
+  /* 3. شريط المصغرات السريعة */
+  .angle-thumbs-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 6px 8px;
+    background: #fdfbf7;
+    border-top: 1px solid var(--line-strong);
+  }
+  .angle-mini-thumb {
+    padding: 4px 2px;
     font-size: 0.7rem;
     font-weight: 700;
+    border: 1px solid var(--line-strong);
+    background: #ffffff;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+  .angle-mini-thumb:hover {
+    border-color: #065f46;
+    color: var(--text);
+  }
+  .angle-mini-thumb.active {
+    border-color: #065f46;
+    background: #ecfdf5;
+    color: #065f46;
+    font-weight: 800;
+  }
+
+  /* 4. شريط النصيحة الإرشادية الفنية */
+  .angle-tip-strip {
+    padding: 7px 10px;
+    background: #f8fafc;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    font-size: 0.68rem;
+    color: #475569;
+    line-height: 1.35;
+  }
+
+  /* =========================================================================
+     نافذة تكبير ومعاينة الزوايا الأربع (4-Angle Atelier Modal Styles)
+     ========================================================================= */
+  .angle-lightbox-modal-card {
+    width: 95%;
+    max-width: 1250px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+  }
+  .angle-modal-specs-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 24px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .spec-pill {
+    background: #ffffff;
+    border: 1px solid var(--line-strong);
+    padding: 5px 12px;
+    border-radius: 14px;
+    font-size: 0.8rem;
+    color: #334155;
+  }
+  .spec-pill b {
+    color: #065f46;
+  }
+  .modal-4angles-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    padding: 22px 24px;
+  }
+  @media (max-width: 1080px) {
+    .modal-4angles-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 620px) {
+    .modal-4angles-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .angle-modal-card {
+    background: #ffffff;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+  }
+  .am-header {
+    padding: 12px 14px;
+    background: #fdfbf7;
+    border-bottom: 1px solid var(--line-strong);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .am-badge {
+    font-weight: 800;
+    font-size: 0.88rem;
+    color: #0f172a;
+  }
+  .am-header small {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .am-visual {
+    height: 250px;
+    background: radial-gradient(circle at 50% 45%, #ffffff 0%, #faf8f5 75%, #efebe2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+  }
+  .am-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.1));
+  }
+  .am-checklist {
+    padding: 14px;
+    background: #ffffff;
+    border-top: 1px solid var(--line-strong);
+    font-size: 0.74rem;
+    flex: 1;
+  }
+  .am-checklist b {
+    display: block;
+    margin-bottom: 6px;
+    color: #065f46;
+    font-size: 0.78rem;
+  }
+  .am-checklist ul {
+    margin: 0;
+    padding-right: 18px;
+    color: #475569;
+    line-height: 1.5;
+  }
+  .am-checklist li {
+    margin-bottom: 4px;
   }
   .obs-item-details {
     flex: 1;
