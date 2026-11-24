@@ -229,6 +229,19 @@
       suitableFor: 'عشاق الطبيعة العفوية، جلسات التصوير، وهدايا الأصدقاء المبتكرة',
       badgeClass: 'badge-top'
     },
+    {
+      id: 'monogram_dome',
+      name: 'قالب الحروف والأسماء الملكي (M ❤️ S Monogram)',
+      subtitle: 'حروف بيضاء ناصعة في قلب سجادة جوري أحمر بطوق أوريغامي أسود',
+      viewMode: 'top',
+      category: 'top',
+      wrapStyle: 'black_origami_monogram',
+      icon: '🔤',
+      tag: 'إهداء رومانسي بالاسم • حروف الورد',
+      desc: 'تنسيق مبهر مستوحى من الباقات المخصصة كالصورة تماماً، حيث تتراص زهور الجوري الأحمر لتملأ كامل الباقة، وتنسج الزهور البيضاء حرفين وقلب (M ❤️ S) في المركز.',
+      suitableFor: 'المفاجآت الرومانسية، ذكرى الخطوبة، وأعياد الميلاد الاستثنائية',
+      badgeClass: 'badge-top'
+    },
 
     // -------------------------------------------------------------------------
     // 2. قوالب المشهد الأمامي (Front View Templates - 4 باقات مغلفة بأجنحة وياقات متمايزة)
@@ -468,6 +481,25 @@
     });
     stems = newStems;
     applyBouquetTemplate(templateId);
+  }
+
+  // ملء الباقة الملكي بالكامل تلقائياً (Lush Bouquet Auto-Fill) لضمان تغطية كامل مساحة الغلاف
+  function fillFullLushBouquet() {
+    flowers = flowers.map((f, idx) => {
+      let targetQty = 0;
+      if (f.key.includes('red-rose') || f.section === 'center') {
+        targetQty = Math.min(f.stock_quantity, 10);
+      } else if (f.key.includes('baby') || f.key.includes('eucalyptus') || f.section === 'bottom') {
+        targetQty = Math.min(f.stock_quantity, 6);
+      } else if (f.key.includes('white') || f.key.includes('tulip') || f.key.includes('peony')) {
+        targetQty = Math.min(f.stock_quantity, 5);
+      } else {
+        targetQty = Math.min(f.stock_quantity, 3);
+      }
+      return { ...f, qty: Math.max(f.qty, targetQty) };
+    });
+    rebuildStemsAndApplyTemplate(currentTemplateId);
+    aiStatusMessage = '👑 تم ملء الباقة بالكامل بسجادة زهور ملكية كثيفة تملأ كامل الغلاف دون أي فراغات!';
   }
 
   onMount(async () => {
@@ -955,20 +987,21 @@
 
     if (templateId === 'round_dome') {
       // 1. قالب قبة الزهور الملكية المتناسقة - تغطية كاملة وشاملة لمساحة الباقة (Full Volume Phyllotaxis Dome)
-      const baseScale = total <= 4 ? 1.55 : total <= 8 ? 1.38 : total <= 14 ? 1.25 : total <= 24 ? 1.12 : 0.98;
+      const baseScale = total <= 4 ? 1.85 : total <= 8 ? 1.62 : total <= 14 ? 1.40 : total <= 24 ? 1.22 : 1.05;
       newStems = sortedStems.map((s, idx) => {
         let x, y, rot, scale;
         if (idx === 0) {
-          x = 0; y = 0; rot = 0; scale = baseScale * 1.14;
+          x = 0; y = 0; rot = 0; scale = baseScale * 1.15;
         } else {
           const frac = idx / Math.max(1, total - 1);
-          // توزيع فيرما الحلزوني الذهبي لضمان كثافة مساحية متساوية 100% دون أي بقع فارغة
-          const r = 20 + Math.sqrt(frac) * (94 - 20);
+          // توزيع حلزوني كامل يصل حتى طوق الغلاف الملكي (r يصل حتى 132px)
+          const maxR = total <= 8 ? 116 : total <= 14 ? 126 : 134;
+          const r = 24 + Math.sqrt(frac) * (maxR - 24);
           const theta = idx * 137.507764 * (Math.PI / 180);
           x = Math.cos(theta) * r;
           y = Math.sin(theta) * r;
           rot = Math.round(theta * 180 / Math.PI + (idx % 3) * 15) % 360;
-          scale = baseScale * (1.04 - frac * 0.1);
+          scale = baseScale * (1.05 - frac * 0.08);
         }
         return {
           ...s,
@@ -984,14 +1017,15 @@
 
     } else if (templateId === 'compact_posy') {
       // 2. باقة اليد الفرنسية المدمجة (Parisian Posy) - كتلة مدمجة متراصة في علبة دائرية
-      const baseScale = total <= 4 ? 1.55 : total <= 8 ? 1.38 : total <= 14 ? 1.25 : 1.08;
+      const baseScale = total <= 4 ? 1.85 : total <= 8 ? 1.62 : total <= 14 ? 1.40 : 1.18;
       newStems = sortedStems.map((s, idx) => {
         let x, y, rot, scale;
         if (idx === 0) {
           x = 0; y = 0; rot = 0; scale = baseScale * 1.16;
         } else {
           const frac = idx / Math.max(1, total - 1);
-          const r = 16 + Math.sqrt(frac) * (78 - 16);
+          const maxR = total <= 8 ? 85 : total <= 14 ? 98 : 108;
+          const r = 18 + Math.sqrt(frac) * (maxR - 18);
           const theta = (idx * 137.507764 + (idx % 2) * 8) * (Math.PI / 180);
           x = Math.cos(theta) * r;
           y = Math.sin(theta) * r;
@@ -1012,19 +1046,20 @@
 
     } else if (templateId === 'grand_dome') {
       // 3. قبة الـ 100 وردة الكبرى (Grand Dome) - سجادة زهور كثيفة تملأ كامل الطوق المزدوج
-      const baseScale = total <= 6 ? 1.5 : total <= 12 ? 1.32 : total <= 24 ? 1.18 : 1.0;
+      const baseScale = total <= 6 ? 1.80 : total <= 12 ? 1.55 : total <= 24 ? 1.32 : 1.12;
       newStems = sortedStems.map((s, idx) => {
         let x, y, rot, scale;
         if (idx === 0) {
           x = 0; y = 0; rot = 0; scale = baseScale * 1.18;
         } else {
           const frac = idx / Math.max(1, total - 1);
-          const r = 22 + Math.sqrt(frac) * (108 - 22);
+          const maxR = total <= 10 ? 120 : total <= 20 ? 130 : 138;
+          const r = 26 + Math.sqrt(frac) * (maxR - 26);
           const theta = (idx * 137.507764 + (idx % 4) * 10) * (Math.PI / 180);
           x = Math.cos(theta) * r;
           y = Math.sin(theta) * r;
           rot = Math.round(theta * 180 / Math.PI + 30) % 360;
-          scale = baseScale * (1.02 - frac * 0.12);
+          scale = baseScale * (1.04 - frac * 0.1);
         }
         return {
           ...s,
@@ -1037,6 +1072,60 @@
         };
       });
       aiStatusMessage = `تم ملء قبة الـ 100 وردة الكبرى بسجادة مخملية تمتد لكافة أطراف الغلاف المزدوج.`;
+
+    } else if (templateId === 'monogram_dome') {
+      // 3.1 قالب الحروف والأسماء بالورد (M ❤️ S Monogram Dome) - كالصورة 2 تماماً
+      const baseScale = total <= 8 ? 1.60 : total <= 16 ? 1.38 : 1.18;
+      
+      // إحداثيات رسم الحروف "M ❤️ S" بالزهور البيضاء في المركز
+      const monogramCoords = [
+        // حرف M
+        { x: -55, y: -25 }, { x: -55, y: 0 }, { x: -55, y: 25 },
+        { x: -42, y: -10 }, { x: -30, y: -25 }, { x: -30, y: 0 }, { x: -30, y: 25 },
+        // قلب ❤️
+        { x: -5, y: -6 }, { x: 5, y: -6 }, { x: 0, y: 8 },
+        // حرف S
+        { x: 30, y: -25 }, { x: 45, y: -25 }, { x: 30, y: -5 },
+        { x: 45, y: 8 }, { x: 30, y: 25 }, { x: 45, y: 25 }
+      ];
+
+      const lightStems = sortedStems.filter(s => 
+        s.flowerKey.includes('white') || s.flowerKey.includes('baby') || s.color.toLowerCase().includes('fff') || s.color.toLowerCase().includes('f7') || s.color.toLowerCase().includes('fa')
+      );
+      const darkStems = sortedStems.filter(s => !lightStems.includes(s));
+
+      let mIdx = 0;
+      let dIdx = 0;
+
+      newStems = sortedStems.map((s, idx) => {
+        let x, y, rot, scale;
+        if ((lightStems.includes(s) || idx < monogramCoords.length) && mIdx < monogramCoords.length) {
+          const pt = monogramCoords[mIdx++];
+          x = pt.x;
+          y = pt.y;
+          rot = (idx % 2 === 0 ? 5 : -5);
+          scale = baseScale * 0.98;
+        } else {
+          const outerTotal = Math.max(1, total - monogramCoords.length);
+          const frac = dIdx++ / outerTotal;
+          const r = 58 + Math.sqrt(frac) * (134 - 58);
+          const theta = (dIdx * 137.507764) * (Math.PI / 180);
+          x = Math.cos(theta) * r;
+          y = Math.sin(theta) * r;
+          rot = Math.round(theta * 180 / Math.PI) % 360;
+          scale = baseScale * 1.10;
+        }
+        return {
+          ...s,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: rot,
+          scale: scale,
+          angle: 'top',
+          zIndex: 10 + (total - idx)
+        };
+      });
+      aiStatusMessage = `تم نسج قالب الحروف والأسماء بالورد "M ❤️ S" محاطاً بسجادة مخملية كثيفة.`;
 
     } else if (templateId === 'heart_shape') {
       // 4. قالب القلب الرومانسي الملكي - هيكل قلب مصمت وممتلئ بالكامل من المركز إلى المحيط
@@ -1163,24 +1252,27 @@
 
     } else if (templateId === 'korean_fan') {
       // 7. باقة المروحة الكورية المدرجة - انتشار مروحي واسع متدرج يملأ العرض بالكامل كالصورة 1
-      const baseScaleFront = total <= 4 ? 1.52 : total <= 8 ? 1.35 : total <= 14 ? 1.22 : 1.10;
-      const numRows = total <= 5 ? 2 : total <= 12 ? 3 : 4;
+      const baseScaleFront = total <= 4 ? 1.75 : total <= 8 ? 1.55 : total <= 14 ? 1.38 : total <= 24 ? 1.24 : 1.12;
+      const numRows = total <= 4 ? 2 : total <= 9 ? 3 : total <= 16 ? 4 : 5;
 
       newStems = sortedStems.map((s, idx) => {
         const row = Math.min(numRows - 1, Math.floor((idx / total) * numRows));
         const countInRow = Math.max(1, Math.round(total / numRows));
         const colIdx = idx % countInRow;
         const offset = colIdx - (countInRow - 1) / 2;
-        const stagger = (row % 2 === 1) ? 0.4 : 0;
-        const spanX = 42 + row * 26;
+        const stagger = (row % 2 === 1) ? 0.35 : 0;
+        // انتشار عريض يملأ كامل المسافة بين الجناحين
+        const spanX = 110 + row * 38;
         const x = (offset + stagger) * (spanX / Math.max(1, countInRow));
-        const y = -92 + row * (72 / Math.max(1, numRows - 1));
-        const rot = Math.round((offset / Math.max(1, countInRow)) * 22);
-        const scale = baseScaleFront * (1.0 + row * 0.04);
+        // قوس تقوس لطيف للورد في كل صف ليعطي شكل مروحة ممتلئة
+        const arch = -Math.cos((offset / Math.max(1, countInRow)) * Math.PI) * 10;
+        const y = -128 + row * (115 / Math.max(1, numRows - 1)) + arch;
+        const rot = Math.round((offset / Math.max(1, countInRow)) * 26);
+        const scale = baseScaleFront * (1.0 + row * 0.05);
         return {
           ...s,
-          x: Math.round(Math.max(-58, Math.min(58, x))),
-          y: Math.round(Math.max(-98, Math.min(-16, y))),
+          x: Math.round(Math.max(-118, Math.min(118, x))),
+          y: Math.round(Math.max(-138, Math.min(5, y))),
           rotation: rot,
           scale: scale,
           angle: 'front',
@@ -1191,24 +1283,26 @@
 
     } else if (templateId === 'royal_celebration') {
       // 8. قبة الزهور الأمامية الكثيفة للاحتفالات والتخرج تعلوها قبعة التخرج كالصورة 3
-      const baseScaleFront = total <= 4 ? 1.52 : total <= 8 ? 1.35 : total <= 14 ? 1.22 : 1.10;
-      const numRows = total <= 6 ? 2 : total <= 14 ? 3 : 4;
+      const baseScaleFront = total <= 4 ? 1.75 : total <= 8 ? 1.55 : total <= 14 ? 1.38 : total <= 24 ? 1.24 : 1.12;
+      const numRows = total <= 5 ? 2 : total <= 11 ? 3 : total <= 18 ? 4 : 5;
 
       newStems = sortedStems.map((s, idx) => {
         const row = Math.min(numRows - 1, Math.floor((idx / total) * numRows));
         const countInRow = Math.max(2, Math.ceil(total / numRows));
         const colIdx = idx % countInRow;
         const offset = colIdx - (countInRow - 1) / 2;
-        const spanX = 38 + row * 24;
-        const x = offset * (spanX / Math.max(1, countInRow - 1 || 1));
-        const arch = -Math.cos((offset / Math.max(1, countInRow)) * Math.PI) * 7;
-        const y = -88 + row * (70 / Math.max(1, numRows - 1)) + arch;
-        const rot = Math.round(offset * 6);
-        const scale = baseScaleFront * (1.0 + row * 0.05);
+        const spanX = 105 + row * 35;
+        // ترك مساحة خفيفة في اليمين العلوي لقبعة التخرج
+        const capOffset = (row === 0 && colIdx >= countInRow / 2) ? -14 : 0;
+        const x = offset * (spanX / Math.max(1, countInRow - 1 || 1)) + capOffset;
+        const arch = -Math.cos((offset / Math.max(1, countInRow)) * Math.PI) * 12;
+        const y = -125 + row * (112 / Math.max(1, numRows - 1)) + arch;
+        const rot = Math.round(offset * 8);
+        const scale = baseScaleFront * (1.0 + row * 0.06);
         return {
           ...s,
-          x: Math.round(Math.max(-56, Math.min(56, x))),
-          y: Math.round(Math.max(-98, Math.min(-16, y))),
+          x: Math.round(Math.max(-115, Math.min(115, x))),
+          y: Math.round(Math.max(-138, Math.min(5, y))),
           rotation: rot,
           scale: scale,
           angle: 'front',
@@ -1218,63 +1312,55 @@
       aiStatusMessage = `تم ملء باقة التخرج والاحتفالات بقبة زهور أمامية ممتلئة بالكامل تتوجها قبعة التخرج.`;
 
     } else if (templateId === 'royal_cascade') {
-      // 9. باقة الشلال الهرمي الملكي - قمة هرمية عالية مع انسياب جانبي كامل
-      const baseScaleFront = total <= 4 ? 1.52 : total <= 8 ? 1.35 : total <= 14 ? 1.22 : 1.10;
+      // 9. باقة قبة الـ 100 وردة والأوريغامي المدرج الأمامية كالصورة 5
+      const baseScaleFront = total <= 4 ? 1.80 : total <= 8 ? 1.60 : total <= 14 ? 1.40 : total <= 24 ? 1.25 : 1.12;
+      const numRows = total <= 5 ? 2 : total <= 12 ? 3 : total <= 20 ? 4 : 5;
+
       newStems = sortedStems.map((s, idx) => {
-        let x, y, rot, scale, z;
-        if (idx === 0) {
-          x = 0; y = -98; rot = 0; scale = baseScaleFront * 1.12; z = 10;
-        } else {
-          const t = (idx - 1) / Math.max(1, total - 2);
-          y = -90 + t * 74;
-          const spread = Math.sin((t * 0.7 + 0.3) * Math.PI) * 56;
-          const side = idx % 2 === 0 ? -1 : 1;
-          const tierIdx = Math.floor((idx - 1) / 2);
-          x = side * (spread * (0.45 + (tierIdx % 3) * 0.28));
-          rot = Math.round(side * (t * 18));
-          scale = baseScaleFront * (1.0 + Math.sin(t * Math.PI) * 0.08);
-          z = 12 + Math.round(t * 30);
-        }
+        const row = Math.min(numRows - 1, Math.floor((idx / total) * numRows));
+        const countInRow = Math.max(2, Math.ceil(total / numRows));
+        const colIdx = idx % countInRow;
+        const offset = colIdx - (countInRow - 1) / 2;
+        // قبة دائرية عريضة ممتلئة تشبه نصف كرة من الورد
+        const spanX = 125 + Math.sin((row / Math.max(1, numRows - 1)) * Math.PI) * 55;
+        const x = offset * (spanX / Math.max(1, countInRow - 1 || 1));
+        const domeArch = -Math.sqrt(Math.max(0, 1 - Math.pow(offset / (countInRow || 1), 2))) * 18;
+        const y = -130 + row * (118 / Math.max(1, numRows - 1)) + domeArch;
+        const rot = Math.round(offset * 12);
+        const scale = baseScaleFront * (1.02 + Math.sin((row / Math.max(1, numRows - 1)) * Math.PI) * 0.1);
         return {
           ...s,
-          x: Math.round(Math.max(-58, Math.min(58, x))),
-          y: Math.round(Math.max(-100, Math.min(-16, y))),
+          x: Math.round(Math.max(-122, Math.min(122, x))),
+          y: Math.round(Math.max(-142, Math.min(5, y))),
           rotation: rot,
           scale: scale,
           angle: 'front',
-          zIndex: z
+          zIndex: 10 + row * 12 + colIdx
         };
       });
-      aiStatusMessage = `تم تنسيق باقة الشلال الهرمي لتغطي كامل المساحة بانسياب هرمي ممتلئ وفخم.`;
+      aiStatusMessage = `تم ملء باقة قبة الورد الأمامية بسجادة متراصة وممتلئة تمتد لكامل أطراف الغلاف.`;
 
     } else if (templateId === 'classic_front') {
       // 10. الباقة الطولية الكلاسيكية - عمود مركزي وأجنحة متناسقة ممتلئة
-      const baseScaleFront = total <= 4 ? 1.52 : total <= 8 ? 1.35 : total <= 14 ? 1.22 : 1.10;
+      const baseScaleFront = total <= 4 ? 1.75 : total <= 8 ? 1.55 : total <= 14 ? 1.38 : total <= 24 ? 1.22 : 1.10;
+      const numRows = total <= 5 ? 2 : total <= 12 ? 3 : 4;
       newStems = sortedStems.map((s, idx) => {
-        let x, y, rot, z;
-        if (idx === 0) {
-          x = 0; y = -90; rot = 0; z = 10;
-        } else if (idx === 1) {
-          x = 0; y = -56; rot = 0; z = 20;
-        } else if (idx === 2) {
-          x = 0; y = -22; rot = 0; z = 30;
-        } else {
-          const side = idx % 2 === 0 ? -1 : 1;
-          const tier = Math.floor((idx - 3) / 2);
-          const maxTier = Math.ceil((total - 3) / 2);
-          x = side * (24 + (tier % 2) * 22);
-          y = -80 + tier * (62 / Math.max(1, maxTier - 1 || 1));
-          rot = side * (8 + tier * 5);
-          z = 15 + tier * 6;
-        }
+        const row = Math.min(numRows - 1, Math.floor((idx / total) * numRows));
+        const countInRow = Math.max(1, Math.round(total / numRows));
+        const colIdx = idx % countInRow;
+        const offset = colIdx - (countInRow - 1) / 2;
+        const spanX = 85 + row * 32;
+        const x = offset * (spanX / Math.max(1, countInRow - 1 || 1));
+        const y = -120 + row * (105 / Math.max(1, numRows - 1));
+        const rot = Math.round(offset * 10);
         return {
           ...s,
-          x: Math.round(Math.max(-56, Math.min(56, x))),
-          y: Math.round(Math.max(-98, Math.min(-16, y))),
+          x: Math.round(Math.max(-105, Math.min(105, x))),
+          y: Math.round(Math.max(-130, Math.min(5, y))),
           rotation: rot,
           scale: baseScaleFront,
           angle: 'front',
-          zIndex: z
+          zIndex: 10 + row * 12 + colIdx
         };
       });
       aiStatusMessage = `تم تشكيل الباقة الطولية الكلاسيكية بامتلاء متناسق بين المحور المركزي والأطراف.`;
@@ -2093,9 +2179,14 @@
                   <span class="at-desc">{bouquetTemplates.find(t => t.id === currentTemplateId)?.subtitle || ''}</span>
                 </div>
               </div>
-              <button type="button" class="btn btn-outline btn-sm btn-jump-templates" on:click={() => activeTab = 'templates'}>
-                تغيير القالب 📐
-              </button>
+              <div class="at-actions">
+                <button type="button" class="btn btn-lush-fill btn-sm" on:click={fillFullLushBouquet} title="ملء الباقة بسجادة زهور متراصة وممتلئة لكامل الغلاف كصور الـ 100 وردة">
+                  ملء الباقة الملكي 👑
+                </button>
+                <button type="button" class="btn btn-outline btn-sm btn-jump-templates" on:click={() => activeTab = 'templates'}>
+                  تغيير القالب 📐
+                </button>
+              </div>
             </div>
 
             <div class="flowers-list">
@@ -2746,6 +2837,38 @@
                     <circle r="114" fill="{selectedWrap.darkColor}" opacity="0.85" />
                     <circle r="108" fill="#3a481c" opacity="0.9" stroke="rgba(255,255,255,0.3)" stroke-width="2" />
                   </g>
+
+                {:else if currentTemplateId === 'monogram_dome'}
+                  <!-- 7. طوق الأوريغامي الأسود الفاخر لقالب الحروف والأسماء (M ❤️ S Monogram Collar) كالصورة 2 -->
+                  <g transform="translate(230, 230)" filter="url(#starCrownShadow)">
+                    {#each Array(18) as _, i}
+                      <g transform="rotate({i * 20})">
+                        <polygon 
+                          points="0,-226 -40,-120 0,-120" 
+                          fill="#181818" 
+                          stroke="rgba(255,255,255,0.2)" 
+                          stroke-width="0.8"
+                        />
+                        <polygon 
+                          points="0,-226 0,-120 40,-120" 
+                          fill="#0d0d0d" 
+                          stroke="rgba(255,255,255,0.15)" 
+                          stroke-width="0.8"
+                        />
+                        <line x1="0" y1="-226" x2="0" y2="-120" stroke="#ffffff" stroke-width="1.1" opacity="0.4" />
+                        <line x1="0" y1="-226" x2="-18" y2="-175" stroke="rgba(218,165,32,0.85)" stroke-width="1.4" />
+                        <line x1="0" y1="-226" x2="18" y2="-175" stroke="rgba(218,165,32,0.85)" stroke-width="1.4" />
+                      </g>
+                    {/each}
+                    <circle r="126" fill="#0d0d0d" opacity="0.95" />
+                    <circle r="120" fill="url(#starWrapNestGrad)" stroke="rgba(218,165,32,0.85)" stroke-width="2.5" />
+                    <circle r="114" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="3" />
+                    <!-- شارة MASKA MONOGRAM المذهبة -->
+                    <g transform="translate(0, -135)">
+                      <rect x="-35" y="-8" width="70" height="16" rx="8" fill="rgba(20,20,20,0.9)" stroke="rgba(218,165,32,0.9)" stroke-width="1.2" />
+                      <text x="0" y="3" fill="#d4af37" font-size="7.5" font-weight="900" text-anchor="middle" letter-spacing="1">M ❤️ S MONOGRAM</text>
+                    </g>
+                  </g>
                 {/if}
               </svg>
 
@@ -2769,7 +2892,7 @@
               {/if}
             {/if}
 
-            <!-- 1. أجنحة ورق التغليف الكوري الملكي بحواف ذهبية في المشهد الأمامي (Korean Grand Wings - كالصورة 1 و 3) -->
+            <!-- 1. أجنحة ورق التغليف في المشهد الأمامي (هياكل متباينة 100% لكل قالب كصور المستخدم) -->
             {#if viewMode === 'front'}
               <svg class="wrap-back-svg fade-in" viewBox="0 0 420 460">
                 <defs>
@@ -2783,56 +2906,80 @@
                     <stop offset="60%" stop-color="{selectedWrap.color}" />
                     <stop offset="100%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.98" />
                   </linearGradient>
-                  <linearGradient id="koreanTissueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="{selectedWrap.darkColor}" stop-opacity="0.75" />
-                    <stop offset="100%" stop-color="{selectedWrap.color}" stop-opacity="0.85" />
+                  <linearGradient id="frostedTranslucentGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.80" />
+                    <stop offset="50%" stop-color="#fdfbf7" stop-opacity="0.70" />
+                    <stop offset="100%" stop-color="#e8e2d5" stop-opacity="0.85" />
+                  </linearGradient>
+                  <linearGradient id="burgundyGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#6b1226" />
+                    <stop offset="50%" stop-color="#4a0e1c" />
+                    <stop offset="100%" stop-color="#24040a" />
+                  </linearGradient>
+                  <linearGradient id="origamiBlackGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#2a2a2a" />
+                    <stop offset="50%" stop-color="#181818" />
+                    <stop offset="100%" stop-color="#0a0a0a" />
                   </linearGradient>
                   <filter id="koreanWrapShadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="14" stdDeviation="16" flood-opacity="0.25"/>
+                    <feDropShadow dx="0" dy="14" stdDeviation="16" flood-opacity="0.28"/>
                   </filter>
                 </defs>
-                
-                <g filter="url(#koreanWrapShadow)">
-                  <!-- الجناح الخارجي الأيسر العالي المتدرج (Outer Left Wing) -->
-                  <path 
-                    d="M 210,390 L 175,445 L 145,445 L 30,220 C 15,160 20,95 45,55 L 125,120 L 210,390 Z" 
-                    fill="url(#koreanWingGradLeft)" 
-                    opacity="0.92"
-                  />
-                  <!-- الجناح الخارجي الأيمن العالي المتدرج (Outer Right Wing) -->
-                  <path 
-                    d="M 210,390 L 245,445 L 275,445 L 390,220 C 405,160 400,95 375,55 L 295,120 L 210,390 Z" 
-                    fill="url(#koreanWingGradRight)" 
-                    opacity="0.92"
-                  />
 
-                  <!-- التاج الأوسط العالي والأجنحة الوسطية (Central Crown & Mid Wings) -->
-                  <path 
-                    d="M 210,18 C 245,22 315,45 355,95 C 365,150 340,250 255,370 L 210,445 L 165,370 C 80,250 55,150 65,95 C 105,45 175,22 210,18 Z" 
-                    fill="url(#koreanWingGradLeft)" 
-                  />
+                {#if currentTemplateId === 'korean_fan'}
+                  <!-- أ. أجنحة التغليف الشفاف الكوري المذهب (Frosted Translucent Fan) كالصورة 1 تماماً -->
+                  <g filter="url(#koreanWrapShadow)">
+                    <!-- الجناح الخارجي الأيسر الشفاف -->
+                    <path d="M 210,400 L 165,445 L 130,445 L 18,210 C 5,145 15,80 40,40 L 125,115 L 210,400 Z" fill="url(#frostedTranslucentGrad)" stroke="rgba(205,140,110,0.85)" stroke-width="2" />
+                    <!-- الجناح الخارجي الأيمن الشفاف -->
+                    <path d="M 210,400 L 255,445 L 290,445 L 402,210 C 415,145 405,80 380,40 L 295,115 L 210,400 Z" fill="url(#frostedTranslucentGrad)" stroke="rgba(205,140,110,0.85)" stroke-width="2" />
+                    <!-- الورقة المركزية العالية خلف الباقة -->
+                    <path d="M 210,10 C 255,15 330,40 370,95 C 380,155 350,260 260,380 L 210,445 L 160,380 C 70,260 40,155 50,95 C 90,40 165,15 210,10 Z" fill="url(#frostedTranslucentGrad)" stroke="rgba(205,140,110,0.85)" stroke-width="2.2" />
+                    <!-- خطوط الإطار البرونزي المذهب الداخلية كالصورة 1 -->
+                    <path d="M 45,55 L 120,118 L 205,390" stroke="rgba(205,140,110,0.7)" stroke-width="1.8" fill="none" />
+                    <path d="M 375,55 L 300,118 L 215,390" stroke="rgba(205,140,110,0.7)" stroke-width="1.8" fill="none" />
+                    <path d="M 120,55 Q 210,25 300,55" stroke="rgba(205,140,110,0.75)" stroke-width="1.8" fill="none" />
+                  </g>
 
-                  <!-- خطوط الإطار الذهبي الفاخر على الأجنحة (Luxury Gold Borders - كما في الصورة 1) -->
-                  <!-- برواز الجناح الأيسر -->
-                  <path d="M 50,65 L 120,122 L 205,385" stroke="rgba(218,165,32,0.7)" stroke-width="1.8" fill="none" stroke-linejoin="round" />
-                  <path d="M 60,78 L 122,130" stroke="rgba(218,165,32,0.4)" stroke-width="1.2" fill="none" />
-                  <!-- برواز الجناح الأيمن -->
-                  <path d="M 370,65 L 300,122 L 215,385" stroke="rgba(218,165,32,0.7)" stroke-width="1.8" fill="none" stroke-linejoin="round" />
-                  <path d="M 360,78 L 298,130" stroke="rgba(218,165,32,0.4)" stroke-width="1.2" fill="none" />
-                  <!-- برواز التاج الأوسط -->
-                  <path d="M 125,58 Q 210,30 295,58" stroke="rgba(218,165,32,0.7)" stroke-width="1.8" fill="none" />
+                {:else if currentTemplateId === 'royal_celebration'}
+                  <!-- ب. طيات التغليف المخروطية الأسطوانية العنابية الفاخرة كصورة التخرج 3 تماماً -->
+                  <g filter="url(#koreanWrapShadow)">
+                    <!-- الأسطوانات/الأنابيب المخروطية المتتالية باللون العنابي -->
+                    <!-- أسطوانة أقصى اليسار -->
+                    <path d="M 210,400 L 140,445 L 35,160 C 25,110 40,65 65,55 L 120,120 L 210,400 Z" fill="url(#burgundyGrad)" stroke="rgba(218,165,32,0.6)" stroke-width="1.5" />
+                    <!-- أسطوانة أقصى اليمين -->
+                    <path d="M 210,400 L 280,445 L 385,160 C 395,110 380,65 355,55 L 300,120 L 210,400 Z" fill="url(#burgundyGrad)" stroke="rgba(218,165,32,0.6)" stroke-width="1.5" />
+                    <!-- أسطوانة وسطى يسار -->
+                    <path d="M 210,400 L 160,420 L 80,120 C 75,70 100,40 135,35 L 175,100 L 210,400 Z" fill="url(#burgundyGrad)" stroke="rgba(218,165,32,0.6)" stroke-width="1.5" />
+                    <!-- أسطوانة وسطى يمين -->
+                    <path d="M 210,400 L 260,420 L 340,120 C 345,70 320,40 285,35 L 245,100 L 210,400 Z" fill="url(#burgundyGrad)" stroke="rgba(218,165,32,0.6)" stroke-width="1.5" />
+                    <!-- التاج العنابي الأوسط المرتفع -->
+                    <path d="M 210,12 C 240,15 285,35 305,75 C 315,120 290,240 240,360 L 210,430 L 180,360 C 130,240 105,120 115,75 C 135,35 180,15 210,12 Z" fill="url(#burgundyGrad)" stroke="rgba(218,165,32,0.85)" stroke-width="2" />
+                    <!-- بطانة حريرية سوداء/عنابية داكنة خلف الورد -->
+                    <ellipse cx="210" cy="180" rx="125" ry="110" fill="#1c0308" opacity="0.8" />
+                  </g>
 
-                  <!-- بطانة ورق الكريب الداخلي (Tissue Paper Layer) الفاخرة لإبراز العمق خلف الورد -->
-                  <path 
-                    d="M 210,48 C 245,55 300,80 330,130 C 335,190 290,270 230,350 L 210,395 L 190,350 C 130,270 85,190 90,130 C 120,80 175,55 210,48 Z" 
-                    fill="url(#koreanTissueGrad)" 
-                    opacity="0.65" 
-                  />
+                {:else if currentTemplateId === 'royal_cascade'}
+                  <!-- ج. طوق الأوريغامي الأسود المتدرج لباقة الـ 100 وردة كالصورة 5 تماماً -->
+                  <g filter="url(#koreanWrapShadow)">
+                    <!-- أجنحة ومثلثات أوريغامي حادة فاحمة السواد خلف القبة -->
+                    <polygon points="210,420 50,260 20,180 90,140" fill="url(#origamiBlackGrad)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <polygon points="210,420 370,260 400,180 330,140" fill="url(#origamiBlackGrad)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <polygon points="210,420 80,150 50,70 140,60" fill="url(#origamiBlackGrad)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <polygon points="210,420 340,150 370,70 280,60" fill="url(#origamiBlackGrad)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <polygon points="210,420 140,70 120,15 210,25" fill="url(#origamiBlackGrad)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <polygon points="210,420 280,70 300,15 210,25" fill="url(#origamiBlackGrad)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <circle cx="210" cy="190" r="140" fill="#0d0d0d" />
+                  </g>
 
-                  <!-- خطوط طيات الأوريغامي الحرفية -->
-                  <path d="M 355,95 L 215,370" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />
-                  <path d="M 65,95 L 205,370" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />
-                </g>
+                {:else}
+                  <!-- د. قالب الباقة الكلاسيكية الطولية (المخروط المتقاطع) -->
+                  <g filter="url(#koreanWrapShadow)">
+                    <path d="M 210,430 L 150,445 L 55,200 C 45,130 70,60 110,40 L 170,110 L 210,430 Z" fill="url(#koreanWingGradLeft)" stroke="rgba(218,165,32,0.7)" stroke-width="1.6" />
+                    <path d="M 210,430 L 270,445 L 365,200 C 375,130 350,60 310,40 L 250,110 L 210,430 Z" fill="url(#koreanWingGradRight)" stroke="rgba(218,165,32,0.7)" stroke-width="1.6" />
+                    <path d="M 210,20 C 240,25 300,50 330,105 C 340,165 310,265 240,380 L 210,440 L 180,380 C 110,265 80,165 90,105 C 120,50 180,25 210,20 Z" fill="url(#koreanWingGradLeft)" stroke="rgba(218,165,32,0.7)" stroke-width="1.6" />
+                  </g>
+                {/if}
               </svg>
             {/if}
 
@@ -2890,8 +3037,18 @@
                   </linearGradient>
                   <linearGradient id="tulleRuffleGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
-                    <stop offset="50%" stop-color="#fdfbf7" stop-opacity="0.88" />
-                    <stop offset="100%" stop-color="#ede7db" stop-opacity="0.75" />
+                    <stop offset="50%" stop-color="#fdfbf7" stop-opacity="0.9" />
+                    <stop offset="100%" stop-color="#ede7db" stop-opacity="0.8" />
+                  </linearGradient>
+                  <linearGradient id="frontBurgundyGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#5a1020" />
+                    <stop offset="50%" stop-color="#420b16" />
+                    <stop offset="100%" stop-color="#22040a" />
+                  </linearGradient>
+                  <linearGradient id="frontOrigamiBlackGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#282828" />
+                    <stop offset="60%" stop-color="#141414" />
+                    <stop offset="100%" stop-color="#080808" />
                   </linearGradient>
                   <filter id="ruffleShadow">
                     <feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity="0.25"/>
@@ -2901,56 +3058,66 @@
                   </filter>
                 </defs>
 
-                <!-- أ. مخروط التغليف الورقي السفلي الذي يضم السيقان -->
-                <!-- الطية اليسرى من المخروط الورقي -->
-                <path 
-                  d="M 55,60 C 95,50 140,85 190,115 L 205,200 L 170,275 L 140,275 L 105,245 C 70,195 48,130 55,60 Z" 
-                  fill="url(#koreanFrontConeGrad)" 
-                  filter="url(#coneFoldShadow)" 
-                />
-                <!-- الطية اليمنى المتقاطعة فوقها -->
-                <path 
-                  d="M 325,60 C 285,50 240,85 180,125 L 175,205 L 210,275 L 240,275 L 275,245 C 310,195 332,130 325,60 Z" 
-                  fill="url(#koreanFrontConeGrad)" 
-                  opacity="0.98" 
-                  filter="url(#coneFoldShadow)" 
-                />
-                <!-- برواز ذهبي رقيق على حافة ثنية المخروط -->
-                <path d="M 325,60 C 240,85 180,125 175,205" stroke="rgba(218,165,32,0.6)" stroke-width="1.6" />
+                {#if currentTemplateId === 'korean_fan'}
+                  <!-- أ. ياقة الكشكش البليسيه الشاش ومخروط التغليف الشفاف كالصورة 1 تماماً -->
+                  <!-- مخروط التغليف الورقي الشفاف السفلي -->
+                  <path d="M 55,65 C 95,55 140,90 190,120 L 205,200 L 170,275 L 140,275 L 105,245 C 70,195 48,130 55,65 Z" fill="rgba(255,255,255,0.78)" stroke="rgba(205,140,110,0.85)" stroke-width="1.8" filter="url(#coneFoldShadow)" />
+                  <path d="M 325,65 C 285,55 240,90 180,130 L 175,205 L 210,275 L 240,275 L 275,245 C 310,195 332,130 325,65 Z" fill="rgba(250,248,242,0.84)" stroke="rgba(205,140,110,0.85)" stroke-width="1.8" filter="url(#coneFoldShadow)" />
 
-                <!-- ب. ياقة الكشكش الشاش الأبيض الحريري المموج (Ruffled Plissé Tulle Collar - كما في الصورة 1) -->
-                <!-- طبقة الكشكش الخلفية لمزيد من الكثافة والعمق -->
-                <path 
-                  d="M 40,55 C 65,30 95,65 125,40 C 155,65 185,35 215,60 C 245,35 275,65 305,40 C 325,60 345,45 355,65 C 340,95 315,110 270,120 C 220,130 160,130 110,120 C 65,110 45,95 40,55 Z" 
-                  fill="rgba(255,255,255,0.6)" 
-                  stroke="rgba(255,255,255,0.8)" 
-                  stroke-width="1.5"
-                />
+                  <!-- ياقة الكشكش الشاش الأبيض الحريري المموج (Plissé Organza Ruffle Collar) -->
+                  <g filter="url(#ruffleShadow)">
+                    <path 
+                      d="M 45,70 
+                         C 60,45 80,75 100,52 
+                         C 120,78 145,48 170,72 
+                         C 195,48 220,78 245,52 
+                         C 270,78 295,48 315,70 
+                         C 330,55 342,75 348,80 
+                         C 335,115 300,132 260,138 
+                         C 210,145 170,145 120,138 
+                         C 80,132 55,115 45,70 Z" 
+                      fill="url(#tulleRuffleGrad)" 
+                      stroke="#ffffff" 
+                      stroke-width="2.2" 
+                    />
+                    <!-- خطوط الثنيات البليسيه الرقيقة داخل ياقة الكشكش -->
+                    <path d="M 100,52 C 105,80 115,125 120,138" stroke="rgba(197,155,39,0.3)" stroke-width="1" />
+                    <path d="M 170,72 C 172,95 175,130 175,145" stroke="rgba(197,155,39,0.3)" stroke-width="1" />
+                    <path d="M 245,52 C 240,80 235,125 230,138" stroke="rgba(197,155,39,0.3)" stroke-width="1" />
+                    <path d="M 315,70 C 305,92 285,120 270,132" stroke="rgba(197,155,39,0.3)" stroke-width="1" />
+                  </g>
 
-                <!-- طبقة الكشكش الأمامية البارزة ذات التموجات المتناغمة تحت الورد مباشرة -->
-                <g filter="url(#ruffleShadow)">
-                  <path 
-                    d="M 45,68 
-                       C 60,45 80,75 100,52 
-                       C 120,78 145,48 170,72 
-                       C 195,48 220,78 245,52 
-                       C 270,78 295,48 315,70 
-                       C 330,55 342,75 348,78 
-                       C 335,112 300,128 260,135 
-                       C 210,142 170,142 120,135 
-                       C 80,128 55,112 45,68 Z" 
-                    fill="url(#tulleRuffleGrad)" 
-                    stroke="#ffffff" 
-                    stroke-width="2" 
-                  />
+                {:else if currentTemplateId === 'royal_celebration'}
+                  <!-- ب. طيات التغليف المخروطية الأسطوانية الملفوفة كصورة التخرج 3 تماماً -->
+                  <!-- قاعدة المخروط العنابية المجمعة -->
+                  <path d="M 60,75 L 180,130 L 195,210 L 165,275 L 130,275 L 90,230 Z" fill="url(#frontBurgundyGrad)" stroke="rgba(218,165,32,0.6)" stroke-width="1.5" filter="url(#coneFoldShadow)" />
+                  <path d="M 320,75 L 195,135 L 185,210 L 215,275 L 250,275 L 290,230 Z" fill="url(#frontBurgundyGrad)" stroke="rgba(218,165,32,0.6)" stroke-width="1.5" filter="url(#coneFoldShadow)" />
 
-                  <!-- خطوط الثنيات البليسيه الرقيقة داخل ياقة الكشكش لتبدو قماشية حقيقية -->
-                  <path d="M 100,52 C 105,80 115,125 120,135" stroke="rgba(197,155,39,0.25)" stroke-width="1" />
-                  <path d="M 170,72 C 172,95 175,130 175,142" stroke="rgba(197,155,39,0.25)" stroke-width="1" />
-                  <path d="M 245,52 C 240,80 235,125 230,135" stroke="rgba(197,155,39,0.25)" stroke-width="1" />
-                  <path d="M 315,70 C 305,92 285,120 270,130" stroke="rgba(197,155,39,0.25)" stroke-width="1" />
-                  <path d="M 60,65 C 75,85 95,115 105,125" stroke="rgba(197,155,39,0.25)" stroke-width="1" />
-                </g>
+                  <!-- طيات الأنابيب الأسطوانية الملفوفة المتتالية حول الياقة كالصورة 3 -->
+                  <g filter="url(#ruffleShadow)">
+                    {#each [-70, -35, 0, 35, 70] as offset, idx}
+                      <g transform="translate({190 + offset}, 82) rotate({offset * 0.16})">
+                        <!-- أسطوانة ورقية ملفوفة مفرغة الحافة -->
+                        <ellipse cx="0" cy="0" rx="16" ry="9" fill="#24040a" stroke="rgba(218,165,32,0.7)" stroke-width="1.4" />
+                        <ellipse cx="0" cy="0" rx="12" ry="6" fill="#140206" />
+                        <path d="M -16,0 L -12,45 L 12,45 L 16,0 Z" fill="url(#frontBurgundyGrad)" stroke="rgba(218,165,32,0.5)" stroke-width="1" />
+                      </g>
+                    {/each}
+                  </g>
+
+                {:else if currentTemplateId === 'royal_cascade'}
+                  <!-- ج. قاعدة الأوريغامي السوداء المسننة لباقة الـ 100 وردة كالصورة 5 تماماً -->
+                  <g filter="url(#coneFoldShadow)">
+                    <polygon points="190,135 60,80 120,270 190,275" fill="url(#frontOrigamiBlackGrad)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <polygon points="190,135 320,80 260,270 190,275" fill="#121212" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    <polygon points="190,135 150,70 190,45 230,70" fill="#222222" stroke="rgba(218,165,32,0.85)" stroke-width="1.5" />
+                  </g>
+
+                {:else}
+                  <!-- د. ثنية الكيمونو المتقاطعة الكلاسيكية مع الختم الشمعي -->
+                  <path d="M 55,60 C 95,50 140,85 190,115 L 205,200 L 170,275 L 140,275 L 105,245 C 70,195 48,130 55,60 Z" fill="url(#koreanFrontConeGrad)" filter="url(#coneFoldShadow)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                  <path d="M 325,60 C 285,50 240,85 180,125 L 175,205 L 210,275 L 240,275 L 275,245 C 310,195 332,130 325,60 Z" fill="url(#koreanFrontConeGrad)" opacity="0.98" filter="url(#coneFoldShadow)" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                {/if}
               </svg>
 
               <!-- 4. شريط الساتان والختم الشمعي الملكي المدمج في المشهد الأمامي -->
@@ -3650,6 +3817,28 @@
   .at-desc {
     font-size: 0.78rem;
     color: var(--text-muted);
+  }
+  .at-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-lush-fill {
+    background: linear-gradient(135deg, #c59b27, #e6c875);
+    color: #1a1a1a;
+    font-weight: 800;
+    border: none;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 10px rgba(197, 155, 39, 0.35);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+  }
+  .btn-lush-fill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(197, 155, 39, 0.5);
   }
   .btn-jump-templates {
     font-weight: 700;
