@@ -38,13 +38,89 @@
     paymentMethod: 'cash_on_delivery'
   };
 
+  // العناوين والمواقع المحفوظة في حساب الزبون
+  let savedAddresses = [];
+  let selectedSavedAddressId = null; // null | addr.id | 'custom'
+  let loadingAddresses = false;
+  let saveNewAddressToAccount = false;
+  let newAddressTitle = '';
+
+  // جلب العناوين المحفوظة في حساب الزبون
+  async function loadUserSavedAddresses(userId) {
+    if (!userId) return;
+    loadingAddresses = true;
+    try {
+      const res = await api.getUserAddresses(userId);
+      if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+        savedAddresses = res.data;
+        // إذا لم يكن قد تم اختيار عنوان مسبقاً، يتم تطبيق العنوان الافتراضي
+        if (!selectedSavedAddressId) {
+          const defaultAddr = savedAddresses.find(a => a.is_default) || savedAddresses[0];
+          if (defaultAddr) {
+            applySavedAddress(defaultAddr);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load saved addresses:', e);
+    } finally {
+      loadingAddresses = false;
+    }
+  }
+
+  // تطبيق بيانات العنوان المحفوظ على الحقول والخريطة
+  function applySavedAddress(addr) {
+    if (!addr) return;
+    selectedSavedAddressId = addr.id;
+    if (addr.recipient_name) orderForm.recipientName = addr.recipient_name;
+    if (addr.recipient_phone) orderForm.recipientPhone = addr.recipient_phone;
+
+    const streetParts = [];
+    if (addr.street) streetParts.push(addr.street);
+    if (addr.landmark) streetParts.push(`(أقرب نقطة دالة: ${addr.landmark})`);
+    orderForm.addressDetails = streetParts.join(' ') || addr.title || '';
+
+    const lat = Number(addr.latitude);
+    const lng = Number(addr.longitude);
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      customerLat = lat;
+      customerLng = lng;
+
+      if (mapInstance && mapMarker) {
+        mapInstance.setView([customerLat, customerLng], 15);
+        mapMarker.setLatLng([customerLat, customerLng]);
+      }
+      updateCustomerZoneByCoords(customerLat, customerLng);
+    } else if (addr.city || addr.zone) {
+      const match = deliveryZones.find(z => 
+        (addr.zone && z.zone_name.includes(addr.zone)) || 
+        (addr.city && z.city_name.includes(addr.city))
+      );
+      if (match) {
+        selectedZone = match;
+      }
+    }
+
+    locationStatus = `تم اختيار العنوان المحفوظ من حسابك: «${addr.title || 'العنوان'}» 📍`;
+  }
+
+  // اختيار إدخال موقع / عنوان جديد
+  function handleSelectCustomAddress() {
+    selectedSavedAddressId = 'custom';
+    orderForm.addressDetails = '';
+    locationStatus = 'يمكنك الآن إدخال تفاصيل عنوان جديد أو تحديده على الخريطة.';
+  }
+
   let isSubmitting = false;
 
   onMount(async () => {
-    // ملء بيانات الزبون تلقائياً إذا كان مسجل دخول
+    // ملء بيانات الزبون وجلب عناوينه المحفوظة تلقائياً إذا كان مسجل دخول
     if ($auth) {
       orderForm.recipientName = $auth.full_name || '';
       orderForm.recipientPhone = $auth.phone || '';
+      if ($auth.id) {
+        loadUserSavedAddresses($auth.id);
+      }
     }
 
     // تهيئة الخريطة التفاعلية وتحديد الموقع الحالي فوراً
@@ -76,6 +152,11 @@
       loadingZones = false;
     }
   });
+
+  // تفاعل تلقائي في حال تسجيل الدخول لاحقاً
+  $: if ($auth && $auth.id && savedAddresses.length === 0 && !loadingAddresses) {
+    loadUserSavedAddresses($auth.id);
+  }
 
   onDestroy(() => {
     if (mapInstance) {
@@ -313,6 +394,26 @@
 
       const res = await api.createOrder(payload);
       if (res && res.success && res.data) {
+        // إذا اختار الزبون حفظ العنوان الجديد في حسابه للطلبات القادمة
+        if (saveNewAddressToAccount && $auth && $auth.id && selectedSavedAddressId === 'custom') {
+          try {
+            await api.addUserAddress({
+              userId: $auth.id,
+              title: newAddressTitle.trim() || `عنوان ${orderForm.addressDetails.slice(0, 20) || 'جديد'}`,
+              recipientName: orderForm.recipientName,
+              recipientPhone: orderForm.recipientPhone,
+              city: selectedZone ? selectedZone.city_name : orderForm.city,
+              zone: selectedZone ? selectedZone.zone_name : 'المركز',
+              street: orderForm.addressDetails,
+              latitude: customerLat,
+              longitude: customerLng,
+              isDefault: savedAddresses.length === 0
+            });
+          } catch (saveErr) {
+            console.warn('Auto-save address error:', saveErr);
+          }
+        }
+
         const orderNum = (res.data.order && res.data.order.order_number) || '1048';
         cart.clearCart();
         router.navigate('/track', { order: orderNum, new: 'true' });
@@ -397,8 +498,110 @@
           </div>
 
           <!-- نموذج بيانات المستلم والتوصيل -->
-          <div class="card box-card">
-            <h3>بيانات استلام الهدية</h3>
+          <div class="card box-card delivery-box-card">
+            <div class="delivery-card-header">
+              <div class="dch-text">
+                <h3 class="delivery-title">بيانات استلام الهدية وموقع التوصيل</h3>
+                <p class="delivery-subtitle">اختاري عنواناً وموقعاً محفوظاً في حسابك أو حددي موقعاً جديداً على الخريطة</p>
+              </div>
+              {#if $auth}
+                <div class="user-account-badge">
+                  <span class="uab-icon">👤</span>
+                  <span class="uab-name">{$auth.full_name || $auth.phone}</span>
+                </div>
+              {/if}
+            </div>
+
+            <!-- 1. قسم العناوين المحفوظة في الحساب الشخصي -->
+            {#if $auth}
+              <div class="saved-addresses-block">
+                <div class="sab-header">
+                  <span class="sab-title">
+                    📍 <b>العناوين والمواقع المحفوظة في حسابك:</b>
+                    {#if savedAddresses.length > 0}
+                      <small class="sab-count">({savedAddresses.length} عناوين متاحة)</small>
+                    {/if}
+                  </span>
+                  <button 
+                    type="button" 
+                    class="btn-manage-addrs-link" 
+                    on:click={() => router.navigate('/profile', { tab: 'addresses' })}
+                  >
+                    إدارة العناوين في حسابي ⚙️
+                  </button>
+                </div>
+
+                {#if loadingAddresses}
+                  <div class="loading-addrs-strip">جاري استرجاع عناوِينك المحفوظة...</div>
+                {:else if savedAddresses.length > 0}
+                  <div class="saved-addrs-chips-row">
+                    {#each savedAddresses as addr (addr.id)}
+                      <button 
+                        type="button" 
+                        class="saved-addr-chip" 
+                        class:active={selectedSavedAddressId === addr.id}
+                        on:click={() => applySavedAddress(addr)}
+                      >
+                        <div class="sac-top">
+                          <span class="sac-icon">{addr.title?.includes('عمل') || addr.title?.includes('مكتب') ? '🏢' : (addr.title?.includes('بيت') || addr.title?.includes('منزل') ? '🏠' : '📍')}</span>
+                          <span class="sac-title">{addr.title || 'عنوان محفوظ'}</span>
+                          {#if addr.is_default}
+                            <span class="sac-def-badge">الافتراضي</span>
+                          {/if}
+                          {#if selectedSavedAddressId === addr.id}
+                            <span class="sac-check">✓ تم اختياره</span>
+                          {/if}
+                        </div>
+                        <div class="sac-body">
+                          <span class="sac-zone">{addr.city} • {addr.zone}</span>
+                          {#if addr.street}
+                            <small class="sac-street">{addr.street}</small>
+                          {/if}
+                        </div>
+                        <div class="sac-recipient">
+                          <small>👤 {addr.recipient_name || 'المستلم'} ({addr.recipient_phone || ''})</small>
+                        </div>
+                      </button>
+                    {/each}
+
+                    <!-- زر اختيار إدخال موقع جديد -->
+                    <button 
+                      type="button" 
+                      class="saved-addr-chip new-custom-chip" 
+                      class:active={selectedSavedAddressId === 'custom'}
+                      on:click={handleSelectCustomAddress}
+                    >
+                      <div class="sac-top">
+                        <span class="sac-icon">➕</span>
+                        <span class="sac-title">عنوان / موقع جديد</span>
+                      </div>
+                      <div class="sac-body">
+                        <small class="sac-street">تحديد يدوي وإدخال تفاصيل جديدة</small>
+                      </div>
+                      {#if selectedSavedAddressId === 'custom'}
+                        <span class="sac-check custom">✓ إدخال جديد</span>
+                      {/if}
+                    </button>
+                  </div>
+                {:else}
+                  <div class="no-addrs-notice">
+                    <span>💡 لا توجد لديك عناوين محفوظة بعد. يمكنك تحديد موقعك بالأسفل وحفظه في حسابك للطلبات القادمة بنقرة واحدة! 📍</span>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="login-quick-prompt">
+                <span class="lqp-icon">💡</span>
+                <div class="lqp-text">
+                  <b>هل لديك حساب شخصي في مسكة؟</b>
+                  <span>سجّل دخولك الآن لاختيار عناوينك ومواقعك المحفوظة بنقرة واحدة دون إعادة إدخالها في كل مرة.</span>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm lqp-btn" on:click={() => router.navigate('/login')}>
+                  تسجيل الدخول 🔑
+                </button>
+              </div>
+            {/if}
+
             <div class="form-grid">
               <div class="form-group">
                 <label>اسم المستلم أو المحتفى به:</label>
@@ -465,7 +668,7 @@
                 </div>
 
                 {#if locationStatus}
-                  <div class="location-status-bar" class:success={locationStatus.includes('تم التعرف')}>
+                  <div class="location-status-bar" class:success={locationStatus.includes('تم التعرف') || locationStatus.includes('تم اختيار')}>
                     {locationStatus}
                   </div>
                 {/if}
@@ -477,6 +680,27 @@
                   <small>يمكنك سحب الدبوس أو النقر على الخريطة لضبط موقع التوصيل</small>
                 </div>
               </div>
+
+              <!-- خيار حفظ العنوان الجديد في حساب الزبون -->
+              {#if $auth && (selectedSavedAddressId === 'custom' || savedAddresses.length === 0)}
+                <div class="form-group full-width save-addr-opt-wrap">
+                  <label class="save-addr-checkbox">
+                    <input type="checkbox" bind:checked={saveNewAddressToAccount} />
+                    <span>💾 حفظ هذا العنوان في حسابي الشخصي للاستخدام في المرات القادمة</span>
+                  </label>
+                  {#if saveNewAddressToAccount}
+                    <div class="new-addr-title-box fade-in">
+                      <label>اسم هذا العنوان (مثال: بيت العائلة، شقة تاجوراء، مكتب النوفليين):</label>
+                      <input 
+                        type="text" 
+                        class="input-field" 
+                        placeholder="اكتبي اسماً مميزاً للعنوان..." 
+                        bind:value={newAddressTitle} 
+                      />
+                    </div>
+                  {/if}
+                </div>
+              {/if}
 
               <div class="form-group">
                 <label>موعد التسليم المرغوب:</label>
@@ -974,6 +1198,279 @@
     margin-top: 18px;
     font-size: 0.78rem;
     color: var(--muted);
+  }
+
+  /* =========================================================================
+     عناصر اختيار العناوين المحفوظة من الحساب الشخصي (Saved Addresses in Cart)
+     ========================================================================= */
+  .delivery-box-card {
+    position: relative;
+  }
+  .delivery-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .delivery-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--olive);
+    margin: 0 0 4px;
+  }
+  .delivery-subtitle {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .user-account-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  /* كتلة العناوين المحفوظة */
+  .saved-addresses-block {
+    background: #fbf9f5;
+    border: 1px solid rgba(94, 107, 44, 0.18);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .sab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .sab-title {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .sab-title b {
+    color: var(--olive);
+  }
+  .sab-count {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-right: 4px;
+  }
+  .btn-manage-addrs-link {
+    background: none;
+    border: none;
+    color: var(--olive);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+  .btn-manage-addrs-link:hover {
+    color: var(--olive-darker);
+  }
+
+  .loading-addrs-strip {
+    font-size: 0.82rem;
+    color: var(--muted);
+    padding: 8px;
+  }
+  .no-addrs-notice {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    background: #ffffff;
+    border: 1px dashed var(--line-strong);
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* صف شرائح العناوين */
+  .saved-addrs-chips-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .saved-addr-chip {
+    background: #ffffff;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    text-align: right;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+  }
+  .saved-addr-chip:hover {
+    border-color: var(--olive);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+  }
+  .saved-addr-chip.active {
+    border-color: var(--olive);
+    background: #f6f8ee;
+    box-shadow: 0 4px 14px rgba(94, 107, 44, 0.15);
+  }
+  .sac-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .sac-icon {
+    font-size: 1.1rem;
+  }
+  .sac-title {
+    font-weight: 800;
+    font-size: 0.88rem;
+    color: var(--text);
+  }
+  .sac-def-badge {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid #fde68a;
+  }
+  .sac-check {
+    margin-right: auto;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #065f46;
+    background: #d1fae5;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .sac-check.custom {
+    color: var(--olive);
+    background: #f0fdf4;
+  }
+  .sac-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
+  }
+  .sac-zone {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--olive);
+  }
+  .sac-street {
+    font-size: 0.74rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sac-recipient {
+    margin-top: 4px;
+    border-top: 1px dashed rgba(0,0,0,0.06);
+    padding-top: 4px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+  .new-custom-chip {
+    border-style: dashed;
+    background: #fafafa;
+    justify-content: center;
+  }
+  .new-custom-chip:hover {
+    background: #ffffff;
+  }
+
+  /* تنبيه الزبون غير المسجل */
+  .login-quick-prompt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .lqp-icon {
+    font-size: 1.3rem;
+  }
+  .lqp-text {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .lqp-text b {
+    font-size: 0.88rem;
+    color: #166534;
+  }
+  .lqp-text span {
+    font-size: 0.78rem;
+    color: #374151;
+  }
+  .lqp-btn {
+    border-color: #166534;
+    color: #166534;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .lqp-btn:hover {
+    background: #166534;
+    color: #ffffff;
+  }
+
+  /* خيار حفظ العنوان */
+  .save-addr-opt-wrap {
+    background: #f8fafc;
+    border: 1px solid var(--line-strong);
+    padding: 14px 16px;
+    border-radius: var(--radius-sm);
+    margin-top: 8px;
+  }
+  .save-addr-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #065f46;
+  }
+  .save-addr-checkbox input {
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    accent-color: var(--olive);
+  }
+  .new-addr-title-box {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .new-addr-title-box label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
   }
 
   @media (max-width: 900px) {
