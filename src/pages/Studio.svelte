@@ -134,22 +134,102 @@
   let sealStamp = 'MASKA';
   let is3DRotating = false;
   let showGrid = false;
-  let activeTab = 'flowers'; // 'flowers' | 'ai' | 'stems' | 'packaging'
+  let activeTab = 'flowers'; // 'flowers' | 'templates' | 'packaging' | 'chat'
   let addedToast = false;
 
   // المشهد المرئي للباقة: علوي لقبة الزهور الملكية (top) أو أمامي مغلف بالشريط (front)
   let viewMode = 'top'; // 'top' | 'front'
 
-  // تفعيل المشهد تلقائياً بناءً على مرحلة التصميم:
-  // في مرحلة تصميم الورد والسيقان: مشهد علوي لتوزيع الورود، وفي التغليف والشريط: مشهد أمامي مغلف (زي توا)
+  // ===========================================================================
+  // قوالب وأنماط التنسيق الملكية الفاخرة (Bouquet Templates Engine)
+  // ===========================================================================
+  let currentTemplateId = 'round_dome';
+  let templateFilter = 'all'; // 'all' | 'top' | 'front'
+
+  const bouquetTemplates = [
+    {
+      id: 'round_dome',
+      name: 'قالب التغليف الدائري الملكي',
+      subtitle: 'قبة الزهور المتناسقة في طوق التغليف الفاخر',
+      viewMode: 'top',
+      icon: '🪷',
+      tag: 'الأكثر طلباً • مشهد علوي',
+      desc: 'تنسيق دائري حلزوني متناغم يملأ ياقة ورق التغليف الملكية بزهور متراصة كقبة فخمة تبهر الناظر من الأعلى.',
+      suitableFor: 'مناسب لجميع المناسبات، هدايا الطاولات، والمكاتب الراقية',
+      badgeClass: 'badge-top'
+    },
+    {
+      id: 'classic_front',
+      name: 'قالب الباقة الطولية الكلاسيكية',
+      subtitle: 'باقة مخروطية مغلفة بالساتان والختم الشمعي',
+      viewMode: 'front',
+      icon: '🎀',
+      tag: 'كلاسيكي ملكي • مشهد أمامي',
+      desc: 'توزيع رأسي متدرج بين طيات ورق التغليف يبرز طول السيقان وتُحزم بشريط الساتان والختم الملكي كهدية ساحرة.',
+      suitableFor: 'مثالية للإهداء الشخصي، التخرج، وباقات التهنئة الراقية',
+      badgeClass: 'badge-front'
+    },
+    {
+      id: 'royal_cascade',
+      name: 'قالب التنسيق الهرمي الملكي',
+      subtitle: 'تدرج ملكي شاهق مع انسياب جانبي فاخر',
+      viewMode: 'front',
+      icon: '👑',
+      tag: 'فخامة ملكية • مشهد أمامي',
+      desc: 'قمة هرمية أنيقة من السيقان الطويلة تليها طبقات متدرجة وكثيفة في الوسط مع فروع خضراء منسابة على الجانبين.',
+      suitableFor: 'حفلات الزفاف، كبار الشخصيات، والمناسبات الرسمية الفاخرة',
+      badgeClass: 'badge-front'
+    },
+    {
+      id: 'boho_garden',
+      name: 'قالب الباقة البوهيمية الحرة',
+      subtitle: 'تنسيق طبيعي مستوحى من المروج البرية',
+      viewMode: 'front',
+      icon: '🌿',
+      tag: 'عصري متمرد • مشهد أمامي',
+      desc: 'ارتفاعات حرة غير متناظرة وأغصان طليقة تمنح الباقة طابعاً عضوياً غنياً كأنها قُطفت تواً من حديقة ريفية أصيلة.',
+      suitableFor: 'عشاق الطبيعة العفوية، جلسات التصوير، وهدايا الأصدقاء المبتكرة',
+      badgeClass: 'badge-front'
+    },
+    {
+      id: 'heart_shape',
+      name: 'قالب القلب الرومانسي',
+      subtitle: 'تشكيل هندسي بديع على هيئة قلب متوهج',
+      viewMode: 'front',
+      icon: '💖',
+      tag: 'رومانسي خالص • مشهد أمامي',
+      desc: 'توزيع دقيق ينسج الورود في منحنى قلب مثالي، بقلب نابض من الجوري والبيوني محاط بهالة من زهور نَفَس الطفل البيضاء.',
+      suitableFor: 'ذكرى الزواج، التعبير عن أصدق المشاعر، وهدايا اللحظات الخاصة',
+      badgeClass: 'badge-front'
+    },
+    {
+      id: 'compact_posy',
+      name: 'قالب باقة اليد المدمجة (Parisian Posy)',
+      subtitle: 'كتلة كثيفة مستديرة مفعمة بالبتلات',
+      viewMode: 'top',
+      icon: '💐',
+      tag: 'باريسي ناعم • مشهد علوي',
+      desc: 'باقة مدمجة ومتراصة جداً تركز على وفرة البتلات وتجاور الألوان بكثافة عالية داخل طوق التغليف الدائري.',
+      suitableFor: 'مسكات العرائس الناعمة، باقات الحمل باليد، والتهنئة اللطيفة',
+      badgeClass: 'badge-top'
+    }
+  ];
+
+  $: filteredTemplates = templateFilter === 'all' 
+    ? bouquetTemplates 
+    : bouquetTemplates.filter(t => t.viewMode === templateFilter);
+
+  // تفعيل المشهد تلقائياً بناءً على مرحلة التصميم والقالب المختار:
   let prevActiveTab = activeTab;
   $: if (activeTab !== prevActiveTab) {
     if (activeTab === 'packaging') {
       viewMode = 'front';
       aiStatusMessage = 'المشهد الأمامي: معاينة التغليف والشريط والختم الشمعي الملكي.';
-    } else if (activeTab === 'flowers' || activeTab === 'stems' || activeTab === 'ai') {
-      viewMode = 'top';
-      aiStatusMessage = 'المشهد العلوي: قبة الزهور الملكية لتوزيع وتنسيق الورود بحرية من الأعلى.';
+    } else if (activeTab === 'flowers' || activeTab === 'templates') {
+      const curTpl = bouquetTemplates.find(t => t.id === currentTemplateId);
+      if (curTpl) {
+        viewMode = curTpl.viewMode || 'top';
+      }
     }
     prevActiveTab = activeTab;
   }
@@ -298,16 +378,30 @@
     };
   }
 
-  // إعادة بناء السيقان الحية عند تحميل الصفحة
-  function initializeStemsFromQuantities() {
+  // إعادة بناء السيقان وتطبيق القالب المحدد تلقائياً
+  function rebuildStemsAndApplyTemplate(templateId = currentTemplateId) {
     const newStems = [];
     flowers.forEach(f => {
       for (let i = 0; i < f.qty; i++) {
-        newStems.push(createStemInstance(f, f.section, i));
+        newStems.push({
+          id: 'stem_' + f.id + '_' + i + '_' + Math.random().toString(36).substr(2, 4),
+          flowerId: f.id,
+          flowerName: f.name,
+          flowerKey: f.key || getFlowerKey(f.name, f.color),
+          color: f.color,
+          price: f.unit_price,
+          section: f.section || 'center',
+          x: 0,
+          y: 0,
+          rotation: 0,
+          scale: 1.0,
+          angle: 'front',
+          zIndex: 10
+        });
       }
     });
     stems = newStems;
-    aiAutoAngles();
+    applyBouquetTemplate(templateId);
   }
 
   onMount(async () => {
@@ -374,7 +468,7 @@
       console.log('Using default packaging options in Studio');
     }
 
-    initializeStemsFromQuantities();
+    rebuildStemsAndApplyTemplate(currentTemplateId);
   });
 
   // تطبيق تصميم باقة مقترح بالكامل من الذكاء الاصطناعي على اللوحة الحية
@@ -430,7 +524,7 @@
     }, 150);
   }
 
-  // تعديل كمية الزهرة (+ أو -)
+  // تعديل كمية الزهرة (+ أو -) وإعادة التنسيق بالقالب تلقائياً وبأعلى معايير الجمال
   function adjustQty(flowerId, delta) {
     const flower = flowers.find(f => f.id === flowerId);
     if (!flower) return;
@@ -441,53 +535,15 @@
     flower.qty = nextQty;
     flowers = [...flowers];
 
-    if (delta > 0) {
-      // إضافة ساق حية على اللوحة
-      const newStem = createStemInstance(flower, flower.section);
-      stems = [...stems, newStem];
-      selectedStemId = newStem.id;
-      aiStatusMessage = `أضيفت ساق جديدة من "${flower.name}" إلى ${getSectionNameAr(flower.section)}`;
-    } else {
-      // إزالة آخر ساق من هذا النوع
-      let removeIdx = -1;
-      for (let i = stems.length - 1; i >= 0; i--) {
-        if (stems[i].flowerId === flowerId) {
-          removeIdx = i;
-          break;
-        }
-      }
-      if (removeIdx !== -1) {
-        const removed = stems[removeIdx];
-        stems = stems.filter((_, idx) => idx !== removeIdx);
-        if (selectedStemId === removed.id) {
-          selectedStemId = stems.length > 0 ? stems[stems.length - 1].id : null;
-        }
-      }
-    }
+    rebuildStemsAndApplyTemplate(currentTemplateId);
   }
 
-  // تغيير قسم نوع الزهرة كاملاً
+  // تغيير قسم نوع الزهرة كاملاً وتحديث التوزيع بالقالب تلقائياً
   function handleSectionChange(flowerId, newSection) {
     flowers = flowers.map(f => f.id === flowerId ? { ...f, section: newSection } : f);
-    
-    // تحريك جميع سيقان هذا النوع بشكل تفاعلي سلس إلى القسم المختار
-    stems = stems.map(s => {
-      if (s.flowerId === flowerId) {
-        const coords = getSectionCoordinates(newSection);
-        return {
-          ...s,
-          section: newSection,
-          x: coords.x + Math.round((Math.random() - 0.5) * 30),
-          y: coords.y + Math.round((Math.random() - 0.5) * 20),
-          rotation: coords.rotation,
-          angle: coords.angle
-        };
-      }
-      return s;
-    });
-
+    rebuildStemsAndApplyTemplate(currentTemplateId);
     const flower = flowers.find(f => f.id === flowerId);
-    aiStatusMessage = `تم نقل زهور "${flower ? flower.name : ''}" إلى قسم (${getSectionNameAr(newSection)})`;
+    aiStatusMessage = `تم نقل زهور "${flower ? flower.name : ''}" إلى قسم (${getSectionNameAr(newSection)}) وتنسيقها بالقالب تلقائياً`;
   }
 
   function getSectionNameAr(sec) {
@@ -792,99 +848,249 @@
     window.removeEventListener('pointercancel', endStemDrag);
   }
 
-  // --- الذكاء الاصطناعي لتنسيق وتحريك وتشكيل الزهور (AI Florist Assistant) ---
+  // --- محرك قوالب وأنماط التنسيق التلقائي الفاخر (Templates Arrangement Engine) ---
 
-  // 1. التنسيق الذكي بأنماط متعددة (AI Arranging Presets)
-  function aiArrangeBouquet(preset = 'royal') {
+  function selectTemplate(tplId) {
+    currentTemplateId = tplId;
+    const tpl = bouquetTemplates.find(t => t.id === tplId);
+    if (tpl) {
+      viewMode = tpl.viewMode || 'top';
+    }
+    rebuildStemsAndApplyTemplate(tplId);
+  }
+
+  function applyBouquetTemplate(templateId = currentTemplateId, isManualCall = false) {
+    currentTemplateId = templateId;
+    const tpl = bouquetTemplates.find(t => t.id === templateId) || bouquetTemplates[0];
+
+    // ضبط المشهد المناسب للقالب (علوي لقبة الزهور والأطواق الدائرية، وأمامي للباقات المغلفة)
+    viewMode = tpl.viewMode || 'top';
+
     if (stems.length === 0) {
-      alert('الرجاء اختيار بعض الزهور أولاً ليقوم الذكاء الاصطناعي بتنسيقها');
+      if (isManualCall) {
+        aiStatusMessage = `تم اختيار "${tpl.name}". أضف وروداً للباقة لتظهر فوراً بتناسق ملكي!`;
+      }
       return;
     }
 
     aiIsThinking = true;
-    aiStylePreset = preset;
 
-    setTimeout(() => {
-      if (preset === 'royal') {
-        // نمط هرمي ملكي: سيقان طويلة في القمة، زهور بارزة بالوسط، وفروع على الجوانب
-        const sorted = [...stems].sort((a, b) => b.price - a.price);
-        const total = sorted.length;
+    // فرز السيقان: نضع الورود الكبيرة والمميزة (جوري، بيوني، عباد الشمس، أو قسم الوسط) في قلب الجمال
+    const sortedStems = [...stems].sort((a, b) => {
+      const isFocalA = a.flowerKey.includes('rose') || a.flowerKey.includes('peony') || a.flowerKey.includes('sunflower') || a.section === 'center';
+      const isFocalB = b.flowerKey.includes('rose') || b.flowerKey.includes('peony') || b.flowerKey.includes('sunflower') || b.section === 'center';
+      if (isFocalA && !isFocalB) return -1;
+      if (!isFocalA && isFocalB) return 1;
+      return (b.price || 0) - (a.price || 0);
+    });
 
-        stems = sorted.map((s, idx) => {
-          let x, y, rot, angle;
-          if (idx < Math.ceil(total * 0.25)) {
-            // القمة الهرمية
-            x = (idx - (total * 0.25) / 2) * 26;
-            y = -150 + idx * 12;
-            rot = (x / 140) * 20;
-            angle = 'front';
-          } else if (idx < Math.ceil(total * 0.7)) {
-            // قلب الباقة المتوهج
-            const localIdx = idx - Math.ceil(total * 0.25);
-            x = ((localIdx % 3) - 1) * 45 + (Math.random() - 0.5) * 15;
-            y = -85 + Math.floor(localIdx / 3) * 32;
-            rot = (x / 140) * 25;
-            angle = 'front';
-          } else {
-            // الأطراف والشلال السفلي
-            const side = idx % 2 === 0 ? -1 : 1;
-            x = side * (75 + Math.random() * 40);
-            y = -35 + (idx % 3) * 25;
-            rot = side * (26 + Math.random() * 15);
-            angle = 'side';
-          }
-          return { ...s, x: Math.round(x), y: Math.round(y), rotation: Math.round(rot), angle };
-        });
-        aiStatusMessage = 'تم تطبيق "التنسيق الملكي المتدرج" بنجاح!';
+    const total = sortedStems.length;
+    let newStems = [];
 
-      } else if (preset === 'dome') {
-        // باقة دائرية متناسقة كلاسيكية على مدار النسبة الذهبية
-        const total = stems.length;
-        stems = stems.map((s, idx) => {
-          if (idx === 0) {
-            return { ...s, x: 0, y: -65, rotation: 0, angle: 'front', scale: 1.2 };
-          }
-          const phi = (idx * 137.5 * Math.PI) / 180; // النسبة الذهبية
-          const r = Math.sqrt(idx / total) * 115;
-          const x = Math.round(Math.cos(phi) * r);
-          const y = Math.round(Math.sin(phi) * (r * 0.85) - 65);
-          const rot = Math.round((x / 120) * 30);
-          const angle = Math.abs(x) > 60 ? 'side' : (y < -110 ? 'top' : 'front');
-          return { ...s, x, y, rotation: rot, angle };
-        });
-        aiStatusMessage = 'تم تشكيل "الباقة الدائرية المتناسقة" وفق النسبة الذهبية!';
+    if (templateId === 'round_dome') {
+      // 1. قالب التغليف الدائري الملكي (قبة الزهور المتناسقة في طوق التغليف - مشهد علوي)
+      newStems = sortedStems.map((s, idx) => {
+        let x, y, rot, scale;
+        if (total === 1 || idx === 0) {
+          x = 0; y = 0; rot = 0; scale = 1.25;
+        } else {
+          const phi = (idx * 137.5 * Math.PI) / 180;
+          const radiusRatio = Math.sqrt(idx / (total - 0.3));
+          const r = 36 + radiusRatio * 82;
+          x = Math.cos(phi) * r;
+          y = Math.sin(phi) * r;
+          rot = Math.round((phi * 180 / Math.PI) + 45) % 360;
+          scale = 1.18 - (radiusRatio * 0.18);
+        }
+        return {
+          ...s,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: rot,
+          scale: Math.max(0.9, Math.min(1.25, Math.round(scale * 100) / 100)),
+          angle: 'top',
+          zIndex: 10 + (total - idx)
+        };
+      });
+      aiStatusMessage = `تم تنسيق الزهور في "قالب التغليف الدائري الملكي" (مشهد علوي) بتوزيع حلزوني ذهبي متناسق.`;
 
-      } else if (preset === 'boho') {
-        // نمط بوهيمي عصري غير متناظر
-        stems = stems.map((s, idx) => {
-          const sideFactor = idx % 2 === 0 ? -1 : 1.2;
-          const x = Math.round(sideFactor * (30 + Math.random() * 85));
-          const y = Math.round(-145 + Math.random() * 140);
-          const rot = Math.round((Math.random() - 0.45) * 65);
-          const angles = ['front', 'side', 'top', 'stem'];
-          const angle = angles[Math.floor(Math.random() * angles.length)];
-          return { ...s, x, y, rotation: rot, angle };
-        });
-        aiStatusMessage = 'تم تشكيل "التنسيق البوهيمي العصري غير المتناظر" بحرية فنية!';
+    } else if (templateId === 'compact_posy') {
+      // 2. قالب باقة اليد المدمجة (Parisian Posy - مشهد علوي كثيف)
+      newStems = sortedStems.map((s, idx) => {
+        let x, y, rot, scale;
+        if (idx === 0) {
+          x = 0; y = 0; rot = 0; scale = 1.2;
+        } else {
+          const phi = (idx * 137.5 * Math.PI) / 180;
+          const r = 26 + Math.sqrt(idx / total) * 62;
+          x = Math.cos(phi) * r;
+          y = Math.sin(phi) * r;
+          rot = Math.round(phi * 180 / Math.PI) % 360;
+          scale = 1.05;
+        }
+        return {
+          ...s,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: rot,
+          scale: scale,
+          angle: 'top',
+          zIndex: 10 + (total - idx)
+        };
+      });
+      aiStatusMessage = `تم تنسيق الزهور في "قالب باقة اليد المدمجة" بكثافة واحتواء باريسي رقيق.`;
 
-      } else if (preset === 'heart') {
-        // نمط القلب الرومانسي
-        const total = stems.length;
-        stems = stems.map((s, idx) => {
-          const t = (idx / total) * Math.PI * 2;
-          // معادلة القلب الرياضية
-          const hx = 16 * Math.pow(Math.sin(t), 3);
-          const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-          const x = Math.round(hx * 5.8);
-          const y = Math.round(hy * 5.5 - 55);
-          const rot = Math.round((x / 110) * 25);
-          return { ...s, x, y, rotation: rot, angle: 'front' };
-        });
-        aiStatusMessage = 'تم تشكيل "التنسيق الرومانسي الفاخر" بنجاح!';
-      }
+    } else if (templateId === 'classic_front') {
+      // 3. قالب الباقة الطولية الكلاسيكية (مشهد أمامي مغلف بالورق والشريط)
+      const apexCount = Math.max(1, Math.ceil(total * 0.25));
+      const midCount = Math.max(1, Math.ceil(total * 0.5));
+      
+      newStems = sortedStems.map((s, idx) => {
+        let x, y, rot, angle, scale;
+        if (idx < apexCount) {
+          // القمة الشاهقة
+          const offset = (idx - (apexCount - 1) / 2);
+          x = offset * 28;
+          y = -145 + Math.abs(offset) * 12;
+          rot = Math.round(offset * 8);
+          angle = 'front';
+          scale = 1.05;
+        } else if (idx < apexCount + midCount) {
+          // قلب الباقة ووسطها بين طيات الغلاف
+          const midIdx = idx - apexCount;
+          const row = Math.floor(midIdx / 3);
+          const col = (midIdx % 3) - 1;
+          x = col * 44 + (row % 2 === 1 ? 12 : -12);
+          y = -95 + row * 34;
+          rot = Math.round(col * 14);
+          angle = Math.abs(x) > 35 ? 'side' : 'front';
+          scale = 1.15;
+        } else {
+          // الأطراف المتدلية وفروع التغليف
+          const flankIdx = idx - (apexCount + midCount);
+          const side = flankIdx % 2 === 0 ? -1 : 1;
+          const row = Math.floor(flankIdx / 2);
+          x = side * (68 + row * 20);
+          y = -45 + row * 26;
+          rot = side * (24 + row * 8);
+          angle = 'side';
+          scale = 0.98;
+        }
+        return {
+          ...s,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: rot,
+          scale: scale,
+          angle: angle,
+          zIndex: 10 + idx
+        };
+      });
+      aiStatusMessage = `تم تنسيق الزهور في "قالب الباقة الطولية الكلاسيكية" (مشهد أمامي مغلف بالشريط).`;
 
-      aiIsThinking = false;
-    }, 450);
+    } else if (templateId === 'royal_cascade') {
+      // 4. قالب التنسيق الهرمي الملكي (Cascade Royal)
+      newStems = sortedStems.map((s, idx) => {
+        let x, y, rot, angle, scale;
+        const tier = idx / total;
+        if (tier < 0.22) {
+          x = (idx - 0.5) * 22;
+          y = -158 + idx * 10;
+          rot = Math.round(x * 0.4);
+          angle = 'front';
+          scale = 1.05;
+        } else if (tier < 0.65) {
+          const localIdx = idx - Math.ceil(total * 0.22);
+          const spread = Math.ceil(localIdx / 2);
+          const side = localIdx % 2 === 0 ? -1 : 1;
+          x = side * (spread * 28);
+          y = -105 + spread * 24;
+          rot = Math.round(side * (12 + spread * 6));
+          angle = Math.abs(x) > 45 ? 'side' : 'front';
+          scale = 1.18;
+        } else {
+          const localIdx = idx - Math.ceil(total * 0.65);
+          const side = localIdx % 2 === 0 ? -1 : 1;
+          x = side * (75 + localIdx * 18);
+          y = -25 + localIdx * 20;
+          rot = Math.round(side * 34);
+          angle = 'side';
+          scale = 0.95;
+        }
+        return {
+          ...s,
+          x: Math.round(x),
+          y: Math.round(y),
+          rotation: rot,
+          scale: scale,
+          angle: angle,
+          zIndex: 10 + idx
+        };
+      });
+      aiStatusMessage = `تم تطبيق "قالب التنسيق الهرمي الملكي" بتدرج طبقي فخم.`;
+
+    } else if (templateId === 'boho_garden') {
+      // 5. قالب الباقة البوهيمية الحرة
+      newStems = sortedStems.map((s, idx) => {
+        const sideFactor = idx % 2 === 0 ? -1 : 1.15;
+        const x = Math.round(sideFactor * (25 + (idx * 17) % 75));
+        const y = Math.round(-145 + ((idx * 31) % 135));
+        const rot = Math.round((((idx * 37) % 70) - 35));
+        const angles = ['front', 'side', 'front', 'side'];
+        const angle = angles[idx % angles.length];
+        return {
+          ...s,
+          x: x,
+          y: y,
+          rotation: rot,
+          scale: 1.02,
+          angle: angle,
+          zIndex: 10 + idx
+        };
+      });
+      aiStatusMessage = `تم تشكيل "قالب الباقة البوهيمية الحرة" بجمالية الطبيعة البرية.`;
+
+    } else if (templateId === 'heart_shape') {
+      // 6. قالب القلب الرومانسي
+      newStems = sortedStems.map((s, idx) => {
+        const t = (idx / total) * Math.PI * 2;
+        const hx = 16 * Math.pow(Math.sin(t), 3);
+        const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+        const x = Math.round(hx * 5.8);
+        const y = Math.round(hy * 5.4 - 55);
+        const rot = Math.round((x / 110) * 22);
+        return {
+          ...s,
+          x: x,
+          y: y,
+          rotation: rot,
+          scale: 1.1,
+          angle: 'front',
+          zIndex: 10 + idx
+        };
+      });
+      aiStatusMessage = `تم تشكيل "قالب القلب الرومانسي" بانحناءات متناغمة.`;
+    }
+
+    stems = newStems;
+    aiIsThinking = false;
+  }
+
+  // دعم الاستدعاء التوافقي لأسماء الأنماط القديمة
+  function aiArrangeBouquet(preset = 'royal') {
+    const map = {
+      royal: 'royal_cascade',
+      dome: 'round_dome',
+      classic: 'classic_front',
+      boho: 'boho_garden',
+      heart: 'heart_shape',
+      posy: 'compact_posy'
+    };
+    selectTemplate(map[preset] || 'round_dome');
+  }
+
+  function applyStylePreset(preset) {
+    aiArrangeBouquet(preset);
   }
 
   // 2. المحاكي الذكي لزوايا الرؤية ثلاثية الأبعاد (AI 3D Perspective Optimizer)
@@ -922,21 +1128,29 @@
     aiIsThinking = true;
 
     setTimeout(() => {
-      // 1. الكشف عن الأنماط العامة
-      if (p.includes('هرمي') || p.includes('ملكي') || p.includes('متدرج') || p.includes('مثلث') || p.includes('متلت')) {
-        aiArrangeBouquet('royal');
+      // 1. الكشف عن قوالب وأنماط التنسيق
+      if (p.includes('دائري') || p.includes('قبة') || p.includes('متناسق') || p.includes('كروي') || p.includes('علوي')) {
+        selectTemplate('round_dome');
         return;
       }
-      if (p.includes('دائري') || p.includes('متناسق') || p.includes('متناغم') || p.includes('كروي')) {
-        aiArrangeBouquet('dome');
+      if (p.includes('كلاسيكي') || p.includes('طولي') || p.includes('مخروطي') || p.includes('أمامي')) {
+        selectTemplate('classic_front');
         return;
       }
-      if (p.includes('بوهيمي') || p.includes('عصري') || p.includes('عشوائي') || p.includes('طبيعي')) {
-        aiArrangeBouquet('boho');
+      if (p.includes('هرمي') || p.includes('ملكي') || p.includes('متدرج') || p.includes('شلال') || p.includes('مثلث') || p.includes('متلت')) {
+        selectTemplate('royal_cascade');
         return;
       }
-      if (p.includes('قلب') || p.includes('رومانسي') || p.includes('مدمج')) {
-        aiArrangeBouquet('heart');
+      if (p.includes('بوهيمي') || p.includes('عصري') || p.includes('عشوائي') || p.includes('طبيعي') || p.includes('مروج')) {
+        selectTemplate('boho_garden');
+        return;
+      }
+      if (p.includes('قلب') || p.includes('رومانسي')) {
+        selectTemplate('heart_shape');
+        return;
+      }
+      if (p.includes('مدمج') || p.includes('بوزي') || p.includes('باريسي')) {
+        selectTemplate('compact_posy');
         return;
       }
 
@@ -1282,11 +1496,11 @@
           <span class="badge badge-florist">🌸 الأتيليه الملكي للمنسقة</span>
         {/if}
       </div>
-      <h1 class="page-title">{isCatalogCreateMode ? 'تصميم واعتماد باقة جديدة للكتالوج' : 'صمّم باقتك وردة بوردة وتغليفاً'}</h1>
+      <h1 class="page-title">{isCatalogCreateMode ? 'تصميم واعتماد باقة جديدة للكتالوج' : 'صمّم باقتك بقوالب راقية وتغليف ملكي'}</h1>
       <p class="page-subtitle">
         {isCatalogCreateMode 
           ? 'استخدمي الاستوديو التفاعلي لتنسيق الورود واختيار التغليف والسعر، ثم اعتمديها لتضاف فوراً في كتالوج باقات مسكة'
-          : 'شاهد كل وردة تضاف وتتحرك حياً على اللوحة، وزّع الزهور في القمة أو الوسط أو الأطراف، حرّكها يدوياً أو دع الذكاء الاصطناعي يشكّلها ببراعة من جميع زوايا التصوير.'}
+          : 'اختر ورودك المفضلة وسيقوم النظام بتنسيقها تلقائياً وبأعلى معايير التوازن في القالب المفضل لديك مع التغليف والشريط الملكي.'}
       </p>
 
       <!-- أزرار الدخول السريع للشات والذكاء الاصطناعي والتبديل للكتالوج -->
@@ -1450,25 +1664,16 @@
             class:active={activeTab === 'flowers'}
             on:click={() => activeTab = 'flowers'}
           >
-            زهور الباقة ({totalStems})
+            🌸 زهور الباقة ({totalStems})
           </button>
 
           <button 
             type="button" 
             class="tab-btn" 
-            class:active={activeTab === 'ai'}
-            on:click={() => activeTab = 'ai'}
+            class:active={activeTab === 'templates'}
+            on:click={() => activeTab = 'templates'}
           >
-            التنسيق والأنماط
-          </button>
-
-          <button 
-            type="button" 
-            class="tab-btn" 
-            class:active={activeTab === 'stems'}
-            on:click={() => activeTab = 'stems'}
-          >
-            تعديل وردة بوردة
+            📐 قوالب التنسيق ({bouquetTemplates.length})
           </button>
 
           <button 
@@ -1477,7 +1682,7 @@
             class:active={activeTab === 'packaging'}
             on:click={() => activeTab = 'packaging'}
           >
-            التغليف والشريط
+            🎀 التغليف والشريط
           </button>
 
           <button 
@@ -1486,7 +1691,7 @@
             class:active={activeTab === 'chat'}
             on:click={() => activeTab = 'chat'}
           >
-            مساعد الذكاء الاصطناعي
+            💬 مساعد الذكاء الاصطناعي
           </button>
         </div>
 
@@ -1641,214 +1846,38 @@
           </div>
         {/if}
 
-        <!-- 1 & 3. تبويب تصميم واختيار زهور الباقة وتعديل الوردة المحددة (التصميم يظل معروضاً دائماً بالصفحة) -->
-        {#if activeTab === 'flowers' || activeTab === 'stems'}
-
-          <!-- بطاقة تعديل الوردة المحددة باليد فقط (الوردة التي ضغطت عليها فقط - بدون شريط تكرار باقي الورود) -->
-          {#if selectedStem}
-            <div class="card control-box fade-in stem-inspector-box-compact single-stem-focus">
-              <!-- رأس كارت تعديل الوردة المحددة -->
-              <div class="stem-inspector-mini-head">
-                <div class="mini-title-wrap">
-                  <span class="mini-head-title">تعديل الوردة المحددة: <b>{selectedStem.flowerName}</b></span>
-                  <span class="badge badge-lime">الساق #{stems.findIndex(s => s.id === selectedStem.id) + 1}</span>
-                </div>
-                <div class="head-actions-compact">
-                  <span class="badge-hand-hint">✋ سحب مباشر باليد</span>
-                  <button type="button" class="btn-close-edit" on:click={() => selectedStemId = null} title="إلغاء التحديد وإغلاق">
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              <!-- تفاصيل وأدوات تحكم الوردة المحددة فقط -->
-              <div class="stem-editor-body-compact">
-                <!-- شريط تفاصيل الوردة (صورة + سعر + موقع + تكرار وحذف) -->
-                <div class="stem-detail-strip-compact">
-                  <div class="stem-left-info">
-                    <div class="stem-thumb-mini">
-                      <img 
-                        src={getFlowerAngleImage(selectedFlowerData || { key: selectedStem.flowerKey }, selectedStem.angle)} 
-                        alt={selectedStem.flowerName}
-                        class="stem-thumb-img-mini" 
-                      />
-                    </div>
-                    <span class="stem-name-compact">{selectedStem.flowerName}</span>
-                    <span class="tag-price-mini">{parseFloat(selectedStem.price || 5).toFixed(1)} د.ل</span>
-                    <span class="tag-sec-mini">{getSectionNameAr(selectedStem.section)}</span>
-                  </div>
-
-                  <div class="stem-mini-actions">
-                    <button type="button" class="btn-icon-action" on:click={duplicateSelectedStem} title="تكرار هذه الوردة">
-                      ➕ تكرار
-                    </button>
-                    <button type="button" class="btn-icon-action btn-icon-del" on:click={deleteSelectedStem} title="حذف هذه الوردة">
-                      🗑️ حذف
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 1. زاوية التصوير ثلاثية الأبعاد للوردة -->
-                <div class="compact-field-row">
-                  <span class="compact-label">الزاوية:</span>
-                  <div class="angles-segmented-compact">
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.angle === 'front'} 
-                      on:click={() => setStemAngle('front')}
-                    >
-                      🌸 أمامي
-                    </button>
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.angle === 'side'} 
-                      on:click={() => setStemAngle('side')}
-                    >
-                      🌿 جانبي
-                    </button>
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.angle === 'top'} 
-                      on:click={() => setStemAngle('top')}
-                    >
-                      🪷 علوي
-                    </button>
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.angle === 'stem'} 
-                      on:click={() => setStemAngle('stem')}
-                    >
-                      🌾 ساق
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 2. موضع الوردة في الباقة -->
-                <div class="compact-field-row">
-                  <div class="compact-label-with-reset">
-                    <span class="compact-label">الموضع:</span>
-                    <button type="button" class="btn-reset-mini" on:click={resetStemPosition} title="إعادة الموضع للمركز">
-                      🔄 ضبط
-                    </button>
-                  </div>
-                  <div class="sections-segmented-compact">
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.section === 'top'} 
-                      on:click={() => moveStemToSection('top')}
-                    >
-                      🔝 قمة
-                    </button>
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.section === 'center'} 
-                      on:click={() => moveStemToSection('center')}
-                    >
-                      🎯 وسط
-                    </button>
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.section === 'right'} 
-                      on:click={() => moveStemToSection('right')}
-                    >
-                      👉 يمين
-                    </button>
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.section === 'left'} 
-                      on:click={() => moveStemToSection('left')}
-                    >
-                      👈 يسار
-                    </button>
-                    <button 
-                      type="button" 
-                      class="seg-btn-compact" 
-                      class:active={selectedStem.section === 'bottom'} 
-                      on:click={() => moveStemToSection('bottom')}
-                    >
-                      🔽 قاعدة
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 3. المنزلقات المصغرة جنباً إلى جنب -->
-                <div class="compact-sliders-row">
-                  <div class="mini-slider-cell">
-                    <div class="mini-slider-meta">
-                      <span>🔄 التدوير:</span>
-                      <b class="val-pill">{selectedStem.rotation}°</b>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="-60" 
-                      max="60" 
-                      step="2" 
-                      class="slider-ultra-compact" 
-                      value={selectedStem.rotation} 
-                      on:input={(e) => updateStemProp('rotation', parseInt(e.target.value, 10))} 
-                    />
-                  </div>
-
-                  <div class="mini-slider-cell">
-                    <div class="mini-slider-meta">
-                      <span>🔍 الحجم:</span>
-                      <b class="val-pill">{Math.round(selectedStem.scale * 100)}%</b>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0.75" 
-                      max="1.35" 
-                      step="0.05" 
-                      class="slider-ultra-compact" 
-                      value={selectedStem.scale} 
-                      on:input={(e) => updateStemProp('scale', parseFloat(e.target.value))} 
-                    />
-                  </div>
-                </div>
-
-                <!-- 4. الطبقات والتلميح -->
-                <div class="compact-layer-footer">
-                  <div class="layer-btns-mini">
-                    <span class="layer-lbl-mini">الترتيب:</span>
-                    <button type="button" class="btn-layer-mini" on:click={bringStemForward} title="تقديم للأمام">
-                      ⬆️ للأمام
-                    </button>
-                    <button type="button" class="btn-layer-mini" on:click={sendStemBackward} title="تأخير للخلف">
-                      ⬇️ للخلف
-                    </button>
-                  </div>
-                  <span class="direct-hand-tip">يمكنك سحب الزهرة مباشرة بيدك داخل الباقة</span>
-                </div>
-
-              </div>
-            </div>
-          {:else if activeTab === 'stems'}
-            <!-- رسالة إرشادية عند النقر على تبويب التعديل قبل تحديد زهرة -->
-            <div class="card control-box fade-in hint-no-stem-box">
-              
-              <div>
-                <h4 class="hint-title">اضغط على أي وردة في الباقة الحية لتعديلها</h4>
-                <p class="hint-desc">المس أو انقر بالماوس على أي وردة في لوحة العرض لتعديل زاويتها، تدويرها، أو موقعها هنا فوراً.</p>
-              </div>
-            </div>
-          {/if}
-
-          <!-- قائمة التصميم والزهور الرئيسية (تظل معروضة بالصفحة ولا تختفي أبداً!) -->
+        <!-- 1. تبويب اختيار زهور الباقة وكمياتها (تنسيق تلقائي بالقالب دون تعديل يدوي) -->
+        {#if activeTab === 'flowers'}
           <div class="card control-box fade-in main-design-box">
             <div class="box-head">
               <div>
-                <h3>1. تصميم واختيار زهور الباقة</h3>
-                <p class="box-subdesc">اختر عدد السيقان وحدد موقعها المفضل في التنسيق:</p>
+                <span class="badge badge-gold">الخطوة الأولى</span>
+                <h3>1. اختيار زهور الباقة وكمياتها</h3>
+                <p class="box-subdesc">
+                  اختر الورود والكميات، وسيقوم النظام بتنسيقها تلقائياً وبشكل متناغم وفوري بالقالب المختار:
+                </p>
               </div>
               <span class="count-badge">{totalStems} ساق مختارة</span>
+            </div>
+
+            <!-- بطاقة إشعار القالب المطبق حالياً مع خيار التبديل -->
+            <div class="active-template-banner">
+              <div class="at-info">
+                <span class="at-icon">{bouquetTemplates.find(t => t.id === currentTemplateId)?.icon || '🪷'}</span>
+                <div>
+                  <div class="at-name-row">
+                    <span class="at-label">القالب المطبق حالياً:</span>
+                    <b class="at-name">{bouquetTemplates.find(t => t.id === currentTemplateId)?.name || ''}</b>
+                    <span class="tpl-tag {bouquetTemplates.find(t => t.id === currentTemplateId)?.badgeClass || ''}">
+                      {bouquetTemplates.find(t => t.id === currentTemplateId)?.viewMode === 'top' ? 'مشهد علوي 🪷' : 'مشهد أمامي 🎀'}
+                    </span>
+                  </div>
+                  <span class="at-desc">{bouquetTemplates.find(t => t.id === currentTemplateId)?.subtitle || ''}</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm btn-jump-templates" on:click={() => activeTab = 'templates'}>
+                تغيير القالب 📐
+              </button>
             </div>
 
             <div class="flowers-list">
@@ -1875,7 +1904,7 @@
                     <small>/ساق</small>
                   </div>
 
-                  <!-- اختيار قسم التنسيق لنوع الوردة (Section Selector) -->
+                  <!-- اختيار موقع الوردة في التنسيق -->
                   <div class="section-select-box">
                     <label for="sec-{f.id}" class="sr-only">موقع النوع:</label>
                     <select 
@@ -1883,12 +1912,13 @@
                       class="section-dropdown"
                       value={f.section}
                       on:change={(e) => handleSectionChange(f.id, e.target.value)}
+                      title="الموقع المفضل لنوع الزهرة في التنسيق"
                     >
-                      <option value="top">في الأعلى والقمة</option>
-                      <option value="center">في الوسط والمركز</option>
-                      <option value="left">على اليسار</option>
-                      <option value="right">على اليمين</option>
-                      <option value="bottom">في الأسفل (القاعدة)</option>
+                      <option value="center">في الوسط والمركز 🎯</option>
+                      <option value="top">في الأعلى والقمة 🔝</option>
+                      <option value="left">على اليسار 👈</option>
+                      <option value="right">على اليمين 👉</option>
+                      <option value="bottom">في الأسفل والقاعدة 🔽</option>
                     </select>
                   </div>
 
@@ -1920,129 +1950,111 @@
           </div>
         {/if}
 
-        <!-- 2. تبويب منسق الذكاء الاصطناعي (AI Florist Assistant & Prompts) -->
-        {#if activeTab === 'ai'}
-          <div class="card control-box fade-in">
-            <div class="ai-banner">
-              <div class="ai-icon-ring">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2L3 9l9 13 9-13-9-7z"/>
-                </svg>
-              </div>
+        <!-- 2. تبويب كتاكوري قوالب وأنماط التنسيق الفاخرة (Bouquet Templates Category) -->
+        {#if activeTab === 'templates'}
+          <div class="card control-box fade-in templates-panel-card">
+            <div class="box-head">
               <div>
-                <h3>مساعد مسكة للذكاء الاصطناعي لتنسيق الورد</h3>
-                <p>اكتب باللغة الطبيعية كيف تحب تشكيل باقتك، أو اختر نمطاً ذكياً لتوزيع وتدوير الزوايا تلقائياً.</p>
+                <span class="badge badge-gold">قوالب التنسيق الملكية</span>
+                <h3>قوالب وأشكال التنسيق الهندسي</h3>
+                <p class="box-subdesc">
+                  اختر القالب المفضل، وسيقوم النظام بتنسيق باقتك تلقائياً وبأعلى معايير التناسق والجمال الفني:
+                </p>
               </div>
+              <span class="count-badge active-tpl-name">
+                {bouquetTemplates.find(t => t.id === currentTemplateId)?.name || 'قالب محدد'}
+              </span>
             </div>
 
-            <!-- شريط أوامر الذكاء الاصطناعي النصية (Prompt Bar) -->
-            <div class="ai-prompt-container">
-              <label class="prompt-label" for="ai-prompt-input">أوامر التنسيق النصية بالذكاء الاصطناعي:</label>
-              <div class="ai-input-group">
-                <input 
-                  id="ai-prompt-input"
-                  type="text" 
-                  class="input-field ai-text-input" 
-                  placeholder="مثال: حط الجوري في الوسط والبيوني فوق والجيبسوفيلا على الأطراف…"
-                  bind:value={aiPromptText}
-                  on:keydown={(e) => e.key === 'Enter' && executeAiPrompt()}
-                />
-                <button 
-                  type="button" 
-                  class="btn btn-primary ai-run-btn"
-                  disabled={aiIsThinking}
-                  on:click={executeAiPrompt}
-                >
-                  {#if aiIsThinking}
-                    جاري التنسيق…
-                  {:else}
-                    نفّذ بالذكاء الاصطناعي
-                  {/if}
-                </button>
-              </div>
-
-              <!-- أزرار أوامر جاهزة وسريعة -->
-              <div class="quick-prompt-chips">
-                <span class="quick-label">أوامر شائعة سريعة:</span>
-                <button type="button" class="chip" on:click={() => { aiPromptText = 'حط الجوري في الوسط والبيوني فوق والجيبسوفيلا على الأطراف'; executeAiPrompt(); }}>
-                  جوري وسط، بيوني فوق، جيبسوفيلا أطراف
-                </button>
-                <button type="button" class="chip" on:click={() => { aiPromptText = 'تنسيق ملكي متدرج فاخر'; executeAiPrompt(); }}>
-                  ملكي متدرج فاخر
-                </button>
-                <button type="button" class="chip" on:click={() => { aiPromptText = 'باقة دائرية متناسقة كلاسيكية'; executeAiPrompt(); }}>
-                  باقة دائرية متناسقة
-                </button>
-                <button type="button" class="chip" on:click={() => { aiPromptText = 'تنسيق بوهيمي عصري غير متناظر'; executeAiPrompt(); }}>
-                  بوهيمي عصري حر
-                </button>
-              </div>
-            </div>
-
-            <!-- أنماط التشكيل الجاهزة بالذكاء الاصطناعي -->
-            <div class="ai-presets-section">
-              <h4 class="section-title">أنماط التشكيل الجاهزة بالذكاء الاصطناعي:</h4>
-              <div class="ai-presets-grid">
-                <div 
-                  class="preset-card" 
-                  class:active={aiStylePreset === 'royal'}
-                  on:click={() => aiArrangeBouquet('royal')}
-                >
-                  
-                  <div class="preset-title">ملكي متدرج فاخر</div>
-                  <p class="preset-desc">سيقان طويلة بالقمة، ورود بارزة بالوسط، وفروع على الجوانب.</p>
-                </div>
-
-                <div 
-                  class="preset-card" 
-                  class:active={aiStylePreset === 'dome'}
-                  on:click={() => aiArrangeBouquet('dome')}
-                >
-                  
-                  <div class="preset-title">دائري متناسق متناغم</div>
-                  <p class="preset-desc">توزيع متوازن حلزوني على أساس النسبة الذهبية والتناغم الدائري.</p>
-                </div>
-
-                <div 
-                  class="preset-card" 
-                  class:active={aiStylePreset === 'boho'}
-                  on:click={() => aiArrangeBouquet('boho')}
-                >
-                  
-                  <div class="preset-title">بوهيمي عصري حر</div>
-                  <p class="preset-desc">ارتفاعات غير متناظرة مع زوايا متنوعة تمنح إحساس الطبيعة البرية.</p>
-                </div>
-
-                <div 
-                  class="preset-card" 
-                  class:active={aiStylePreset === 'heart'}
-                  on:click={() => aiArrangeBouquet('heart')}
-                >
-                  
-                  <div class="preset-title">رومانسي مدمج فاخر</div>
-                  <p class="preset-desc">توزيع متوازن ومترابط للسيقان يعبر عن أصدق مشاعر الود والرقي.</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- زر ضبط الزوايا ثلاثية الأبعاد تلقائياً -->
-            <div class="ai-angles-optimizer-box">
-              <div>
-                <h4 class="opt-title">اختيار الزوايا والتدوير ثلاثي الأبعاد بالذكاء الاصطناعي</h4>
-                <p class="opt-desc">يحلل النظام موقع كل وردة بالنسبة للمركز ويختار الزاوية المناسبة (أمامي، جانبي، علوي) ويديرها بشكل واقعي 3D.</p>
-              </div>
+            <!-- شريط تصفية القوالب حسب زاوية الرؤية -->
+            <div class="template-filter-bar">
               <button 
                 type="button" 
-                class="btn btn-outline"
-                on:click={aiAutoAngles}
+                class="filter-pill" 
+                class:active={templateFilter === 'all'}
+                on:click={() => templateFilter = 'all'}
               >
-                تحسين الزوايا 3D وتدويرها تلقائياً 🔄
+                جميع القوالب ({bouquetTemplates.length})
+              </button>
+              <button 
+                type="button" 
+                class="filter-pill" 
+                class:active={templateFilter === 'top'}
+                on:click={() => templateFilter = 'top'}
+              >
+                🪷 مشهد علوي دائري ({bouquetTemplates.filter(t => t.viewMode === 'top').length})
+              </button>
+              <button 
+                type="button" 
+                class="filter-pill" 
+                class:active={templateFilter === 'front'}
+                on:click={() => templateFilter = 'front'}
+              >
+                🎀 مشهد أمامي مغلف ({bouquetTemplates.filter(t => t.viewMode === 'front').length})
               </button>
             </div>
 
-            <!-- لوحة مقاييس التناغم الفني الذكي -->
-            <div class="ai-analytics-panel">
-              <h4 class="section-title">تحليل الذكاء الاصطناعي للباقة الحالية:</h4>
+            <!-- شبكة بطاقات القوالب الفاخرة -->
+            <div class="templates-grid">
+              {#each filteredTemplates as tpl (tpl.id)}
+                <div 
+                  class="template-card" 
+                  class:selected={currentTemplateId === tpl.id}
+                  on:click={() => selectTemplate(tpl.id)}
+                >
+                  <div class="tpl-header">
+                    <div class="tpl-icon-box">
+                      <span class="tpl-icon">{tpl.icon}</span>
+                    </div>
+                    <div class="tpl-titles">
+                      <div class="tpl-name-row">
+                        <h4 class="tpl-name">{tpl.name}</h4>
+                        {#if currentTemplateId === tpl.id}
+                          <span class="active-sparkle-pill">القالب المطبق ✨</span>
+                        {/if}
+                      </div>
+                      <span class="tpl-subtitle">{tpl.subtitle}</span>
+                    </div>
+                  </div>
+
+                  <p class="tpl-desc">{tpl.desc}</p>
+
+                  <div class="tpl-meta-strip">
+                    <span class="tpl-tag {tpl.badgeClass}">{tpl.tag}</span>
+                    <span class="tpl-suitable">{tpl.suitableFor}</span>
+                  </div>
+
+                  <div class="tpl-action-row">
+                    <button 
+                      type="button" 
+                      class="btn btn-tpl-select" 
+                      class:active={currentTemplateId === tpl.id}
+                      on:click|stopPropagation={() => selectTemplate(tpl.id)}
+                    >
+                      {currentTemplateId === tpl.id ? 'القالب المطبق حالياً ✓' : 'اختيار وتطبيق هذا القالب'}
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+
+            <!-- أدوات التحليل والانسجام اللوني بالذكاء الاصطناعي -->
+            <div class="ai-harmony-box">
+              <div class="ai-harmony-header">
+                <div>
+                  <h4 class="harmony-title">تحليل التناغم والانسجام الفني للباقة</h4>
+                  <p class="harmony-sub">حساب التوازن البصري والانسجام اللوني وفق عدد وتوزيع الزهور الحالية</p>
+                </div>
+                <button 
+                  type="button" 
+                  class="btn btn-outline btn-sm btn-rebalance"
+                  disabled={aiIsThinking || totalStems === 0}
+                  on:click={() => applyBouquetTemplate(currentTemplateId, true)}
+                >
+                  {aiIsThinking ? 'جاري التنسيق...' : 'إعادة ضبط التناغم الذكي 🪄'}
+                </button>
+              </div>
+
               <div class="analytics-bars">
                 <div class="metric-row">
                   <div class="metric-head">
@@ -2056,7 +2068,7 @@
 
                 <div class="metric-row">
                   <div class="metric-head">
-                    <span>التوازن البصري وتوزيع الكتل</span>
+                    <span>التوازن البصري وتوزيع الكتل في القالب</span>
                     <b>{visualBalanceScore}%</b>
                   </div>
                   <div class="metric-track">
@@ -2066,8 +2078,30 @@
               </div>
 
               <div class="ai-suggestion-box">
-                
                 <p>{aiSuggestion}</p>
+              </div>
+            </div>
+
+            <!-- أوامر التنسيق النصية السريعة بالذكاء الاصطناعي داخل تبويب القوالب -->
+            <div class="ai-prompt-container template-prompt-addon">
+              <label class="prompt-label" for="tpl-prompt-input">أمر مخصص للمنسق الذكي لتعديل توزيع القالب:</label>
+              <div class="ai-input-group">
+                <input 
+                  id="tpl-prompt-input"
+                  type="text" 
+                  class="input-field ai-text-input" 
+                  placeholder="مثال: ركز الجوري بالوسط، وزع الأوكالبتوس على الأطراف، واجعل التنسيق متدرجاً…"
+                  bind:value={aiPromptText}
+                  on:keydown={(e) => e.key === 'Enter' && executeAiPrompt()}
+                />
+                <button 
+                  type="button" 
+                  class="btn btn-primary ai-run-btn"
+                  disabled={aiIsThinking}
+                  on:click={executeAiPrompt}
+                >
+                  {aiIsThinking ? 'جاري التنفيذ…' : 'تطبيق بالذكاء الاصطناعي'}
+                </button>
               </div>
             </div>
 
@@ -2339,21 +2373,22 @@
               {#each stems as stem, idx (stem.id)}
                 <div 
                   class="stem-canvas-node"
-                  class:selected={effectiveStemId === stem.id}
-                  class:dragging={isDragging && dragStemId === stem.id}
+                  class:selected={isCatalogCreateMode && effectiveStemId === stem.id}
+                  class:dragging={isCatalogCreateMode && isDragging && dragStemId === stem.id}
                   style="
                     left: calc(50% + {stem.x}px);
                     top: calc(50% + {stem.y}px);
-                    transform: translate(-50%, -50%) rotate({stem.rotation}deg) scale({isDragging && dragStemId === stem.id ? stem.scale * 1.08 : stem.scale});
-                    z-index: {isDragging && dragStemId === stem.id ? 9999 : (stem.zIndex || 10)};
+                    transform: translate(-50%, -50%) rotate({stem.rotation}deg) scale({isCatalogCreateMode && isDragging && dragStemId === stem.id ? stem.scale * 1.08 : stem.scale});
+                    z-index: {isCatalogCreateMode && isDragging && dragStemId === stem.id ? 9999 : (stem.zIndex || 10)};
+                    cursor: {isCatalogCreateMode ? 'grab' : 'default'};
                   "
-                  on:mousedown={(e) => startStemDrag(e, stem.id)}
-                  on:touchstart={(e) => startStemDrag(e, stem.id)}
-                  on:pointerdown={(e) => startStemDrag(e, stem.id)}
-                  on:click={() => { selectedStemId = stem.id; }}
+                  on:mousedown={(e) => isCatalogCreateMode && startStemDrag(e, stem.id)}
+                  on:touchstart={(e) => isCatalogCreateMode && startStemDrag(e, stem.id)}
+                  on:pointerdown={(e) => isCatalogCreateMode && startStemDrag(e, stem.id)}
+                  on:click={() => { if (isCatalogCreateMode) selectedStemId = stem.id; }}
                   role="button"
                   tabindex="0"
-                  title="{stem.flowerName} ({getAngleLabelAr(viewMode === 'top' ? 'top' : stem.angle)}) - اسحب باليد للتحريك أو انقر للتعديل"
+                  title="{stem.flowerName} ({getAngleLabelAr(viewMode === 'top' ? 'top' : stem.angle)})"
                 >
                   <img 
                     src={getFlowerAngleImage(flowers.find(f => f.id === stem.flowerId) || { key: stem.flowerKey, name: stem.flowerName, color: stem.color }, viewMode === 'top' ? 'top' : stem.angle)} 
@@ -2362,14 +2397,8 @@
                     draggable="false"
                   />
                   
-                  {#if effectiveStemId === stem.id}
+                  {#if isCatalogCreateMode && effectiveStemId === stem.id}
                     <div class="stem-active-ring"></div>
-                  {/if}
-
-                  {#if activeTab === 'stems' || selectedStemId === stem.id}
-                    <span class="stem-number-badge" class:active={effectiveStemId === stem.id}>
-                      {idx + 1}
-                    </span>
                   {/if}
                 </div>
               {/each}
@@ -2422,29 +2451,26 @@
               <div class="stage-pedestal fade-in"></div>
             {/if}
 
-            <!-- 5. شريط التعديل باليد المباشر فوق الباقة الحية -->
-            {#if activeTab === 'stems' || selectedStem}
+            <!-- 5. شريط التعديل باليد المباشر فوق الباقة الحية (مخصص لوضع المنسقة فقط) -->
+            {#if isCatalogCreateMode && selectedStem}
               <div class="canvas-hand-indicator fade-in">
-                
-                <span>اسحب أي وردة بيدك مباشرة في الباقة</span>
+                <span>وضع المنسقة: يمكنك سحب الوردة بيدك للتحريك الدقيق</span>
               </div>
 
-              {#if selectedStem}
-                <div class="canvas-floating-toolbar fade-in">
-                  <span class="floating-stem-title">#{stems.findIndex(s => s.id === selectedStem.id) + 1} {getCleanFlowerName(selectedStem.flowerName)}:</span>
-                  <div class="floating-btns-group">
-                    <button type="button" class="floating-btn" on:click={() => rotateSelectedStem(-15)} title="لف لليسار 15°">⟲</button>
-                    <button type="button" class="floating-btn" on:click={() => rotateSelectedStem(15)} title="لف لليمين 15°">⟳</button>
-                    <button type="button" class="floating-btn" on:click={() => scaleSelectedStem(-0.05)} title="تصغير الحجم">🔍−</button>
-                    <button type="button" class="floating-btn" on:click={() => scaleSelectedStem(0.05)} title="تكبير الحجم">🔍+</button>
-                    <button type="button" class="floating-btn" on:click={cycleSelectedStemAngle} title="تغيير زاوية الرؤية">
-                      {selectedStem.angle === 'front' ? '🌸 أمامي' : (selectedStem.angle === 'side' ? '🌿 جانبي' : (selectedStem.angle === 'top' ? '🪷 علوي' : '🌾 ساق'))}
-                    </button>
-                    <button type="button" class="floating-btn floating-btn-del" on:click={deleteSelectedStem} title="حذف الوردة">🗑️</button>
-                    <button type="button" class="floating-btn" on:click={() => selectedStemId = null} title="إلغاء التحديد وإخفاء الشريط">✕</button>
-                  </div>
+              <div class="canvas-floating-toolbar fade-in">
+                <span class="floating-stem-title">#{stems.findIndex(s => s.id === selectedStem.id) + 1} {getCleanFlowerName(selectedStem.flowerName)}:</span>
+                <div class="floating-btns-group">
+                  <button type="button" class="floating-btn" on:click={() => rotateSelectedStem(-15)} title="لف لليسار 15°">⟲</button>
+                  <button type="button" class="floating-btn" on:click={() => rotateSelectedStem(15)} title="لف لليمين 15°">⟳</button>
+                  <button type="button" class="floating-btn" on:click={() => scaleSelectedStem(-0.05)} title="تصغير الحجم">🔍−</button>
+                  <button type="button" class="floating-btn" on:click={() => scaleSelectedStem(0.05)} title="تكبير الحجم">🔍+</button>
+                  <button type="button" class="floating-btn" on:click={cycleSelectedStemAngle} title="تغيير زاوية الرؤية">
+                    {selectedStem.angle === 'front' ? '🌸 أمامي' : (selectedStem.angle === 'side' ? '🌿 جانبي' : (selectedStem.angle === 'top' ? '🪷 علوي' : '🌾 ساق'))}
+                  </button>
+                  <button type="button" class="floating-btn floating-btn-del" on:click={deleteSelectedStem} title="حذف الوردة">🗑️</button>
+                  <button type="button" class="floating-btn" on:click={() => selectedStemId = null} title="إلغاء التحديد وإخفاء الشريط">✕</button>
                 </div>
-              {/if}
+              </div>
             {/if}
           </div>
 
@@ -3020,6 +3046,289 @@
   .chip:hover {
     border-color: var(--olive);
     background: rgba(94, 107, 44, 0.08);
+  }
+
+  /* =========================================================================
+     Active Template Banner (in Flowers Tab)
+     ========================================================================= */
+  .active-template-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(94, 107, 44, 0.08) 0%, rgba(197, 155, 39, 0.08) 100%);
+    border: 1.5px solid rgba(94, 107, 44, 0.25);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .at-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .at-icon {
+    font-size: 1.6rem;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-solid);
+    border-radius: 50%;
+    border: 1px solid rgba(94, 107, 44, 0.2);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    flex-shrink: 0;
+  }
+  .at-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+  .at-label {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .at-name {
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: var(--olive);
+  }
+  .at-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .btn-jump-templates {
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 6px 14px;
+    white-space: nowrap;
+  }
+
+  /* =========================================================================
+     Templates Category Panel Styles
+     ========================================================================= */
+  .templates-panel-card {
+    padding: 24px;
+  }
+  .active-tpl-name {
+    background: var(--olive);
+    color: #fff;
+    font-weight: 800;
+  }
+  .template-filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .filter-pill {
+    background: var(--bg);
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--radius-full);
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-pill:hover {
+    border-color: var(--olive);
+    background: rgba(94, 107, 44, 0.06);
+  }
+  .filter-pill.active {
+    background: var(--olive);
+    color: #ffffff;
+    border-color: var(--olive);
+    box-shadow: 0 2px 8px rgba(94, 107, 44, 0.25);
+  }
+
+  /* شبكة بطاقات القوالب الفاخرة */
+  .templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .template-card {
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+  }
+  .template-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--olive);
+    background: var(--card-solid);
+    box-shadow: 0 8px 20px rgba(94, 107, 44, 0.12);
+  }
+  .template-card.selected {
+    border-color: var(--olive);
+    border-width: 2px;
+    background: linear-gradient(180deg, rgba(94, 107, 44, 0.05) 0%, var(--card-solid) 100%);
+    box-shadow: 0 0 0 1px var(--olive), 0 8px 24px rgba(94, 107, 44, 0.18);
+  }
+  .tpl-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .tpl-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--card-solid);
+    border: 1.5px solid var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .template-card.selected .tpl-icon-box {
+    border-color: var(--olive);
+    background: rgba(94, 107, 44, 0.1);
+  }
+  .tpl-titles {
+    flex: 1;
+  }
+  .tpl-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+  .tpl-name {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+  }
+  .active-sparkle-pill {
+    background: linear-gradient(135deg, #c59b27, #8c7322);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    box-shadow: 0 2px 6px rgba(197, 155, 39, 0.3);
+  }
+  .tpl-subtitle {
+    font-size: 0.78rem;
+    color: var(--olive);
+    font-weight: 700;
+  }
+  .tpl-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin: 0 0 12px;
+  }
+  .tpl-meta-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .tpl-tag {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+  }
+  .tpl-tag.badge-top {
+    background: rgba(94, 107, 44, 0.12);
+    color: var(--olive);
+    border: 1px solid rgba(94, 107, 44, 0.25);
+  }
+  .tpl-tag.badge-front {
+    background: rgba(197, 155, 39, 0.12);
+    color: #8c7322;
+    border: 1px solid rgba(197, 155, 39, 0.25);
+  }
+  .tpl-suitable {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .tpl-action-row {
+    margin-top: auto;
+  }
+  .btn-tpl-select {
+    width: 100%;
+    padding: 8px 14px;
+    font-size: 0.86rem;
+    font-weight: 800;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--line-strong);
+    background: var(--card-solid);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-tpl-select:hover {
+    border-color: var(--olive);
+    background: rgba(94, 107, 44, 0.08);
+    color: var(--olive);
+  }
+  .btn-tpl-select.active {
+    background: var(--olive);
+    color: #fff;
+    border-color: var(--olive);
+    box-shadow: 0 2px 8px rgba(94, 107, 44, 0.3);
+  }
+
+  /* أدوات الانسجام والذكاء الاصطناعي داخل لوحة القوالب */
+  .ai-harmony-box {
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+  .ai-harmony-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .harmony-title {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 3px;
+  }
+  .harmony-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .btn-rebalance {
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .template-prompt-addon {
+    margin-top: 14px;
+    margin-bottom: 0;
   }
 
   .section-title {
