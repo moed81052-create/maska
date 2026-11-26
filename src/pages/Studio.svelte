@@ -316,11 +316,112 @@
     prevActiveTab = activeTab;
   }
 
+  let show4AngleModal = false;
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    if (mode === 'top') {
+      aiStatusMessage = 'تم التبديل إلى المشهد العلوي 360° (قبة الزهور الملكية المتناسقة)';
+    } else if (mode === 'front') {
+      aiStatusMessage = 'تم التبديل إلى المشهد الأمامي (الواجهة الكاملة للباقة وياقة الكشكش والفيونكة)';
+    } else if (mode === 'side') {
+      aiStatusMessage = 'تم التبديل إلى المشهد الجانبي ثلاثي الأبعاد (زاوية ميلان 45° وتدرج الطبقات)';
+    } else if (mode === 'back') {
+      aiStatusMessage = 'تم التبديل إلى المشهد الخلفي (طي الأجنحة الكورية والمقبض وبطاقة MASKA)';
+    }
+  }
+
   function toggleViewMode() {
-    viewMode = viewMode === 'top' ? 'front' : 'top';
-    aiStatusMessage = viewMode === 'top'
-      ? 'تم التبديل إلى المشهد العلوي (تنسيق الزهور كقبة ملكية من الأعلى)'
-      : 'تم التبديل إلى المشهد الأمامي (معاينة التغليف والشريط كمنتج نهائي)';
+    const order = ['top', 'front', 'side', 'back'];
+    const nextIdx = (order.indexOf(viewMode) + 1) % order.length;
+    setViewMode(order[nextIdx]);
+  }
+
+  // محرك الإسقاط الهندسي ثلاثي الأبعاد للزهور عبر الزوايا الأربع (360° Multi-Angle Projection Engine)
+  function getStemProjectedProps(stem, idx, total, targetView = viewMode, tplId = currentTemplateId) {
+    const curTpl = bouquetTemplates.find(t => t.id === tplId);
+    const nativeView = curTpl ? (curTpl.viewMode || 'top') : 'top';
+
+    // تطبيع الإحداثيات في فضاء [-1, 1]
+    let nx = 0;
+    let ny = 0;
+    if (nativeView === 'top') {
+      nx = Math.max(-1, Math.min(1, (stem.x || 0) / 130));
+      ny = Math.max(-1, Math.min(1, (stem.y || 0) / 130));
+    } else {
+      nx = Math.max(-1, Math.min(1, (stem.x || 0) / 105));
+      ny = Math.max(-1, Math.min(1, ((stem.y || -70) + 70) / 55));
+    }
+
+    const radial = Math.sqrt(Math.min(1, nx * nx + ny * ny));
+
+    if (targetView === 'top') {
+      if (nativeView === 'top') {
+        return {
+          x: stem.x,
+          y: stem.y,
+          rotation: stem.rotation,
+          scale: stem.scale,
+          zIndex: stem.zIndex || (10 + idx),
+          angle: 'top'
+        };
+      }
+      // إسقاط قوالب المشهد الأمامي إلى قبة علوية متمركزة 360°
+      return {
+        x: Math.round(nx * 108),
+        y: Math.round(ny * 92),
+        rotation: stem.rotation || Math.round(nx * 20),
+        scale: (stem.scale || 1) * 0.96,
+        zIndex: 20 + Math.round((1 - radial) * 40),
+        angle: 'top'
+      };
+    }
+
+    if (targetView === 'front') {
+      if (nativeView === 'front') {
+        return {
+          x: stem.x,
+          y: stem.y,
+          rotation: stem.rotation,
+          scale: stem.scale,
+          zIndex: stem.zIndex || (20 + idx),
+          angle: stem.angle || 'front'
+        };
+      }
+      // إسقاط القبة العلوية إلى واجهة أمامية محدّبة متناسقة فوق الياقة
+      const domeArchLift = (1 - radial) * 18;
+      return {
+        x: Math.round(nx * 96),
+        y: Math.round(-72 + ny * 38 - domeArchLift),
+        rotation: Math.round(nx * 18),
+        scale: (stem.scale || 1) * (0.94 + ny * 0.08),
+        zIndex: Math.round(100 + ny * 50),
+        angle: Math.abs(nx) > 0.65 ? 'side' : 'front'
+      };
+    }
+
+    if (targetView === 'side') {
+      // إسقاط المشهد الجانبي ثلاثي الأبعاد بزاوية 45° (العمق يصبح امتداداً أفقياً مائلاً)
+      const domeElevation = (1 - radial) * 16;
+      return {
+        x: Math.round(18 + ny * 58),
+        y: Math.round(-72 + nx * 26 - domeElevation + ny * 14),
+        rotation: Math.round(24 + ny * 18),
+        scale: (stem.scale || 1) * (0.92 + Math.max(0, nx) * 0.08),
+        zIndex: Math.round(100 + nx * 50),
+        angle: 'side'
+      };
+    }
+
+    // المشهد الخلفي (back): إظهار التاج العلوي للزهور بارزاً فوق حافة التغليف الخلفي
+    return {
+      x: Math.round(-nx * 86),
+      y: Math.round(-94 + Math.min(0, ny) * 24 - (1 - Math.abs(nx)) * 12),
+      rotation: Math.round(-nx * 16),
+      scale: (stem.scale || 1) * 0.90,
+      zIndex: Math.round(45 - ny * 15),
+      angle: 'front'
+    };
   }
 
   // 5. سيقان الزهور الحية على اللوحة (Live Stems Canvas State)
@@ -2518,39 +2619,33 @@
           <div class="preview-header">
             <div>
               <div class="preview-title-row">
-                <h3 class="preview-title">معاينة الباقة الحية</h3>
-                <span class="scene-mode-badge" class:top={viewMode === 'top'} class:front={viewMode === 'front'}>
+                <h3 class="preview-title">معاينة الباقة الحية 360°</h3>
+                <span class="scene-mode-badge" class:top={viewMode === 'top'} class:front={viewMode === 'front'} class:side={viewMode === 'side'} class:back={viewMode === 'back'}>
                   {#if viewMode === 'top'}
-                    🪷 مشهد علوي • قبة الزهور الملكية
+                    🪷 مشهد علوي • قبة 360°
+                  {:else if viewMode === 'front'}
+                    🎀 مشهد أمامي • الواجهة
+                  {:else if viewMode === 'side'}
+                    🌿 مشهد جانبي • عمق 45°
                   {:else}
-                    🎀 مشهد أمامي • باقة مغلفة
+                    🎁 مشهد خلفي • التغليف والمقبض
                   {/if}
                 </span>
               </div>
               <span class="preview-subtitle">
-                {#if viewMode === 'top'}
-                  {stems.length} وردة منسقة | رؤية علوية لتنسيق وتوزيع الزهور بحرية
-                {:else}
-                  {stems.length} وردة منسقة | {selectedWrap.name} ({selectedRibbon.name})
-                {/if}
+                {stems.length} وردة منسقة | {selectedWrap.name} ({selectedRibbon.name})
               </span>
             </div>
 
-            <!-- أزرار التحكم بالمسرح -->
+            <!-- أزرار أدوات المسرح -->
             <div class="stage-actions">
-              <!-- زر تبديل المشهد بين علوي (تنسيق الزهور) وأمامي (التغليف والشريط) -->
               <button 
                 type="button" 
-                class="stage-tool-btn view-toggle-btn" 
-                class:active={viewMode === 'top'}
-                title={viewMode === 'top' ? 'التبديل للمشهد الأمامي المغلف (زي توا)' : 'التبديل للمشهد العلوي لقبة الزهور'}
-                on:click={toggleViewMode}
+                class="stage-tool-btn btn-4angle-overview" 
+                title="معاينة الزوايا الأربع للباقة معاً في شاشة واحدة"
+                on:click={() => show4AngleModal = true}
               >
-                {#if viewMode === 'top'}
-                  🪷 علوي
-                {:else}
-                  🎀 أمامي
-                {/if}
+                👁️ الزوايا 4
               </button>
 
               <button 
@@ -2575,6 +2670,22 @@
             </div>
           </div>
 
+          <!-- شريط التبديل الفوري بين زوايا الباقة الأربع (360° Unified Camera Bar) -->
+          <div class="studio-angle-bar">
+            <button type="button" class="s-angle-btn" class:active={viewMode === 'top'} on:click={() => setViewMode('top')}>
+              <span>🪷 من أعلى</span>
+            </button>
+            <button type="button" class="s-angle-btn" class:active={viewMode === 'front'} on:click={() => setViewMode('front')}>
+              <span>🎀 من أمام</span>
+            </button>
+            <button type="button" class="s-angle-btn" class:active={viewMode === 'side'} on:click={() => setViewMode('side')}>
+              <span>🌿 من جنب</span>
+            </button>
+            <button type="button" class="s-angle-btn" class:active={viewMode === 'back'} on:click={() => setViewMode('back')}>
+              <span>🎁 من خلف</span>
+            </button>
+          </div>
+
           <!-- شريط حالة وتنبيه الذكاء الاصطناعي اللحظي -->
           <div class="ai-status-strip">
             <span class="ai-spark">
@@ -2589,9 +2700,11 @@
           <div 
             class="stage-viewport" 
             class:rotating={is3DRotating}
-            class:with-grid={showGrid && viewMode === 'front'}
+            class:with-grid={showGrid && viewMode !== 'top'}
             class:is-top-view={viewMode === 'top'}
             class:is-front-view={viewMode === 'front'}
+            class:is-side-view={viewMode === 'side'}
+            class:is-back-view={viewMode === 'back'}
             bind:this={canvasContainer}
           >
             <!-- 0. طوق التاج النجمي المسنن الملكي في المشهد العلوي (Royal Star-Point Origami Crown - كالصورة 2 و 5 و 6) -->
@@ -2993,15 +3106,16 @@
               {/if}
 
               {#each stems as stem, idx (stem.id)}
+                {@const proj = getStemProjectedProps(stem, idx, stems.length, viewMode, currentTemplateId)}
                 <div 
                   class="stem-canvas-node"
                   class:selected={isCatalogCreateMode && effectiveStemId === stem.id}
                   class:dragging={isCatalogCreateMode && isDragging && dragStemId === stem.id}
                   style="
-                    left: calc(50% + {stem.x}px);
-                    top: calc(50% + {stem.y}px);
-                    transform: translate(-50%, -50%) rotate({stem.rotation}deg) scale({isCatalogCreateMode && isDragging && dragStemId === stem.id ? stem.scale * 1.08 : stem.scale});
-                    z-index: {isCatalogCreateMode && isDragging && dragStemId === stem.id ? 9999 : (stem.zIndex || 10)};
+                    left: calc(50% + {proj.x}px);
+                    top: calc(50% + {proj.y}px);
+                    transform: translate(-50%, -50%) rotate({proj.rotation}deg) scale({isCatalogCreateMode && isDragging && dragStemId === stem.id ? proj.scale * 1.08 : proj.scale});
+                    z-index: {isCatalogCreateMode && isDragging && dragStemId === stem.id ? 9999 : proj.zIndex};
                     cursor: {isCatalogCreateMode ? 'grab' : 'default'};
                   "
                   on:mousedown={(e) => isCatalogCreateMode && startStemDrag(e, stem.id)}
@@ -3010,10 +3124,10 @@
                   on:click={() => { if (isCatalogCreateMode) selectedStemId = stem.id; }}
                   role="button"
                   tabindex="0"
-                  title="{stem.flowerName} ({getAngleLabelAr(viewMode === 'top' ? 'top' : stem.angle)})"
+                  title="{stem.flowerName} ({getAngleLabelAr(proj.angle)})"
                 >
                   <img 
-                    src={getFlowerAngleImage(flowers.find(f => f.id === stem.flowerId) || { key: stem.flowerKey, name: stem.flowerName, color: stem.color }, viewMode === 'top' ? 'top' : stem.angle)} 
+                    src={getFlowerAngleImage(flowers.find(f => f.id === stem.flowerId) || { key: stem.flowerKey, name: stem.flowerName, color: stem.color }, proj.angle)} 
                     alt={stem.flowerName}
                     class="stem-img"
                     draggable="false"
@@ -3165,6 +3279,104 @@
               {/if}
 
               <!-- قاعدة العرض الرخامية في الأسفل (في المشهد الرأسي فقط) -->
+              <div class="stage-pedestal fade-in"></div>
+
+            {:else if viewMode === 'side'}
+              <!-- المشهد الجانبي ثلاثي الأبعاد بزاوية ميلان 45° (3D Side Profile Wrap & Ribbon) -->
+              <svg class="wrap-side-back-svg fade-in" viewBox="0 0 420 460">
+                <defs>
+                  <linearGradient id="sideWrapGradMain" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.color}" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" />
+                  </linearGradient>
+                  <filter id="sideWrapShadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="-4" dy="10" stdDeviation="12" flood-opacity="0.28" />
+                  </filter>
+                </defs>
+                <!-- الجناح الخلفي المائل بزاوية 45° -->
+                <path d="M 185,375 L 95,180 C 82,120 105,55 155,38 L 225,130 L 185,375 Z" fill="url(#sideWrapGradMain)" stroke="rgba(218,165,32,0.75)" stroke-width="1.8" filter="url(#sideWrapShadow)" />
+                <path d="M 185,375 L 125,140 C 135,75 170,35 215,30 L 255,135 L 185,375 Z" fill="{selectedWrap.darkColor}" stroke="rgba(218,165,32,0.65)" stroke-width="1.5" opacity="0.92" />
+                <!-- أغصان أوكالبتوس ممتدة من الجنب -->
+                <g fill="#4c6429" opacity="0.9">
+                  <ellipse cx="95" cy="125" rx="18" ry="8" transform="rotate(-35 95 125)" />
+                  <ellipse cx="78" cy="155" rx="15" ry="7" transform="rotate(-20 78 155)" />
+                  <ellipse cx="295" cy="195" rx="16" ry="7" transform="rotate(28 295 195)" />
+                </g>
+              </svg>
+
+              <svg class="wrap-side-front-svg fade-in" viewBox="0 0 420 460">
+                <defs>
+                  <linearGradient id="sideFrontConeGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.color}" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" />
+                  </linearGradient>
+                  <filter id="sideConeShadow">
+                    <feDropShadow dx="2" dy="8" stdDeviation="8" flood-opacity="0.3" />
+                  </filter>
+                </defs>
+                <!-- ياقة الكشكش الحريرية من الجنب -->
+                <path d="M 125,215 C 175,245 245,235 305,205 C 295,235 250,255 195,255 C 150,255 128,238 125,215 Z" fill="#ffffff" opacity="0.92" stroke="rgba(218,165,32,0.65)" stroke-width="1.4" />
+                <!-- المخروط الأمامي المائل بزاوية 45° -->
+                <path d="M 125,220 C 175,245 245,235 302,210 L 210,410 L 175,410 L 125,220 Z" fill="url(#sideFrontConeGrad)" stroke="rgba(218,165,32,0.8)" stroke-width="1.8" filter="url(#sideConeShadow)" />
+                <!-- مقبض السيقان أسفل المخروط -->
+                <path d="M 178,405 L 172,438 L 204,438 L 208,405 Z" fill="#2d521d" stroke="#1d3813" stroke-width="1.2" />
+                <!-- فيونكة الساتان الجانبية البارزة -->
+                <path d="M 160,305 Q 202,312 246,298" stroke="{selectedRibbon.color}" stroke-width="12" stroke-linecap="round" fill="none" />
+                <ellipse cx="222" cy="306" rx="16" ry="22" transform="rotate(28 222 306)" fill="{selectedRibbon.color}" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+                <circle cx="206" cy="305" r="8" fill="#d4af37" />
+                <path d="M 208,312 Q 225,355 218,408" stroke="{selectedRibbon.color}" stroke-width="5" stroke-linecap="round" fill="none" />
+                <path d="M 202,312 Q 192,360 185,405" stroke="{selectedRibbon.color}" stroke-width="4.5" stroke-linecap="round" fill="none" />
+              </svg>
+
+              <div class="stage-pedestal fade-in"></div>
+
+            {:else if viewMode === 'back'}
+              <!-- المشهد الخلفي الكامل (Back View: Stepped Wrap Fold, Stem Handle, Ribbon Knot & MASKA Seal) -->
+              <svg class="wrap-back-view-svg fade-in" viewBox="0 0 420 460">
+                <defs>
+                  <linearGradient id="backWrapGrad1" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.darkColor}" />
+                    <stop offset="100%" stop-color="{selectedWrap.color}" />
+                  </linearGradient>
+                  <linearGradient id="backWrapGrad2" x1="1" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="{selectedWrap.color}" />
+                    <stop offset="100%" stop-color="{selectedWrap.darkColor}" />
+                  </linearGradient>
+                  <filter id="backWrapShadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="12" stdDeviation="14" flood-opacity="0.3" />
+                  </filter>
+                </defs>
+
+                <!-- أوراق التغليف الكورية المتراكبة من الخلف -->
+                <g filter="url(#backWrapShadow)">
+                  <path d="M 210,330 L 65,160 L 105,88 L 210,145 Z" fill="url(#backWrapGrad1)" stroke="rgba(218,165,32,0.75)" stroke-width="1.8" />
+                  <path d="M 210,330 L 355,160 L 315,88 L 210,145 Z" fill="url(#backWrapGrad2)" stroke="rgba(218,165,32,0.75)" stroke-width="1.8" />
+                  <path d="M 210,335 L 95,125 L 210,95 L 325,125 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.85)" stroke-width="1.8" />
+                  <!-- طية الظهر الوسطى المتقاطعة -->
+                  <path d="M 110,140 L 210,325 L 260,245 L 155,130 Z" fill="url(#backWrapGrad1)" stroke="rgba(218,165,32,0.65)" stroke-width="1.4" opacity="0.95" />
+                  <path d="M 310,140 L 210,325 L 160,245 L 265,130 Z" fill="url(#backWrapGrad2)" stroke="rgba(218,165,32,0.65)" stroke-width="1.4" opacity="0.92" />
+                </g>
+
+                <!-- مقبض السيقان المربوط بشريط الفلورست الأخضر -->
+                <rect x="188" y="315" width="44" height="105" rx="8" fill="#2d521d" stroke="#1d3813" stroke-width="1.5" />
+                <line x1="188" y1="335" x2="232" y2="335" stroke="#487832" stroke-width="2.5" />
+                <line x1="188" y1="360" x2="232" y2="360" stroke="#487832" stroke-width="2.5" />
+                <line x1="188" y1="385" x2="232" y2="385" stroke="#487832" stroke-width="2.5" />
+
+                <!-- عقدة شريط الساتان الخلفية والذيلان -->
+                <path d="M 178,318 Q 210,325 242,318" stroke="{selectedRibbon.color}" stroke-width="12" stroke-linecap="round" fill="none" />
+                <circle cx="210" cy="320" r="10" fill="{selectedRibbon.color}" stroke="#ffffff" stroke-width="1.5" />
+                <path d="M 205,328 Q 190,365 182,415" stroke="{selectedRibbon.color}" stroke-width="5" stroke-linecap="round" fill="none" />
+                <path d="M 215,328 Q 230,365 238,415" stroke="{selectedRibbon.color}" stroke-width="5" stroke-linecap="round" fill="none" />
+
+                <!-- بطاقة أصالة MASKA المدمجة على الظهر -->
+                <g transform="translate(210, 255)">
+                  <rect x="-46" y="-22" width="92" height="44" rx="8" fill="#ffffff" stroke="#c59b27" stroke-width="1.6" />
+                  <text x="0" y="-3" fill="#1e1e1e" font-size="11" font-weight="900" text-anchor="middle" letter-spacing="1">{sealStamp || 'MASKA'}</text>
+                  <text x="0" y="12" fill="#888888" font-size="7" font-weight="700" text-anchor="middle">ATELIER ORIGINAL</text>
+                </g>
+              </svg>
+
               <div class="stage-pedestal fade-in"></div>
             {/if}
 
@@ -3398,6 +3610,127 @@
     <span class="float-text">شات خبير مسكة للزهور</span>
     <span class="float-status-dot"></span>
   </button>
+
+  <!-- =========================================================================
+       نافذة معاينة الزوايا الأربع الحية معاً (360° Live Multi-Angle Studio Modal)
+       ========================================================================= -->
+  {#if show4AngleModal}
+    <div class="modal-backdrop fade-in" on:click|self={() => show4AngleModal = false}>
+      <div class="card studio-4angle-modal fade-in">
+        <div class="s4m-header">
+          <div>
+            <h3>معاينة الباقة من جميع الزوايا 360° (من أعلى، أمام، جنب، وخلف)</h3>
+            <p class="s4m-sub">تأكدي من تناسق الورد والتغليف والشريط من كل الجهات ({stems.length} وردة • {selectedWrap.name})</p>
+          </div>
+          <button type="button" class="s4m-close" on:click={() => show4AngleModal = false}>✕</button>
+        </div>
+
+        <div class="s4m-grid">
+          {#each [
+            { id: 'top', label: '🪷 1. من أعلى (360° Dome)', desc: 'امتلاء القبة الكروية وسد الفراغات' },
+            { id: 'front', label: '🎀 2. من أمام (Front View)', desc: 'الواجهة وياقة الكشكش والفيونكة' },
+            { id: 'side', label: '🌿 3. من جنب (Side 45°)', desc: 'ميلان السيقان وتدرج العمق' },
+            { id: 'back', label: '🎁 4. من خلف (Back View)', desc: 'طي الأجنحة والمقبض وبطاقة MASKA' }
+          ] as viewItem}
+            <div class="s4m-card">
+              <div class="s4m-card-head">
+                <b>{viewItem.label}</b>
+                <small>{viewItem.desc}</small>
+              </div>
+              <div class="s4m-stage-frame">
+                <div class="stage-viewport mini-4angle-stage is-{viewItem.id}-view">
+                  {#if viewItem.id === 'top'}
+                    <svg class="wrap-top-svg" viewBox="0 0 460 460">
+                      <polygon 
+                        points="230,8 270,38 318,22 340,68 392,70 395,120 440,145 422,195 454,230 422,265 440,315 395,340 392,390 340,392 318,438 270,422 230,452 190,422 142,438 120,392 68,390 65,340 20,315 38,265 6,230 38,195 20,145 65,120 68,70 120,68 142,22 190,38" 
+                        fill="{selectedWrap.darkColor}" 
+                        stroke="rgba(218,165,32,0.85)" 
+                        stroke-width="2" 
+                      />
+                      <circle cx="230" cy="230" r="165" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.75)" stroke-width="1.5" />
+                    </svg>
+                  {:else if viewItem.id === 'front'}
+                    <svg class="wrap-back-svg" viewBox="0 0 420 460">
+                      <path d="M 210,430 L 150,445 L 55,200 C 45,130 70,60 110,40 L 170,110 L 210,430 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.7)" stroke-width="1.8" />
+                      <path d="M 210,430 L 270,445 L 365,200 C 375,130 350,60 310,40 L 250,110 L 210,430 Z" fill="{selectedWrap.darkColor}" stroke="rgba(218,165,32,0.7)" stroke-width="1.8" />
+                      <path d="M 210,20 C 240,25 300,50 330,105 C 340,165 310,265 240,380 L 210,440 L 180,380 C 110,265 80,165 90,105 C 120,50 180,25 210,20 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.7)" stroke-width="1.8" />
+                    </svg>
+                  {:else if viewItem.id === 'side'}
+                    <svg class="wrap-side-back-svg" viewBox="0 0 420 460">
+                      <path d="M 185,375 L 95,180 C 82,120 105,55 155,38 L 225,130 L 185,375 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.75)" stroke-width="1.8" />
+                      <path d="M 185,375 L 125,140 C 135,75 170,35 215,30 L 255,135 L 185,375 Z" fill="{selectedWrap.darkColor}" stroke="rgba(218,165,32,0.65)" stroke-width="1.5" />
+                    </svg>
+                  {/if}
+
+                  <!-- الزهور الحية المسقطة بدقة لكل زاوية -->
+                  <div class="stems-layer">
+                    {#each stems as stem, idx (stem.id)}
+                      {@const proj = getStemProjectedProps(stem, idx, stems.length, viewItem.id, currentTemplateId)}
+                      <div 
+                        class="stem-canvas-node"
+                        style="
+                          left: calc(50% + {proj.x}px);
+                          top: calc(50% + {proj.y}px);
+                          transform: translate(-50%, -50%) rotate({proj.rotation}deg) scale({proj.scale});
+                          z-index: {proj.zIndex};
+                        "
+                      >
+                        <img 
+                          src={getFlowerAngleImage(flowers.find(f => f.id === stem.flowerId) || { key: stem.flowerKey, name: stem.flowerName, color: stem.color }, proj.angle)} 
+                          alt={stem.flowerName}
+                          class="stem-img"
+                        />
+                      </div>
+                    {/each}
+                  </div>
+
+                  {#if viewItem.id === 'front'}
+                    <svg class="wrap-front-svg" viewBox="0 0 380 280">
+                      <path d="M 45,70 C 80,55 140,75 190,65 C 240,75 300,55 335,70 C 320,115 260,138 190,142 C 120,138 60,115 45,70 Z" fill="#ffffff" opacity="0.92" stroke="rgba(218,165,32,0.7)" stroke-width="1.8" />
+                      <path d="M 55,60 C 95,50 140,85 190,115 L 205,200 L 170,275 L 140,275 L 105,245 C 70,195 48,130 55,60 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                      <path d="M 325,60 C 285,50 240,85 180,125 L 175,205 L 210,275 L 240,275 L 275,245 C 310,195 332,130 325,60 Z" fill="{selectedWrap.darkColor}" stroke="rgba(218,165,32,0.7)" stroke-width="1.5" />
+                    </svg>
+                    <div class="ribbon-wax-wrap">
+                      <div class="satin-ribbon-band" style="background: {selectedRibbon.color};"></div>
+                      <div class="wax-seal-emblem" style="background: radial-gradient(circle at 35% 35%, #fff 0%, {selectedWaxColor.hex} 40%, #1a0006 100%);">
+                        <div class="wax-seal-rim"><span class="wax-seal-text">{sealStamp}</span></div>
+                      </div>
+                    </div>
+                  {:else if viewItem.id === 'side'}
+                    <svg class="wrap-side-front-svg" viewBox="0 0 420 460">
+                      <path d="M 125,215 C 175,245 245,235 305,205 C 295,235 250,255 195,255 C 150,255 128,238 125,215 Z" fill="#ffffff" opacity="0.92" stroke="rgba(218,165,32,0.65)" stroke-width="1.4" />
+                      <path d="M 125,220 C 175,245 245,235 302,210 L 210,410 L 175,410 L 125,220 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.8)" stroke-width="1.8" />
+                      <path d="M 178,405 L 172,438 L 204,438 L 208,405 Z" fill="#2d521d" />
+                      <path d="M 160,305 Q 202,312 246,298" stroke="{selectedRibbon.color}" stroke-width="12" stroke-linecap="round" fill="none" />
+                      <ellipse cx="222" cy="306" rx="16" ry="22" transform="rotate(28 222 306)" fill="{selectedRibbon.color}" />
+                      <circle cx="206" cy="305" r="8" fill="#d4af37" />
+                    </svg>
+                  {:else if viewItem.id === 'back'}
+                    <svg class="wrap-back-view-svg" viewBox="0 0 420 460">
+                      <path d="M 210,330 L 65,160 L 105,88 L 210,145 Z" fill="{selectedWrap.darkColor}" stroke="rgba(218,165,32,0.75)" stroke-width="1.8" />
+                      <path d="M 210,330 L 355,160 L 315,88 L 210,145 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.75)" stroke-width="1.8" />
+                      <path d="M 210,335 L 95,125 L 210,95 L 325,125 Z" fill="{selectedWrap.color}" stroke="rgba(218,165,32,0.85)" stroke-width="1.8" />
+                      <rect x="188" y="315" width="44" height="105" rx="8" fill="#2d521d" />
+                      <path d="M 178,318 Q 210,325 242,318" stroke="{selectedRibbon.color}" stroke-width="12" stroke-linecap="round" fill="none" />
+                      <circle cx="210" cy="320" r="10" fill="{selectedRibbon.color}" />
+                      <g transform="translate(210, 255)">
+                        <rect x="-46" y="-22" width="92" height="44" rx="8" fill="#ffffff" stroke="#c59b27" stroke-width="1.6" />
+                        <text x="0" y="-3" fill="#1e1e1e" font-size="11" font-weight="900" text-anchor="middle">{sealStamp || 'MASKA'}</text>
+                        <text x="0" y="12" fill="#888888" font-size="7" font-weight="700" text-anchor="middle">ATELIER ORIGINAL</text>
+                      </g>
+                    </svg>
+                  {/if}
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm s4m-focus-btn" on:click={() => { setViewMode(viewItem.id); show4AngleModal = false; }}>
+                تعديل من هذه الزاوية 🔍
+              </button>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -5812,6 +6145,225 @@
   .florist-cta-publish {
     background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
     border-color: #059669 !important;
+  }
+
+  /* =========================================================================
+     نظام الزوايا الأربع الموحد في الاستوديو (360° Unified Multi-Angle Camera)
+     ========================================================================= */
+  .studio-angle-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    background: #f3efe6;
+    padding: 5px;
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    border: 1px solid rgba(94, 107, 44, 0.14);
+  }
+  .s-angle-btn {
+    border: none;
+    background: transparent;
+    padding: 8px 6px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .s-angle-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.6);
+  }
+  .s-angle-btn.active {
+    background: #ffffff;
+    color: var(--olive);
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(94, 107, 44, 0.2);
+  }
+  .btn-4angle-overview {
+    width: auto !important;
+    padding: 0 10px !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    color: var(--olive) !important;
+    background: #f6f8ee !important;
+    border-color: rgba(94, 107, 44, 0.3) !important;
+  }
+  .btn-4angle-overview:hover {
+    background: var(--olive) !important;
+    color: #ffffff !important;
+  }
+
+  .scene-mode-badge.side {
+    background: #ecfdf5;
+    color: #065f46;
+    border-color: #a7f3d0;
+  }
+  .scene-mode-badge.back {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+  }
+
+  .stage-viewport.is-side-view,
+  .stage-viewport.is-back-view {
+    background-image: radial-gradient(circle at 50% 36%, #ffffff 0%, #f7f4ee 65%, #ede6da 100%);
+  }
+  .stage-viewport.is-side-view .stem-canvas-node,
+  .stage-viewport.is-back-view .stem-canvas-node {
+    width: 68px;
+    height: 68px;
+  }
+  .stage-viewport.is-side-view .stem-img,
+  .stage-viewport.is-back-view .stem-img {
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.28));
+    transition: transform 0.25s ease, filter 0.25s ease;
+  }
+
+  /* طبقات التغليف الجانبي والخلفي */
+  .wrap-side-back-svg {
+    position: absolute;
+    width: 400px;
+    height: 450px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .wrap-side-front-svg {
+    position: absolute;
+    width: 400px;
+    height: 450px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 165;
+  }
+  .wrap-back-view-svg {
+    position: absolute;
+    width: 400px;
+    height: 450px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 75;
+  }
+
+  /* =========================================================================
+     نافذة معاينة الزوايا الأربع الحية (360° Live Multi-Angle Studio Modal)
+     ========================================================================= */
+  .studio-4angle-modal {
+    width: 95%;
+    max-width: 1220px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+  }
+  .s4m-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    background: #fdfbf7;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .s4m-header h3 {
+    margin: 0 0 4px;
+    font-size: 1.2rem;
+    color: var(--olive);
+  }
+  .s4m-sub {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .s4m-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: #ffffff;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 800;
+  }
+  .s4m-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 20px 24px;
+    overflow-y: auto;
+  }
+  @media (max-width: 1080px) {
+    .s4m-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 600px) {
+    .s4m-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .s4m-card {
+    background: #ffffff;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+  .s4m-card-head {
+    padding: 10px 14px;
+    background: #faf8f5;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .s4m-card-head b {
+    font-size: 0.88rem;
+    color: var(--text);
+  }
+  .s4m-card-head small {
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .s4m-stage-frame {
+    position: relative;
+    width: 100%;
+    height: 245px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f7f4ee;
+  }
+  .mini-4angle-stage {
+    width: 420px !important;
+    height: 460px !important;
+    min-width: 420px;
+    min-height: 460px;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transform: scale(0.52);
+    transform-origin: center center;
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+  .s4m-focus-btn {
+    margin: 10px 14px 12px;
+    font-size: 0.78rem;
   }
 
   @media (max-width: 768px) {
