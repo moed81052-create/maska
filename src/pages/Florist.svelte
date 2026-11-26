@@ -362,7 +362,8 @@
 
   // استنتاج قالب الباقة المناسب للعرض ثلاثي الأبعاد
   function detectItemTemplateId(itm, blueprint) {
-    const title = ((itm && (itm.name || itm.title)) || '').toLowerCase();
+    if (itm && itm.template_id) return itm.template_id;
+    const title = ((itm && (itm.name || itm.title || itm.item_title)) || '').toLowerCase();
     const wrap = ((itm && itm.wrap_type) || (blueprint && blueprint.wrapType) || '').toLowerCase();
     if (title.includes('تخرج') || wrap.includes('عنابي')) return 'royal_celebration';
     if (title.includes('كوري') || title.includes('مروحة') || wrap.includes('كوري')) return 'korean_fan';
@@ -371,10 +372,20 @@
 
   // بناء سيقان الباقة الحقيقية (نفس توزيع قبة الاستوديو 137.5° Phyllotaxis) من وصفة الطلب
   function buildOrderItemStems(itm, blueprint) {
+    // 1. إذا كانت السيقان الدقيقة محفوظة من استوديو التصميم مباشرة، نستخدمها كما هي 100%
+    if (itm && Array.isArray(itm.studio_stems) && itm.studio_stems.length > 0) {
+      return itm.studio_stems;
+    }
+
     let rawFlowers = [];
     if (itm && itm.flower_composition_json) {
       try {
-        const parsed = JSON.parse(itm.flower_composition_json);
+        const parsed = typeof itm.flower_composition_json === 'string'
+          ? JSON.parse(itm.flower_composition_json)
+          : itm.flower_composition_json;
+        if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.stems) && parsed.stems.length > 0) {
+          return parsed.stems;
+        }
         if (Array.isArray(parsed)) rawFlowers = parsed;
         else if (parsed && Array.isArray(parsed.flowers)) rawFlowers = parsed.flowers;
       } catch (e) {}
@@ -387,6 +398,8 @@
 
     if (rawFlowers.length === 0 && itm && Array.isArray(itm.recipe_flowers) && itm.recipe_flowers.length > 0) {
       rawFlowers = itm.recipe_flowers.map(rf => ({
+        flowerId: rf.flower_id || null,
+        flowerKey: rf.flower_key || null,
         name: rf.flower_name,
         quantity: rf.quantity_stems || 3,
         color: rf.color || ''

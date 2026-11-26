@@ -387,10 +387,14 @@
           quantity: item.quantity,
           price: item.price,
           isCustom: item.isCustom,
+          templateId: item.templateId || null,
           wrapType: item.wrapType,
           ribbonColor: item.ribbonColor,
           waxSealText: item.waxSealText,
-          flowers: item.flowers
+          sealColor: item.sealColor || null,
+          sealStamp: item.sealStamp || null,
+          flowers: item.flowers,
+          stems: item.stems || null
         }))
       };
 

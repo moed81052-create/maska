@@ -1659,19 +1659,46 @@
 
     const selectedFlowersList = flowers
       .filter(f => f.qty > 0)
-      .map(f => ({ name: f.name, quantity: f.qty, price: f.unit_price, section: f.section }));
+      .map(f => ({
+        flowerId: f.id,
+        flowerKey: f.key || getFlowerKey(f.name, f.color),
+        name: f.name,
+        quantity: f.qty,
+        price: f.unit_price,
+        color: f.color || '',
+        section: f.section
+      }));
+
+    const serializedStems = stems.map(s => ({
+      id: s.id,
+      flowerId: s.flowerId,
+      flowerKey: s.flowerKey || getFlowerKey(s.flowerName, s.color),
+      flowerName: s.flowerName,
+      color: s.color || '',
+      x: s.x,
+      y: s.y,
+      rotation: s.rotation,
+      scale: s.scale,
+      zIndex: s.zIndex,
+      angle: s.angle,
+      section: s.section
+    }));
 
     cart.addItem({
       title: `باقة مخصصة (${totalStems} سيقان)`,
       price: grandTotal,
       quantity: 1,
-      image: '/assets/flowers/clean/red-rose-front.svg',
+      image: serializedStems[0] ? `/assets/flowers/clean/${serializedStems[0].flowerKey}-top.png` : '/assets/flowers/clean/red-rose-top.png',
       isCustom: true,
+      templateId: currentTemplateId,
       wrapType: selectedWrap.name,
       ribbonColor: selectedRibbon.name,
       waxSealText: cardMessage,
+      sealColor: selectedWaxColor.name,
+      sealStamp: sealStamp,
       flowers: selectedFlowersList,
-      stemsDetails: stems.map(s => ({ name: s.flowerName, angle: s.angle, x: s.x, y: s.y, rot: s.rotation }))
+      stems: serializedStems,
+      stemsDetails: serializedStems.map(s => ({ name: s.flowerName, angle: s.angle, x: s.x, y: s.y, rot: s.rotation }))
     });
 
     addedToast = true;

@@ -912,7 +912,10 @@ module.exports = {
             (item.price || 0) * (item.quantity || 1)
           ]);
 
-          if (isCustom && (item.waxSealText || item.flowers || data.waxSealText)) {
+          if (isCustom && (item.waxSealText || item.flowers || item.stems || data.waxSealText)) {
+            const compPayload = (item.stems && item.stems.length > 0)
+              ? { templateId: item.templateId || 'round_dome', flowers: item.flowers || [], stems: item.stems }
+              : (item.flowers || []);
             await mysqlPool.execute(`
               INSERT INTO custom_bouquet_details (id, order_item_id, wrap_type, ribbon_color, wax_seal_text, seal_stamp, seal_color, flower_composition_json)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -922,9 +925,9 @@ module.exports = {
               item.wrapType || data.wrapType || 'ورق كرافت فاخر',
               item.ribbonColor || data.ribbonColor || 'وردي مذهب',
               item.waxSealText || data.waxSealText || 'أجمل اللحظات هي التي تبدأ بوردة صادقة…',
-              'MASKA 🌸',
-              'أحمر قرمزي ملكي',
-              JSON.stringify(item.flowers || [])
+              item.sealStamp || 'MASKA 🌸',
+              item.sealColor || 'أحمر قرمزي ملكي',
+              JSON.stringify(compPayload)
             ]);
           }
         }
@@ -998,7 +1001,10 @@ module.exports = {
             (item.price || 0) * (item.quantity || 1)
           );
 
-          if (isCustom && (item.waxSealText || item.flowers || data.waxSealText)) {
+          if (isCustom && (item.waxSealText || item.flowers || item.stems || data.waxSealText)) {
+            const compPayload = (item.stems && item.stems.length > 0)
+              ? { templateId: item.templateId || 'round_dome', flowers: item.flowers || [], stems: item.stems }
+              : (item.flowers || []);
             sqliteDb.prepare(`
               INSERT INTO custom_bouquet_details (id, order_item_id, wrap_type, ribbon_color, wax_seal_text, seal_stamp, seal_color, flower_composition_json)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -1008,9 +1014,9 @@ module.exports = {
               item.wrapType || data.wrapType || 'ورق كرافت فاخر',
               item.ribbonColor || data.ribbonColor || 'وردي مذهب',
               item.waxSealText || data.waxSealText || 'أجمل اللحظات هي التي تبدأ بوردة صادقة…',
-              'MASKA 🌸',
-              'أحمر قرمزي ملكي',
-              JSON.stringify(item.flowers || [])
+              item.sealStamp || 'MASKA 🌸',
+              item.sealColor || 'أحمر قرمزي ملكي',
+              JSON.stringify(compPayload)
             );
           }
         });
@@ -1922,26 +1928,53 @@ module.exports = {
       if (!itm.seal_color) itm.seal_color = 'أحمر قرمزي ملكي';
 
       // إذا كانت باقة مخصصة من الاستوديو ولها تفاصيل في JSON
-      if ((!itm.recipe_flowers || itm.recipe_flowers.length === 0) && itm.flower_composition_json) {
+      if (itm.flower_composition_json) {
         try {
           const comp = typeof itm.flower_composition_json === 'string' 
             ? JSON.parse(itm.flower_composition_json) 
             : itm.flower_composition_json;
-          if (Array.isArray(comp)) {
-            itm.recipe_flowers = comp
-              .filter(c => c && c.flower && !c.flower.includes('غلاف') && !c.flower.includes('شريط'))
+
+          if (comp && !Array.isArray(comp)) {
+            if (comp.templateId) itm.template_id = comp.templateId;
+            if (Array.isArray(comp.stems) && comp.stems.length > 0) {
+              itm.studio_stems = comp.stems;
+            }
+          }
+
+          const rawArr = Array.isArray(comp) ? comp : (comp && Array.isArray(comp.flowers) ? comp.flowers : []);
+          if ((!itm.recipe_flowers || itm.recipe_flowers.length === 0) && rawArr.length > 0) {
+            itm.recipe_flowers = rawArr
+              .filter(c => {
+                const fname = c && (c.name || c.flowerName || c.flower || '');
+                return fname && !fname.includes('غلاف') && !fname.includes('شريط');
+              })
               .map(c => {
-                let img = '/assets/flowers/red-rose-front.svg';
-                if (c.flower.includes('توليب')) img = '/assets/flowers/white-tulip-front.svg';
-                else if (c.flower.includes('جبسوفيلا')) img = '/assets/flowers/baby-breath-front.svg';
-                else if (c.flower.includes('فاوانيا')) img = '/assets/flowers/peony-front.svg';
-                else if (c.flower.includes('أوركيد')) img = '/assets/flowers/clean/orchid-front.svg';
+                const fname = c.name || c.flowerName || c.flower;
+                const fcolor = c.color || '';
+                const fl = (fname + ' ' + fcolor).toLowerCase();
+                let key = c.flowerKey || 'red-rose';
+                if (!c.flowerKey) {
+                  if (fl.includes('أبيض') || fl.includes('بيضاء')) key = fl.includes('توليب') ? 'white-tulip' : 'white-rose';
+                  else if (fl.includes('توليب')) key = fl.includes('وردي') ? 'pink-tulip' : 'white-tulip';
+                  else if (fl.includes('جبسوفيلا') || fl.includes('جيبسوفيلا') || fl.includes('طفل')) key = 'baby-breath';
+                  else if (fl.includes('فاوانيا') || fl.includes('بيوني')) key = 'peony';
+                  else if (fl.includes('أوكالبتوس') || fl.includes('كينا')) key = 'eucalyptus';
+                  else if (fl.includes('أوركيد')) key = 'orchid';
+                  else if (fl.includes('شمس')) key = 'sunflower';
+                  else if (fl.includes('ليلي') || fl.includes('زنابق')) key = 'lily';
+                  else if (fl.includes('وردي')) key = 'pink-rose';
+                }
+                const cleanImg = `/assets/flowers/clean/${key}-top.png`;
                 return {
-                  flower_name: c.flower,
-                  quantity_stems: Number(c.count || c.quantity || 1),
-                  stem_price: Number(c.unit_price || 0),
-                  image_front: img,
-                  notes: 'أستوديو مسكة'
+                  flower_id: c.flowerId || null,
+                  flower_key: key,
+                  flower_name: fname,
+                  color: fcolor,
+                  quantity_stems: Number(c.quantity || c.qty || c.count || 1),
+                  stem_price: Number(c.price || c.unit_price || 0),
+                  image_front: cleanImg,
+                  image_top: cleanImg,
+                  notes: c.section ? `قسم: ${c.section}` : 'تصميم استوديو مسكة'
                 };
               });
           }
