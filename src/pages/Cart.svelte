@@ -42,12 +42,14 @@
   let savedAddresses = [];
   let selectedSavedAddressId = null; // null | addr.id | 'custom'
   let loadingAddresses = false;
+  let addressesLoadedForUserId = null;
   let saveNewAddressToAccount = false;
   let newAddressTitle = '';
 
   // جلب العناوين المحفوظة في حساب الزبون
   async function loadUserSavedAddresses(userId) {
-    if (!userId) return;
+    if (!userId || loadingAddresses) return;
+    addressesLoadedForUserId = userId;
     loadingAddresses = true;
     try {
       const res = await api.getUserAddresses(userId);
@@ -153,8 +155,8 @@
     }
   });
 
-  // تفاعل تلقائي في حال تسجيل الدخول لاحقاً
-  $: if ($auth && $auth.id && savedAddresses.length === 0 && !loadingAddresses) {
+  // تفاعل تلقائي في حال تسجيل الدخول لاحقاً (مرة واحدة لكل مستخدم لتفادي التكرار)
+  $: if ($auth && $auth.id && addressesLoadedForUserId !== $auth.id && !loadingAddresses) {
     loadUserSavedAddresses($auth.id);
   }
 
